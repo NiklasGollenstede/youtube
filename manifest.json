@@ -1,0 +1,105 @@
+{
+	"manifest_version": 2,
+	"name": "YouTube Overhaul",
+	"short_name": "YouTube Overhaul",
+	"version": "0.2.0",
+	"author": "Niklas Gollenstede",
+
+	"description": "",
+	"icons": {
+		"64": "icon.png"
+	},
+
+	"permissions": [
+		"storage",
+		"tabs",
+		"https://www.youtube.com/*"
+	],
+	"optional_permissions": [ ],
+	"background": {
+		"page": "background/index.html",
+		"persistent": true
+	},
+	"content_scripts": [
+		{
+			"matches": [ "https://www.youtube.com/*" ],
+			"js": [
+				"node_modules/es6lib/require.js",
+				"node_modules/es6lib/namespace.js",
+				"node_modules/es6lib/object.js",
+				"node_modules/es6lib/functional.js",
+				"node_modules/es6lib/concurrent.js",
+				"node_modules/es6lib/dom.js",
+				"node_modules/es6lib/format.js",
+				"node_modules/es6lib/network.js",
+				"node_modules/es6lib/index.js",
+				"common/chrome.js",
+				"common/event-emitter.js",
+				"content/utils.js",
+				"content/templates.js",
+				"content/player-proxy.js",
+				"content/ratings.js",
+				"content/passive.js",
+				"content/actions.js",
+				"content/layout.js",
+				"content/control.js",
+				"content/index.js"
+			],
+			"css": [
+				"content/index.css"
+			],
+			"all_frames": false,
+			"run_at": "document_start"
+		}
+	],
+	"web_accessible_resources": [
+		"content/unsafe.js"
+	],
+	"externally_connectable": {
+		"matches": [
+			"https://www.youtube.com/*",
+			"https://i.ytimg.com/"
+		]
+	},
+	"browser_action": {
+		"default_icon": {
+			"64": "icon.png"
+		},
+		"default_title": "Youtube Overhaul",
+		"default_popup": "playlist/index.html"
+	},
+	"options_ui": {
+		"chrome_style": true,
+		"page": "options/index.html"
+	},
+
+	"commands": {
+		"MediaNextTrack": {
+			"suggested_key": {
+				"default": "MediaNextTrack"
+			},
+			"description": "MediaNextTrack"
+		},
+		"MediaPrevTrack": {
+			"suggested_key": {
+				"default": "MediaPrevTrack"
+			},
+			"description": "MediaPrevTrack"
+		},
+		"MediaPlayPause": {
+			"suggested_key": {
+				"default": "MediaPlayPause"
+			},
+			"description": "MediaPlayPause"
+		},
+		"MediaStop": {
+			"suggested_key": {
+				"default": "MediaStop"
+			},
+			"description": "MediaStop"
+		}
+	},
+
+	"incognito": "spanning",
+	"minimum_chrome_version": "49.0.0"
+}

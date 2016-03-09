@@ -1,0 +1,196 @@
+'use strict'; define('content/actions', [
+	'common/chrome', 'content/utils', 'content/templates', 'es6lib',
+], function(
+	{ storage, },
+	{ getVideoIdFromImageSrc, },
+	Templates,
+	{
+		concurrent: { async, spawn, sleep, timeout, },
+		dom: { clickElement, createElement, CreationObserver, notify, once, saveAs, },
+		format: { hhMmSsToSeconds, numberToRoundString, timeToRoundString, QueryObject, },
+		functional: { noop, Logger, log, },
+		object: { copyProperties, },
+		network: { HttpRequest, },
+	}
+) {
+
+function updateKeyMap(settings) {
+	settings.keyMap = { };
+	Object.keys(settings.keys).forEach(command => settings.keys[command].forEach(shortcut => settings.keyMap[shortcut] = command));
+	for (let i = 1; i <= 10; i++) {
+		settings.keyMap[settings.keys.openRelatedModifier + (i % 10)] = 'openRelated'+ i;
+	}
+}
+
+
+const actions = {
+	videoIncreaseQuality(player) {
+		player.getQuality().then(({ available, current, }) => {
+			const quality = available[available.indexOf(current) - 1];
+			quality && player.setQuality(quality);
+		});
+	},
+	videoDecreaseQuality(player) {
+		player.getQuality().then(({ available, current, }) => {
+			const quality = available[available.indexOf(current) + 1];
+			quality && player.setQuality(quality);
+		});
+	},
+	videoIncreaseSpeed(player) {
+		player.getSpeed().then(({ available, current, }) => {
+			const speed = available[available.indexOf(current) + 1];
+			speed && player.setSpeed(speed);
+		});
+	},
+	videoDecreaseSpeed(player) {
+		player.getSpeed().then(({ available, current, }) => {
+			const speed = available[available.indexOf(current) - 1];
+			speed && player.setSpeed(speed);
+		});
+	},
+	videoToggleFullscreen(player) {
+		document.querySelector('.ytp-button-fullscreen-enter, .ytp-button-fullscreen-exit').click();
+	},
+	videoPromptPosiotion(player) {
+		let seconds = hhMmSsToSeconds(prompt('Seek to (hh:mm:SS.ss): '));
+		if (seconds >= 0) {
+			player.seekTo(seconds);
+		}
+	},
+	videoPromptVolume(player) {
+		player.setVolume(Math.min(Math.max(0, parseInt(prompt('Volume in %: '))), 100) || 0);
+	},
+	playlistNext(player) {
+		player.next();
+	},
+	playlistPrevious(player) {
+		player.previous();
+	},
+	playlistToggleShuffle(player) {
+		document.querySelector('.shuffle-playlist').click();
+	},
+	playlistToggleLoop(player) {
+		document.querySelector('.toggle-loop').click();
+	},
+	playlistClear(player) {
+		let queryObject = new QueryObject(window.location.search);
+		if (!queryObject.list) { return; }
+		delete queryObject.list;
+		delete queryObject.index;
+		queryObject.t = Math.floor(player.getTime());
+		window.location = window.location.href.split('?')[0] +'?'+ queryObject.toString();
+	},
+	videoTogglePause(player) {
+		player.togglePlayPause();
+	},
+	videoPlay(player) {
+		player.play();
+	},
+	videoPause(player) {
+		player.pause();
+	},
+	videoStop(player) {
+		player.stop();
+	},
+	videoStart(player) {
+		player.start();
+	},
+	videoEnd(player) {
+		player.end();
+	},
+	videoToggleMute(player) {
+		player.toggleMute();
+	},
+	videoToggleInfoScreen(player) {
+		let element = document.querySelector('.html5-video-info-panel');
+		if (!element || element.style.display === 'none') {
+			player.showVideoInfo();
+		} else {
+			player.hideVideoInfo();
+		}
+	},
+	videoPushScreenshot(player) {
+		let video = document.querySelector('.html5-main-video');
+		if (!video.videoWidth || !video.videoHeight) { return; }
+		let canvas = createElement('canvas', {
+			width: video.videoWidth,
+			height: video.videoHeight,
+			style: { maxWidth: '100%', },
+		});
+		canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+		let timeString = document.querySelector('.ytp-time-current').innerHTML;
+		let timeSeconds = player.getTime();
+		let time = createElement('span', {
+			className: 'video-time yt-uix-tooltip',
+			style: {
+				position: 'absolute',
+				right: '12px',
+				bottom: '12px',
+				cursor: 'pointer',
+			},
+			innerHTML: timeString,
+			onclick: event => player.seekTo(timeSeconds),
+			title: timeSeconds.toLocaleString() +' s',
+		});
+		let button = createElement('button', {
+			className: 'yt-uix-button yt-uix-button-size-default yt-uix-button-default',
+			style: {
+				position: 'absolute',
+				right: '12px',
+				top: '12px',
+			},
+			innerHTML: 'X',
+			onclick: event => event.target.parentNode.remove(),
+		});
+		let element = createElement('div', {
+			className: 'yt-card yt-card-has-padding screenshot-preview',
+			style: { position: 'relative', },
+		}, [ canvas, time, button, ]);
+
+		document.getElementById('watch7-content').appendChild(element);
+	},
+	videoPopScreenshot(player) {
+		document.querySelector('.screenshot-preview').remove();
+	},
+	videoSave(player) { // works onky with simple html-player
+		let url = document.querySelector('.html5-main-video').src;
+		if (url.startsWith('mediasource:')) {
+			url = 'https://i.ytimg.com/vi/'+ new QueryObject(window.location.href).v +'/maxresdefault.jpg';
+		}
+		clickElement(createElement('a', { href: url, download: url.match(/\/([^\/]*)$/)[1], target: '_blank'}));
+	},
+	videoDownloadCover(player) {
+		const url = `https://i.ytimg.com/vi/${ new QueryObject(location).v }/maxresdefault.jpg`;
+		HttpRequest({ url, responseType: 'blob', })
+		.then(({ response, }) => {
+			saveAs(response, document.title.replace(/^\u25b6| - YouTube$/g, '') +'.jpg'); // \u25b6 = play symbol
+		})
+		.catch(Logger('Faild to load maxresdefault.jpg'));
+	},
+};
+[1,2,3,4,5,6,7,8,9,10].forEach((x, i) =>
+	actions['openRelated'+ (i- -1)] = () =>
+		document.querySelectorAll('li.video-list-item.related-list-item')[i].querySelector('a').click()
+);
+Object.freeze(actions);
+
+
+
+return function({ options, player, }) {
+
+	updateKeyMap(options);
+
+	// apply hotkeys
+	window.addEventListener('keypress', event => {
+		if (event.target && (event.target.tagName == 'INPUT' || event.target.tagName == 'TEXTAREA')) { return; }
+		const key = (event.ctrlKey ? 'Ctrl' : '') + (event.altKey ? 'Alt' : '') + (event.shiftKey ? 'Shift' : '') + event.code;
+		const name = options.keyMap[key];
+		console.log('keypress', key, name);
+		if (!name || !actions[name]) { return; }
+		event.stopPropagation(); event.preventDefault();
+		actions[name](player);
+	}, true);
+
+};
+
+});

@@ -1,0 +1,4 @@
+node_modules
+*.xpi
+template
+npm-debug.log
