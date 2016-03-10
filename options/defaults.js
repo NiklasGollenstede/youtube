@@ -169,7 +169,7 @@ return [
 						title: "Use Cinema Mode",
 						description: "makes seek bar a bit wider",
 						type: "bool",
-						value: true,
+						value: false,
 					}, {
 						name: "seamlessFullscreen",
 						title: "Enable seamless full screen",

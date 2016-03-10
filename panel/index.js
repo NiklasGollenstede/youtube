@@ -18,7 +18,7 @@ window.addEventListener('DOMContentLoaded', () => {
 			Object.keys(windows).forEach(windowId => {
 				const win = windows[windowId];
 				const tabList = windowList.appendChild(createWindow(win)).querySelector('.tabs');
-				win.tabs.forEach(tab => tabList.appendChild(createTab(tab)));
+				win.tabs.sort((a, b) => a.index - b.index).forEach(tab => tabList.appendChild(createTab(tab)));
 				enableDragOut(tabList);
 			});
 			playlist.forEach(tab => tabList.appendChild(createTab(tab)));
@@ -31,6 +31,9 @@ window.addEventListener('DOMContentLoaded', () => {
 			if ('playing' in state) {
 				Array.prototype.forEach.call(document.querySelectorAll('#controls .button'), button => button.classList.remove('active'));
 				document.querySelector(state.playing ? '#play' : '#pause').classList.add('active');
+			}
+			if ('looping' in state) {
+				document.querySelector('#loop').classList[state.looping ? 'add' : 'remove']('active');
 			}
 		},
 		playlist_add(index, tabId) {

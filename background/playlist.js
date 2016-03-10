@@ -61,7 +61,7 @@ class PlayList extends Array {
 
 	insertAt(index, value) {
 		this.splice(index, 0, value);
-		index <= this.index && ++this.index;
+		return (this.index = this.index + (index <= this.index));
 	}
 
 	/**
@@ -109,8 +109,9 @@ class PlayList extends Array {
 	}
 
 	deleteAt(index) {
-		this.splice(index, 1);
-		index < this.index && --this.index;
+		if (index == this.length - 1 && index == this.index) { this.index = Infinity; return this.pop(); }
+		this.index = this.index - (index < this.index);
+		return this.splice(index, 1)[0];
 	}
 
 	is(test) {

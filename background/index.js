@@ -15,6 +15,7 @@ const playlist = new (require('background/playlist'))({
 
 const commands = {
 	play() {
+		Tab.pauseAllBut(playlist.get());
 		playlist.is(tab => tab.play());
 	},
 	pause() {
@@ -32,6 +33,7 @@ const commands = {
 	},
 	loop(value = !playlist.loop) {
 		playlist.loop = !!value;
+		panel && panel.emit('state_change', { looping: playlist.loop, });
 	},
 };
 
@@ -113,10 +115,10 @@ class Tab {
 	}
 
 	get info() {
-		const { id, url, title, windowId, } = this.tab;
+		const { id, windowId, url, index, title, } = this.tab;
 		const videoId = url.match(/(?:v=)([\w-_]{11})/)[1];
 		return {
-			tabId: id, windowId, videoId, title: title.replace(/ *-? ?YouTube$/i, ''),
+			tabId: id, windowId, videoId, index, title: title.replace(/ *-? ?YouTube$/i, ''),
 		};
 	}
 
@@ -125,7 +127,6 @@ class Tab {
 	}
 
 	play() {
-		Tab.pauseAllBut(this);
 		this.emit('play', Date.now());
 	}
 	pause() {

@@ -20,7 +20,7 @@ const methods = [
 	[ null,                 'buffering',       null, ],
 	[ 'next',               'videoCued',       (player, args) => player.nextVideo(...args), ],
 	[ 'previous',           'videoCued',       (player, args) => player.previousVideo(...args), ],
-	[ 'seekTo',             'playing',         (player, args) => player.seekTo(...args), ],
+	[ 'seekTo',             null,              (player, args) => player.seekTo(...args), ],
 	[ 'togglePlayPause',    null,              (player, args) => player[player.getPlayerState() == '1' ? 'pauseVideo' : 'playVideo'](), ],
 	[ 'volume',             null,              (player, args) => player.setVolume(...args), ],
 	[ 'mute',               null,              (player, args) => player.mute(...args), ],
@@ -52,10 +52,6 @@ window.addEventListener('message', message => {
 	console.log('unsafe.js', ...method, ...args);
 
 	method[2](player, args);
-
-	if (method[1] === 'playing') {
-		retryPlay = setInterval(() => console.log('retryPlay') === player.playVideo(), 500);
-	}
 });
 
 function initPlayer() {
@@ -76,8 +72,6 @@ window.unsafeOnPlaybackStateChange = function(state) {
 	}[state];
 
 	sendMessage(type, player.getVideoData().video_id);
-
-	if (type === 'playing') { clearInterval(retryPlay); }
 };
 
 window.unsafeOnPlaybackQualityChange = function(quality) {

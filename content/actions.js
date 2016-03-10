@@ -58,7 +58,7 @@ const actions = {
 		}
 	},
 	videoPromptVolume(player) {
-		player.setVolume(Math.min(Math.max(0, parseInt(prompt('Volume in %: '))), 100) || 0);
+		player.volume(Math.min(Math.max(0, parseInt(prompt('Volume in %: '))), 100) || 0);
 	},
 	playlistNext(player) {
 		player.next();
@@ -110,44 +110,42 @@ const actions = {
 		}
 	},
 	videoPushScreenshot(player) {
-		let video = document.querySelector('.html5-main-video');
+		const video = document.querySelector('.html5-main-video, video');
 		if (!video.videoWidth || !video.videoHeight) { return; }
-		let canvas = createElement('canvas', {
-			width: video.videoWidth,
-			height: video.videoHeight,
-			style: { maxWidth: '100%', },
-		});
-		canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
-		let timeString = document.querySelector('.ytp-time-current').innerHTML;
-		let timeSeconds = player.getTime();
-		let time = createElement('span', {
-			className: 'video-time yt-uix-tooltip',
-			style: {
-				position: 'absolute',
-				right: '12px',
-				bottom: '12px',
-				cursor: 'pointer',
-			},
-			innerHTML: timeString,
-			onclick: event => player.seekTo(timeSeconds),
-			title: timeSeconds.toLocaleString() +' s',
-		});
-		let button = createElement('button', {
-			className: 'yt-uix-button yt-uix-button-size-default yt-uix-button-default',
-			style: {
-				position: 'absolute',
-				right: '12px',
-				top: '12px',
-			},
-			innerHTML: 'X',
-			onclick: event => event.target.parentNode.remove(),
-		});
-		let element = createElement('div', {
+		let canvas, time, timeSeconds;
+		document.getElementById('watch7-content').appendChild(createElement('div', {
 			className: 'yt-card yt-card-has-padding screenshot-preview',
 			style: { position: 'relative', },
-		}, [ canvas, time, button, ]);
-
-		document.getElementById('watch7-content').appendChild(element);
+		}, [
+			canvas = createElement('canvas', {
+				width: video.videoWidth,
+				height: video.videoHeight,
+				style: { maxWidth: '100%', },
+			}),
+			time = createElement('span', {
+				className: 'video-time yt-uix-tooltip',
+				style: {
+					position: 'absolute',
+					right: '12px',
+					bottom: '12px',
+					cursor: 'pointer',
+				},
+				textContent: document.querySelector('.ytp-time-current').textContent,
+				onclick: event => player.seekTo(timeSeconds),
+			}),
+			createElement('button', {
+				className: 'yt-uix-button yt-uix-button-size-default yt-uix-button-default',
+				style: {
+					position: 'absolute',
+					right: '12px',
+					top: '12px',
+				},
+				textContent: '⨉',
+				onclick: event => event.target.parentNode.remove(),
+			}),
+		]));
+		canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+		player.getTime().then(value => (time.title = value.toFixed(2) +'s') && (timeSeconds = value));
 	},
 	videoPopScreenshot(player) {
 		document.querySelector('.screenshot-preview').remove();

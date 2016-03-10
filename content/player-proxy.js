@@ -18,15 +18,15 @@ const methods = [
 	[ 'getQuality',         '_getQuality',      ],
 	[ 'setSpeed',           null,               ],
 	[ 'getSpeed',           '_getSpeed',        ],
-	[ 'play',               'playing',          ],
-	[ 'pause',              'paused',           ],
+	[ 'play',               'playing',          () => video.readyState === 4 && (!video.paused || video.play() || true), ],
+	[ 'pause',              'paused',           () => video.pause() || true, ],
 	[ 'end',                'ended',            ],
 	[ 'stop',               'unstarted',        ],
 	[ 'start',              'playing',          ],
 	[ null,                 'buffering',        ],
 	[ 'next',               'videoCued',        ],
 	[ 'previous',           'videoCued',        ],
-	[ 'seekTo',             'playing',          ],
+	[ 'seekTo',             null,               ],
 	[ 'togglePlayPause',    null,               ],
 	[ 'volume',             null,               ],
 	[ 'mute',               null,               ],
@@ -46,7 +46,7 @@ function sendMessage(type, args = [ ]) {
 	return window.postMessage({ target: target.other, type, args, }, '*');
 }
 
-let playerCreated, scriptLoaded, queue = [ ], emit;
+let playerCreated, scriptLoaded, queue = [ ], emit, video;
 let self;
 const PlayerProxy = new Class({
 	extends: { public: EventEmitter, },
@@ -60,9 +60,10 @@ const PlayerProxy = new Class({
 	}),
 });
 
-methods.forEach(([ method, event, ]) => {
+methods.forEach(([ method, event, local, ]) => {
 	if (!method) { return; }
 	PlayerProxy.prototype[method] = function(...args) {
+		let val; if (local && (val = local())) { return val; }
 		if (playerCreated && scriptLoaded) {
 			sendMessage(method, args);
 		} else {
@@ -84,7 +85,10 @@ function createInstance(main) {
 
 	main.once('playerCreated', () => playerCreated = true);
 
-	const initPlayer = () => sendMessage('initPlayer');
+	const initPlayer = () => {
+		sendMessage('initPlayer');
+		video = document.querySelector('.html5-main-video, video');
+	};
 	const sendQueue = () => queue.forEach(([ method, args, ]) => sendMessage(method, args)) === (queue = null);
 
 	document.addEventListener('DOMContentLoaded', () => {
