@@ -20,9 +20,15 @@ return function(main) {
 		[ 'playing', 'videoCued', 'paused', 'ended', ]
 		.forEach(event => player.on(event, vId => port.emit(event, vId, Date.now())));
 
-		port.onMessage.addListener(({ type, args}) => ({
-			play() { player.play(); },
-			pause() { player.pause(); },
+		port.onMessage.addListener(({ type, args, }) => ({
+			play() {
+				console.log('control play');
+				player.play();
+			},
+			pause() {
+				console.log('control play');
+				player.pause();
+			},
 		})[type](...args));
 	});
 

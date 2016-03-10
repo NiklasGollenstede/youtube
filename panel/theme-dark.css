@@ -1,0 +1,43 @@
+html, body {
+	background-color: #555;
+	color: white;
+	fill: white;
+}
+#left, #right {
+	border-color: #555;
+	background-color: #000;
+}
+.window {
+	background-color: #222;
+}
+.tab, .placeholder {
+	background-color: #444;
+	border-color: #444;
+}
+.tab.active {
+	background-color: #000;
+	border-color: red;
+}
+.description .duration {
+	background-color: #000;
+}
+
+#controls .button, .tab .remove {
+	background-color: #333;
+}
+.tab .remove:hover {
+	color: #E54949;
+	fill: #E54949;
+}
+#controls .button:hover {
+	color: #80A1F3;
+	fill: #80A1F3;
+}
+#controls .button:active {
+	color: #5050E9;
+	fill: #5050E9;
+}
+#controls .button.active {
+	color: #5959ED;
+	fill: #5959ED;
+}

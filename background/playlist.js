@@ -16,34 +16,30 @@ class PlayList extends Array {
 	}
 
 	next() {
-		if (this.index >= this.length) {
-			if (!this.loop) { return false; }
+		if (this.index >= this.length - 1) {
+			if (!this.loop) { this.index = Infinity; return false; }
 			this.index = 0; return true;
 		}
 		if (this.index < 0) {
 			this.index = 0; return true;
 		}
-		return ++this.index < this.length;
+		++this.index; return true;
 	}
 	prev() {
-		if (this.index < 0) {
-			if (!this.loop) { return false; }
+		if (this.index <= 0) {
+			if (!this.loop) { this.index = -1; return false; }
 			this.index = this.length - 1; return true;
 		}
 		if (this.index >= this.length) {
 			this.index = this.length - 1; return true;
 		}
-		return --this.index >= 0;
+		--this.index; return true;
 	}
 
 	add(value) {
 		if (this.indexOf(value) !== -1) { return false; }
-		if (this.index < 0) {
+		if (this.index < 0 || this.index >= this.length) {
 			this.push(value);
-		} else
-		if (this.index >= this.length) {
-			this.push(value);
-			++this.index;
 		} else {
 			for (let i = this.length - 1; i > this.index; --i) {
 				this[i + 1] = this[i];

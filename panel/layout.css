@@ -1,0 +1,185 @@
+* {
+	font-family: arial,sans-serif;
+	box-sizing: border-box;
+}
+body {
+	font-size: 14px;
+	margin: 0px;
+	padding: 0px;
+	cursor: default;
+	overflow: hidden;
+	min-height: 560px;
+	min-width: 600px;
+}
+
+::selection {
+	background-color: black;
+}
+
+#controls .button, .tab .remove {
+	cursor: pointer;
+	-moz-user-select: none;
+	-webkit-user-select: none;
+}
+.icon {
+	cursor: grab;
+	cursor: -webkit-grab;
+}
+.ghost {
+	cursor: grabbing;
+	cursor: -webkit-grabbing;
+}
+
+.hidden {
+	display: none;
+}
+
+.column {
+	position: absolute;
+	top: 0px;
+	bottom: 0px;
+	margin: 0px;
+	padding: 5px;
+	border-width: 2px;
+	border-style: solid;
+	overflow: hidden;
+}
+
+.scroll-outer {
+	position: absolute;
+	overflow: hidden;
+	left: 0px;
+	right: -17px;
+}
+.scroll-inner {
+	position: absolute;
+	overflow-y: scroll;
+	overflow-x: hidden;
+	left: 0px;
+	top: 0px;
+	bottom: 0px;
+	right: 0px;
+}
+
+#left {
+	left: 0px;
+	right: 50%;
+}
+#right {
+	right: 0px;
+	left: 50%;
+}
+#playlist {
+	top: 56px;
+	bottom: 0px;
+}
+#windows {
+	top: 0px;
+	bottom: 0px;
+}
+
+#controls {
+	vertical-align: center;
+	text-align: center;
+	font-size: 34px;
+	line-height: 1.0;
+	left: 0px;
+	right: 0px;
+	top: 0px;
+	height: 52px;
+	overflow: hidden;
+	background-color: inherit;
+}
+#controls .button {
+	display: inline-block;
+	width: calc(100% / 5 - 12px);
+	height: 45px;
+	margin: 2px;
+	padding: 5px;
+	overflow: hidden;
+}
+
+.tab {
+	padding: 5px;
+	margin: 3px;
+	margin-top: 6px;
+	overflow: hidden;
+	position: relative;
+	border-style: solid;
+	border-width: 2px;
+}
+.tab.ghost {
+	opacity: 0.5;
+}
+.tab .icon {
+	display: inline-block;
+	width: 60px;
+	height: 45px;
+	float: left;
+	background-size: cover;
+	background-position: center;
+	background-repeat: no-repeat;
+}
+.tab .description {
+	position: absolute;
+	top: 0px;
+	left: 75px;
+	right: 5px;
+	top: 3px;
+	bottom: 3px;
+}
+.tab .title {
+	line-height: 1.22;
+	margin-right: 20px;
+	padding: 0px;
+}
+#playlist .tab .title {
+	display: block;
+}
+.tab .duration {
+	position: absolute;
+	right: 0px;
+	bottom: 0px;
+	padding: 0px 2px;
+	border-radius: 2px;
+}
+.tab .remove {
+	position: absolute;
+	right: 0px;
+	top: 0px;
+    vertical-align: middle;
+    text-align: center;
+    width: 17px;
+    height: 17px;
+    line-height: 17px;
+    border-radius: 8px;
+}
+#windows .tab .remove {
+	display: none;
+}
+
+.window {
+	margin: 5px 2px;
+	padding: 4px 0px;
+}
+.window .header {
+	white-space: nowrap;
+	overflow: hidden;
+}
+.window .header label {
+	display: block;
+	height: 100%;
+	width: 100%;
+	padding: 2px 10px;
+}
+
+/* collapsing lists */
+label.toggleswitch { cursor: pointer; }
+input.toggleswitch { display: none; }
+input.toggleswitch:checked + * { display: none; }
+
+.tab-default,
+.video-default,
+#window-default {
+	display: none;
+}
