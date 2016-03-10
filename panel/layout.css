@@ -12,10 +12,6 @@ body {
 	min-width: 600px;
 }
 
-::selection {
-	background-color: black;
-}
-
 #controls .button, .tab .remove {
 	cursor: pointer;
 	-moz-user-select: none;
@@ -97,6 +93,11 @@ body {
 	margin: 2px;
 	padding: 5px;
 	overflow: hidden;
+}
+
+#playlist .tabs {
+    display: block;
+    min-height: 100%;
 }
 
 .tab {

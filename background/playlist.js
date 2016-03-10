@@ -5,10 +5,22 @@
 }) {
 
 class PlayList extends Array {
-	constructor({ loop, init, } = { }) {
-		super(...(init || [ ]));
-		this.index = -1;
-		this.loop = loop;
+	constructor({ values, index, loop, onSeek, } = { }) {
+		super(...(values || [ ]));
+		this._index = index != null ? index : -1;
+		this.loop = !!loop;
+		this.onSeek = onSeek || (x => x);
+	}
+
+	set index(value) {
+		if (typeof value !== 'number') { value = -1; }
+		else if (value < 0) { value = -1; }
+		else if (value >= this.length) { value = Infinity; }
+		this._index = value;
+		this.onSeek(value);
+	}
+	get index() {
+		return this._index;
 	}
 
 	get() {
@@ -36,28 +48,49 @@ class PlayList extends Array {
 		--this.index; return true;
 	}
 
+	/**
+	 * Pushes value to this if value was not in this.
+	 * @param  {any}    value  Value to optionally insert.
+	 * @return {bool}          True if value was not present in this.
+	 */
 	add(value) {
 		if (this.indexOf(value) !== -1) { return false; }
-		if (this.index < 0 || this.index >= this.length) {
+		this.push(value);
+		return true;
+	}
+
+	insertAt(index, value) {
+		this.splice(index, 0, value);
+		index <= this.index && ++this.index;
+	}
+
+	/**
+	 * Set this.index to point at the first instance of value in this.
+	 * Inserts value after curremt index if not present.
+	 * @param  {any}    value  Value to seek/insert.
+	 * @return {bool}          True if value was not present in this.
+	 */
+	seek(value) {
+		const index = this.index;
+		this._index = this.indexOf(value, this.index);
+		if (this._index !== -1) { this.index = this._index; return false; }
+		this._index = this.indexOf(value);
+		if (this._index !== -1) { this.index = this._index; return false; }
+		if (index < 0 || index >= this.length) {
 			this.push(value);
+			this.index = this.length - 1;
 		} else {
-			for (let i = this.length - 1; i > this.index; --i) {
-				this[i + 1] = this[i];
-			}
-			this[this.index + 1] = value;
+			this.splice(index, 0, value);
+			this.index = index + 1;
 		}
 		return true;
 	}
 
-	seek(value) {
-		this.index = this.indexOf(value, this.index);
-		if (this.index !== -1) { return false; }
-		this.index = this.indexOf(value);
-		if (this.index !== -1) { return false; }
-		this[this.index = this.length] = value;
-		return true;
-	}
-
+	/**
+	 * Removes all instances of value from this.
+	 * @param  {any}    value  Value to remove.
+	 * @return {int}           Number of elements removed.
+	 */
 	delete(value) {
 		let deleted = 0;
 		const filtered = this.filter((item, index) => {
@@ -73,6 +106,16 @@ class PlayList extends Array {
 			this[i] = filtered[i];
 		}
 		return deleted;
+	}
+
+	deleteAt(index) {
+		this.splice(index, 1);
+		index < this.index && --this.index;
+	}
+
+	is(test) {
+		const current = this.get();
+		return !!(current && test(current));
 	}
 }
 

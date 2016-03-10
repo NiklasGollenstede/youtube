@@ -40,7 +40,7 @@ function sendMessage(type, arg) {
 	return window.postMessage({ target: target.other, type, arg, }, '*');
 }
 
-let player;
+let player, retryPlay;
 
 window.addEventListener('message', message => {
 	if (!isTrusted(message)) { return; }
@@ -52,6 +52,10 @@ window.addEventListener('message', message => {
 	console.log('unsafe.js', ...method, ...args);
 
 	method[2](player, args);
+
+	if (method[1] === 'playing') {
+		retryPlay = setInterval(() => console.log('retryPlay') === player.playVideo(), 500);
+	}
 });
 
 function initPlayer() {
@@ -72,6 +76,8 @@ window.unsafeOnPlaybackStateChange = function(state) {
 	}[state];
 
 	sendMessage(type, player.getVideoData().video_id);
+
+	if (type === 'playing') { clearInterval(retryPlay); }
 };
 
 window.unsafeOnPlaybackQualityChange = function(quality) {

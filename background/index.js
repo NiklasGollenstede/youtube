@@ -1,130 +1,194 @@
 'use strict';
 
-const {
-	concurrent: { async, spawn, sleep, timeout, },
-	dom: { clickElement, createElement, CreationObserver, notify, once, saveAs, },
-	format: { hhMmSsToSeconds, numberToRoundString, timeToRoundString, QueryObject, },
-	functional: { noop, Logger, log, },
-	object: { copyProperties, },
-	network: { HttpRequest, },
-} = require('es6lib');
-
-console.log('background running');
-
 // init options
 chrome.storage.local.get('defaultOptions', ({ defaultOptions, }) => /*defaultOptions ||*/ chrome.storage.local.set({ defaultOptions: require('options/defaults'), }));
 chrome.storage.sync.get('options', ({ options, }) => /*options ||*/ chrome.storage.sync.set({ options: require('options/utils').simplify(require('options/defaults')), }));
 
-const workers = new Set;
-const playlist = new (require('background/playlist'))();
+const tabs = new Map;
 let panel = null;
-
-chrome.runtime.onConnect.addListener(port => {
-	port.emit = function(type, ...args) { this.postMessage({ type, args, }); };
-	port.sender.tab ? handleTab(port) : handlePanel(port);
+const playlist = new (require('background/playlist'))({
+	onSeek(index) {
+		console.log('onSeek', index);
+		panel && panel.emit('playlist_seek', index);
+	},
 });
 
-function handlePanel(port) {
-	console.log('panel', port);
-	panel = port;
+const commands = {
+	play() {
+		playlist.is(tab => tab.play());
+	},
+	pause() {
+		Tab.pauseAllBut(null);
+	},
+	toggle() {
+		const tab = playlist.get();
+		tab && !tab.playing ? commands.play() : commands.pause();
+	},
+	next() {
+		playlist.next() ? commands.play() : commands.pause();
+	},
+	prev() {
+		playlist.prev() ? commands.play() : commands.pause();
+	},
+	loop(value = !playlist.loop) {
+		playlist.loop = !!value;
+	},
+};
 
-	port.onMessage.addListener(({ type, args}) => ({
-		tab_focus(tabId) {
-			console.log('tab_focus', tabId);
-		},
-		playlist_add(index, tabId) {
-			console.log('playlist_add', index, tabId);
-		},
-		playlist_seek(index) {
-			console.log('playlist_seek', index);
-		},
-		playlist_delete(index) {
-			console.log('playlist_delete', index);
-		},
-	})[type](...args));
+class Panel {
+	constructor(port) {
+		console.log('panel', port);
+		this.port = port;
+		panel = this;
 
-	port.emit('init', {
-		windows: ((windows) => (workers.forEach(({ sender: { tab, }, }) => {
-			!windows[tab.windowId] && (windows[tab.windowId] = { id: tab.windowId, tabs: [ ], });
-			windows[tab.windowId].tabs.push(infoOf(tab));
-		}), windows))({ }),
-		playlist: playlist.map(({ sender: { tab, }, }) => infoOf(tab)),
-		active: playlist.index,
-		state: {
-			playing: playlist.get() && playlist.get().playing || false,
-		},
-	});
+		port.onMessage.addListener(({ type, args, }) => (this)[type](...args));
+		port.onDisconnect.addListener(() => panel = null);
 
-	port.onDisconnect.addListener(() => panel = null);
-}
-
-function handleTab(port) {
-	console.log('tab', port);
-
-	workers.add(port);
-	playlist.add(port);
-	console.log('add', playlist);
-
-	port.onMessage.addListener(({ type, args}) => ({
-		playing(vId) {
-			console.log('playing', vId);
-			port.playing = true;
-			workers.add(port);
-			playlist.seek(port);
-		},
-		videoCued(vId) {
-			console.log('videoCued', vId);
-		},
-		paused(vId) {
-			console.log('paused', vId);
-			port.playing = false;
-		},
-		ended(vId) {
-			console.log('ended', vId);
-			removeTab(port);
-		},
-	})[type](...args));
-
-	port.onDisconnect.addListener(() => removeTab(port));
-}
-
-function removeTab(port) {
-	port.playing = false;
-	workers.delete(port);
-	playlist.delete(port);
-	console.log('delete', playlist);
-	port.playing && playTab(playlist.get());
-}
-
-chrome.commands.onCommand.addListener(command => {
-	console.log('command', command);
-	switch (command) {
-		case 'MediaPlayPause': {
-			pauseAllBut(null);
-			const port = playlist.get();
-			port && !port.playing && playTab(port);
-		} break;
-		case 'MediaNextTrack': {
-			playlist.next() && playTab(playlist.get());
-		} break;
-		case 'MediaPrevTrack': {
-			playlist.prev() && playTab(playlist.get());
-		} break;
+		this.init();
 	}
-});
 
-function pauseAllBut(exclude) {
-	workers.forEach(port => port !== exclude && port.emit('pause', Date.now()));
+	emit(type, ...args) {
+		this.port.postMessage({ type, args, });
+	}
+
+	init() {
+		this.emit('init', {
+			windows: ((windows) => (tabs.forEach(tab => {
+				!windows[tab.windowId] && (windows[tab.windowId] = { id: tab.windowId, tabs: [ ], });
+				windows[tab.windowId].tabs.push(tab.info);
+			}), windows))({ }),
+			playlist: playlist.map(tab => tab.info),
+			active: playlist.index,
+			state: {
+				playing: playlist.is(port => port.playing),
+				looping: playlist.loop,
+			},
+		});
+	}
+
+	tab_focus(tabId) {
+		console.log('tab_focus', tabId);
+		chrome.tabs.update(tabId, { highlighted: true, }, () => console.log('tab focused'));
+	}
+	playlist_add(index, tabId) {
+		console.log('playlist_add', index, tabId);
+		playlist.insertAt(index, tabs.get(tabId));
+	}
+	playlist_seek(index) {
+		console.log('playlist_seek', index);
+		playlist.index = index;
+		commands.play();
+	}
+	playlist_delete(index) {
+		console.log('playlist_delete', index);
+		const old = playlist.deleteAt(index);
+		old && old.playing && commands.play();
+	}
+	command_play() { commands.play(); }
+	command_pause() { commands.pause(); }
+	command_next() { commands.next(); }
+	command_prev() { commands.prev(); }
+	command_loop() { commands.loop(); }
 }
 
-function playTab(port) {
-	port && port.emit('play', Date.now());
-	pauseAllBut(port);
+class Tab {
+	constructor(port) {
+		console.log('tab', port);
+		this.port = port;
+
+		port.onMessage.addListener(({ type, args, }) => (this)[type](...args));
+		port.onDisconnect.addListener(() => this.remove());
+	}
+
+	get tab() {
+		return this.port.sender.tab;
+	}
+
+	get id() {
+		return this.port.sender.tab.id;
+	}
+
+	get windowId() {
+		return this.port.sender.tab.windowId;
+	}
+
+	get info() {
+		const { id, url, title, windowId, } = this.tab;
+		const videoId = url.match(/(?:v=)([\w-_]{11})/)[1];
+		return {
+			tabId: id, windowId, videoId, title: title.replace(/ *-? ?YouTube$/i, ''),
+		};
+	}
+
+	emit(type, ...args) {
+		this.port.postMessage({ type, args, });
+	}
+
+	play() {
+		Tab.pauseAllBut(this);
+		this.emit('play', Date.now());
+	}
+	pause() {
+		this.emit('pause', Date.now());
+	}
+	static pauseAllBut(exclude) {
+		tabs.forEach(tab => tab !== exclude && tab.pause());
+	}
+
+	insert() {
+		console.log('add', playlist);
+		tabs.set(this.id, this);
+		playlist.add(this);
+		panel && panel.emit('tabs_create', this.info);
+	}
+
+	remove() {
+		console.log('delete', playlist);
+		tabs.delete(this.id);
+		playlist.delete(this);
+		panel && panel.emit('tabs_close', this.id);
+		this.playing && commands.play();
+		this.playing = false;
+	}
+
+	player_created(vId) {
+		console.log('player_created', vId);
+		if (!tabs.has(this.id)) { this.insert(); }
+	}
+	player_playing(vId) {
+		console.log('player_playing', vId);
+		if (!tabs.has(this.id)) { this.insert(); }
+		this.playing = true;
+		Tab.pauseAllBut(this);
+		playlist.seek(this);
+		panel && panel.emit('state_change', { playing: true, });
+	}
+	player_videoCued(vId) {
+		console.log('player_videoCued', vId);
+		if (!tabs.has(this.id)) { this.insert(); }
+		else { panel && panel.emit('tabs_update', this.info); }
+	}
+	player_paused(vId) {
+		console.log('player_paused', vId);
+		if (!tabs.has(this.id)) { this.insert(); }
+		this.playing = false;
+		panel && panel.emit('state_change', { playing: playlist.is(tab => tab.playing), });
+	}
+	player_ended(vId) {
+		console.log('player_ended', vId);
+		this.playing = false;
+		commands.next();
+	}
+	player_removed() {
+		console.log('player_removed');
+		this.remove();
+	}
 }
 
-function infoOf({ id, url, title, windowId, }) {
-	const videoId = url.match(/(?:v=)([\w-_]{11})/)[1];
-	return {
-		tabId: id, windowId, videoId, title: title.replace(/ *-? ?YouTube$/i, ''),
-	};
-}
+chrome.commands.onCommand.addListener(command => ({
+	MediaPlayPause: commands.toggle,
+	MediaNextTrack: commands.next,
+	MediaPrevTrack: commands.prev,
+}[command]()));
+
+chrome.runtime.onConnect.addListener(port => port.sender.tab ? new Tab(port) : new Panel(port));

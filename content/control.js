@@ -18,7 +18,7 @@ return function(main) {
 		port = extendPort(chrome.runtime.connect());
 
 		[ 'playing', 'videoCued', 'paused', 'ended', ]
-		.forEach(event => player.on(event, vId => port.emit(event, vId, Date.now())));
+		.forEach(event => player.on(event, vId => port.emitSoon('player_'+ event, vId, Date.now())));
 
 		port.onMessage.addListener(({ type, args, }) => ({
 			play() {
@@ -26,13 +26,15 @@ return function(main) {
 				player.play();
 			},
 			pause() {
-				console.log('control play');
+				console.log('control pause');
 				player.pause();
 			},
 		})[type](...args));
+
+		port.emitSoon('player_created', document.URL.match(/(?:v=)([\w-_]{11})/)[1], Date.now());
 	});
 
-	main.on('playerRemoved', () => port.emit('ended'));
+	main.on('playerRemoved', () => port.emit('player_removed'));
 
 	main.on('playerCreated', async(function*({ options, player, }) {
 
@@ -69,7 +71,7 @@ function extendPort(port) {
 	let timeoutHandler;
 	port.emitSoon = function(type, ...args) {
 		clearTimeout(timeoutHandler);
-		timeoutHandler = setTimeout(() => this.postMessage({ type, args, }), 500);
+		timeoutHandler = setTimeout(() => this.postMessage({ type, args, }), 300);
 	};
 	return port;
 }
