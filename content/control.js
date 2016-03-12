@@ -1,10 +1,38 @@
 'use strict'; define('content/control', [
-	'es6lib',
+	'es6lib', 'common/event-emitter',
 ], function(
 	{
 		concurrent: { async, },
-	}
+		object: { Class, },
+	},
+	EventEmitter
 ) {
+
+const Port = new Class({
+	extends: { public: require('common/event-emitter'), },
+
+	constructor: (Super, Private, Protected) => (function(port) {
+		Super.call(this);
+		const self = Private(this);
+		self.port = port;
+		const _this = Protected(this);
+		port.onMessage.addListener(({ type, value, }) => _this.emitSync(type, value));
+	}),
+
+	public: (Private, Protected, Public) => ({
+		emit(type, value) {
+			const self = Private(this);
+			self.port.postMessage({ type, value, });
+		},
+		emitSoon(type, value) {
+			clearTimeout(this.timeoutHandler);
+			this.timeoutHandler = setTimeout(() => this.emit(type, value), 300);
+		},
+	}),
+
+	private: (Private, Protected, Public) => ({
+	}),
+});
 
 let loaded = false;
 
@@ -15,23 +43,15 @@ return function(main) {
 
 	main.once('playerCreated', ({ player, }) => {
 
-		port = extendPort(chrome.runtime.connect());
+		port = main.port = new Port(chrome.runtime.connect());
 
 		[ 'playing', 'videoCued', 'paused', 'ended', ]
 		.forEach(event => player.on(event, () => {
 			main.videoId && port.emitSoon('player_'+ event, main.videoId);
 		}));
 
-		port.onMessage.addListener(({ type, args, }) => ({
-			play() {
-				console.log('control play');
-				player.play(true);
-			},
-			pause() {
-				console.log('control pause');
-				player.pause(true);
-			},
-		})[type](...args));
+		port.on('play', () => console.log('control play') === player.play(true));
+		port.on('pause', () => console.log('control pause') === player.pause(true));
 
 		port.emitSoon('player_created', main.videoId);
 		main.on('playerRemoved', () => port.emitSoon('player_removed'));
@@ -68,15 +88,5 @@ return function(main) {
 
 	main.player.on('ended', checkbox => (checkbox = document.querySelector("#autoplay-checkbox")) && checkbox.checked && checkbox.click());
 };
-
-function extendPort(port) {
-	port.emit = function(type, ...args) { this.postMessage({ type, args, }); };
-	let timeoutHandler;
-	port.emitSoon = function(type, ...args) {
-		clearTimeout(timeoutHandler);
-		timeoutHandler = setTimeout(() => this.postMessage({ type, args, }), 300);
-	};
-	return port;
-}
 
 });

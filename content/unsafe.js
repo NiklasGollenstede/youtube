@@ -1,4 +1,4 @@
-'use strict';
+'use strict'; (function() {
 
 console.log('unsafe loading');
 
@@ -40,7 +40,7 @@ function sendMessage(type, arg) {
 	return window.postMessage({ target: target.other, type, arg, }, '*');
 }
 
-let player, retryPlay;
+let player;
 
 window.addEventListener('message', message => {
 	if (!isTrusted(message)) { return; }
@@ -79,3 +79,5 @@ window.unsafeOnPlaybackQualityChange = function(quality) {
 };
 
 sendMessage('_scriptLoaded');
+
+})();

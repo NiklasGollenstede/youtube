@@ -3,7 +3,6 @@
 const Tabs = require('common/chrome').tabs;
 
 // init options
-chrome.storage.local.get('defaultOptions', ({ defaultOptions, }) => /*defaultOptions ||*/ chrome.storage.local.set({ defaultOptions: require('options/defaults'), }));
 chrome.storage.sync.get('options', ({ options, }) => /*options ||*/ chrome.storage.sync.set({ options: require('options/utils').simplify(require('options/defaults')), }));
 
 const tabs = new Map;
@@ -45,14 +44,14 @@ class Panel {
 		this.port = port;
 		panel = this;
 
-		port.onMessage.addListener(({ type, args, }) => (this)[type](...args));
+		port.onMessage.addListener(({ type, value, }) => (this)[type](value));
 		port.onDisconnect.addListener(() => panel = null);
 
 		this.init();
 	}
 
-	emit(type, ...args) {
-		this.port.postMessage({ type, args, });
+	emit(type, value) {
+		this.port.postMessage({ type, value, });
 	}
 
 	init() {
@@ -75,13 +74,17 @@ class Panel {
 		console.log('tab_focus', tabId);
 		Tabs.update(tabId, { highlighted: true, }).then(() => console.log('tab focused'));
 	}
-	playlist_add(index, tabId) {
+	playlist_add({ index, tabId, }) {
 		console.log('playlist_add', index, tabId);
 		playlist.insertAt(index, tabs.get(tabId));
 	}
 	playlist_seek(index) {
 		console.log('playlist_seek', index);
-		playlist.index = index;
+		if (playlist.index === index) {
+			this.tab_focus(playlist.get().id);
+		} else {
+			playlist.index = index;
+		}
 		commands.play();
 	}
 	playlist_delete(index) {
@@ -103,8 +106,12 @@ class Tab {
 		this.id = port.sender.tab.id;
 		this.windowId = port.sender.tab.windowId;
 
-		port.onMessage.addListener(({ type, args, }) => (this)[type](...args));
+		port.onMessage.addListener(({ type, value, }) => (this)[type](value));
 		port.onDisconnect.addListener(() => this.remove());
+
+		this.pingCount = 0;
+		this.pingInterval = 25;
+		this.pingId = -1;
 	}
 
 	tab() {
@@ -120,8 +127,8 @@ class Tab {
 		});
 	}
 
-	emit(type, ...args) {
-		this.port.postMessage({ type, args, });
+	emit(type, value) {
+		this.port.postMessage({ type, value, });
 	}
 
 	play() {
@@ -148,6 +155,10 @@ class Tab {
 		panel && panel.emit('tabs_close', this.id);
 		this.playing && commands.play();
 		this.playing = false;
+	}
+
+	ping() {
+		this.emit('ping');
 	}
 
 	player_created(vId) {
@@ -182,6 +193,16 @@ class Tab {
 	player_removed() {
 		console.log('player_removed');
 		this.remove();
+	}
+	ping_start() {
+		this.pingCount++;
+		if (this.pingCount !== 1) { return; }
+		this.pingId = setInterval(this.ping.bind(this), this.pingInterval);
+	}
+	ping_stop() {
+		this.pingCount--;
+		if (this.pingCount !== 0) { return; }
+		clearInterval(this.pingId);
 	}
 }
 

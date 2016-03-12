@@ -20,15 +20,15 @@ function enableThumbPreview() {
 	document.addEventListener('mouseover', event => {
 		let element = event.target;
 		if (!element.videoInfo || element.videoInfo.originalSrc) { return; }
-		element.videoInfo.originalSrc = element.nodeName == "IMG" ? element.src : element.style.backgroundImage;
+		element.videoInfo.originalSrc = element.nodeName == 'IMG' ? element.src : element.style.backgroundImage;
 
 		let id = element.videoInfo.id = element.videoInfo.id || getVideoIdFromImageSrc(element);
-		let i = 0, url = "";
+		let i = 0, url = '';
 		(function displayNextThumbRecursion() {
 			if (!element.videoInfo.originalSrc) { return; }
 			if (++i > 3) { i = 1; }
-			url = "https://i.ytimg.com/vi/" + id + "/" + i + ".jpg";
-			if (element.nodeName == "IMG") {
+			url = `https://i.ytimg.com/vi/${ id }/${ i }.jpg`;
+			if (element.nodeName == 'IMG') {
 				element.src = url;
 			} else {
 				element.style.backgroundImage = url;
@@ -37,7 +37,7 @@ function enableThumbPreview() {
 		})();
 
 		once(element, 'mouseout', event => {
-			if (element.nodeName == "IMG") {
+			if (element.nodeName == 'IMG') {
 				element.src = element.videoInfo.originalSrc;
 			} else {
 				element.style.backgroundImage = element.videoInfo.originalSrc;
@@ -55,24 +55,24 @@ function attatchRatingBar(element)  {
 			&& element.videoInfo.public
 			&& (total = (likes = element.videoInfo.public.likes) + (dislikes = element.videoInfo.public.dislikes) || 1)
 		)
-		|| element.querySelector(".video-extras-sparkbarks")
+		|| element.querySelector('.video-extras-sparkbarks')
 	) { console.error('elements videoInfo misformed', element.videoInfo); return; }
 	const views = element.videoInfo.public.views || 0;
 	const published = element.videoInfo.public.published || 0;
 
-	if (element.nodeName == "IMG") {
+	if (element.matches('img, .videowall-still-image')) {
 		element = element.parentNode;
-		if (element.matches(".yt-thumb-clip")) {
+		if (element.matches('.yt-thumb-clip')) {
 			element = element.parentNode;
 		}
 	}
-	element.classList.add("yt-uix-tooltip");
+	element.classList.add('yt-uix-tooltip');
 	element.insertAdjacentHTML('beforeend', Templates.ratingsBar(likes, dislikes, total));
 
 	element.title = Templates.videoInfoTitle(likes, dislikes, views, published);
 }
 
-const loadRatingFromServer = id => HttpRequest("https://www.youtube.com/watch?v="+ id).then(({ response, }) => ([
+const loadRatingFromServer = id => HttpRequest('https://www.youtube.com/watch?v='+ id).then(({ response, }) => ([
 	{ name: 'id', regex: (/(?:)/),
 		mapper: s => id, },
 	{ name: 'likes', regex: (/class=".*?like-button-renderer-like-button.*?".*?><span .*?>([\d\.\,]+)<\//),
@@ -126,7 +126,7 @@ function displayRatingOnImageLoad() {
 		!(mutation.target.videoInfo && mutation.target.dataset.rating)
 		&& (id = getVideoIdFromImageSrc(mutation.target))
 		&& loadAndDisplayRating(mutation.target, id)
-	)).observe(document, { subtree: true, attributes: true, attributeFilter: ["src", "style"] });
+	)).observe(document, { subtree: true, attributes: true, attributeFilter: [ 'src', 'style', ], });
 }
 
 return function(main) {

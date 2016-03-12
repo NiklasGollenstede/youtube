@@ -8,7 +8,7 @@
 	}
 ) {
 
-const fadeIn_factor = 0.9, fadeIn_margin = 0.05;
+const fadeIn_factor = 0.7, fadeIn_margin = 0.05;
 
 const target = {
 	other: 'unsafe-player-proxy',
@@ -48,17 +48,18 @@ function sendMessage(type, args = [ ]) {
 	return window.postMessage({ target: target.other, type, args, }, '*');
 }
 
-let self, playerCreated, scriptLoaded, queue = [ ], emit, video;
+let self, playerCreated, scriptLoaded, queue = [ ], emit, video, main;
 
 const PlayerProxy = new Class({
 	extends: { public: EventEmitter, },
-	constructor: (Super, Private, Protected) => (function(main) {
+	constructor: (Super, Private, Protected) => (function(_main) {
 		if (self) { return self; }
 		Super.call(this);
 		const _self = Protected(this);
 		emit = _self.emit.bind(_self);
+		main = _main;
 		self = this;
-		createInstance(main);
+		createInstance(_main);
 	}),
 });
 
@@ -82,7 +83,7 @@ function setPromise(type) {
 	}));
 }
 
-function createInstance(main) {
+function createInstance() {
 	methods.forEach(([ method, event, ]) => event && setPromise(event));
 
 	main.once('playerCreated', () => playerCreated = true);
@@ -136,33 +137,43 @@ function pause(smooth) {
 	if (video.paused) { return true; }
 	const old = video.volume, pos = video.currentTime;
 	let i = 1;
-	let cancel = setInterval(() => {
+	main.port.emit('ping_start');
+	main.port.on('ping', iterate);
+	iterate();
+	return true;
+
+	function iterate() {
 		video.volume = old * (i *= fadeIn_factor);
 		if (i <= fadeIn_margin) {
-			clearTimeout(cancel);
 			video.pause();
 			video.volume = old;
 			video.currentTime = pos;
+			main.port.off('ping', iterate);
+			main.port.emit('ping_stop');
 		}
-	}, 10);
-	return true;
+	}
 }
 
 function play(smooth) {
 	if (video.readyState !== 4) { return false; }
 	if (!video.paused) { return true; }
 	if (!smooth) { video.play(); return true; }
-	video.play();
 	const old = video.volume;
 	let i = fadeIn_margin;
-	let cancel = setInterval(() => {
+	main.port.emit('ping_start');
+	main.port.on('ping', iterate);
+	video.play();
+	iterate();
+	return true;
+
+	function iterate() {
 		video.volume = old * (i /= fadeIn_factor);
 		if (i > 1) {
-			clearTimeout(cancel);
 			video.volume = old;
+			main.port.off('ping', iterate);
+			main.port.emit('ping_stop');
 		}
-	}, 10);
-	return true;
+	}
 }
 
 return (PlayerProxy.PlayerProxy = PlayerProxy); });

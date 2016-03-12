@@ -136,15 +136,11 @@ return Object.freeze({
 		),
 
 		ratingsBar: (likes, dislikes, total) => (stringToHtml`
-<div class="video-extras-sparkbarks" style="position: relative; top: -1px">
+<div class="video-extras-sparkbarks inserted-ratings">
 	<div class="video-extras-sparkbar-likes" style="
-		height: 4px;
-		background-color: #0b2;
 		width: ${ ((100*likes)/total) }%
 	"></div>
 	<div class="video-extras-sparkbar-dislikes" style="
-		height: 4px;
-		background-color: #C00;
 		width: ${ ((100*dislikes)/total) }%
 	"></div>
 </div>`

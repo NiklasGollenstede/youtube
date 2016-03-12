@@ -11,6 +11,7 @@
 {
     display: none !important;
 }
+
 /* ratings */
 .video-time
 {
@@ -33,6 +34,21 @@ span.video-thumb.yt-thumb>.yt-thumb-default
 {
     display: block !important;
 }
+.inserted-ratings {
+    position: relative;
+}
+.videowall-endscreen .inserted-ratings {
+    top: -2px;
+}
+.inserted-ratings>* {
+    height: 3px;
+}
+.inserted-ratings .video-extras-sparkbar-likes {
+    background-color: #0b2;
+}
+.inserted-ratings .video-extras-sparkbar-dislikes {
+    background-color: #C00;
+}
 
 .draggborder
 {
@@ -43,6 +59,7 @@ span.video-thumb.yt-thumb>.yt-thumb-default
     ) !important;
     margin: 0 5px !important;
 }
+
 
 /*
 * non-fullscreen watchpage

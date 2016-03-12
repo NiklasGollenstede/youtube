@@ -10,9 +10,9 @@ window.addEventListener('DOMContentLoaded', () => {
 	defaultWindow.remove(); defaultTab.remove();
 
 	port = chrome.runtime.connect();
-	port.emit = function(type, ...args) { this.postMessage({ type, args, }); };
+	port.emit = function(type, value) { this.postMessage({ type, value, }); };
 
-	port.onMessage.addListener(({ type, args, }) => ({
+	port.onMessage.addListener(({ type, value, }) => ({
 		init({ windows, playlist, active, state, }) {
 			console.log('init', windows, playlist, active, state);
 			Object.keys(windows).forEach(windowId => {
@@ -29,7 +29,7 @@ window.addEventListener('DOMContentLoaded', () => {
 		state_change(state) {
 			console.log('state_change', state);
 			if ('playing' in state) {
-				Array.prototype.forEach.call(document.querySelectorAll('#controls .button'), button => button.classList.remove('active'));
+				Array.prototype.forEach.call(document.querySelectorAll('#play, #pause'), button => button.classList.remove('active'));
 				document.querySelector(state.playing ? '#play' : '#pause').classList.add('active');
 			}
 			if ('looping' in state) {
@@ -61,7 +61,7 @@ window.addEventListener('DOMContentLoaded', () => {
 			console.log('tabs_close', tabId);
 			Array.prototype.forEach.call(document.querySelectorAll('.tab-'+ tabId), element => element.remove());
 		},
-	})[type](...args));
+	})[type](value));
 
 	[ 'prev', 'play', 'pause', 'next', 'loop', ]
 	.forEach(command => document.querySelector('#'+ command).addEventListener('click', ({ button, }) => !button && port.emit('command_'+ command)));
@@ -120,7 +120,7 @@ function enableDragIn(element) {
 		onSort({ newIndex, oldIndex, target, from, item, }) {
 			if (newIndex === oldIndex && from === target) { return; }
 			from === target && port.emit('playlist_delete', oldIndex);
-			port.emit('playlist_add', newIndex, +item.dataset.tabId);
+			port.emit('playlist_add', { index: newIndex, tabId: +item.dataset.tabId, });
 		},
 	}));
 }
