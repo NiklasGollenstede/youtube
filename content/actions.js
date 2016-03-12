@@ -81,19 +81,19 @@ const actions = {
 		window.location = window.location.href.split('?')[0] +'?'+ queryObject.toString();
 	},
 	videoTogglePause(player) {
-		player.togglePlayPause();
+		player.togglePlayPause(true);
 	},
 	videoPlay(player) {
-		player.play();
+		player.play(true);
 	},
 	videoPause(player) {
-		player.pause();
+		player.pause(true);
 	},
 	videoStop(player) {
 		player.stop();
 	},
 	videoStart(player) {
-		player.start();
+		player.start(true);
 	},
 	videoEnd(player) {
 		player.end();
@@ -145,23 +145,23 @@ const actions = {
 			}),
 		]));
 		canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
-		player.getTime().then(value => (time.title = value.toFixed(2) +'s') && (timeSeconds = value));
+		player.getTime().then(value => (time.title = value.toFixed(2) +'s') && (timeSeconds = value)); // TODO: use video.currentTime instead (?)
 	},
 	videoPopScreenshot(player) {
 		document.querySelector('.screenshot-preview').remove();
 	},
-	videoSave(player) { // works onky with simple html-player
+	videoSave(player) { // works only with simple html-player
 		let url = document.querySelector('.html5-main-video').src;
 		if (url.startsWith('mediasource:')) {
-			url = 'https://i.ytimg.com/vi/'+ new QueryObject(window.location.href).v +'/maxresdefault.jpg';
+			url = `https://i.ytimg.com/vi/${ new QueryObject(location.search).v }/maxresdefault.jpg`;
 		}
 		clickElement(createElement('a', { href: url, download: url.match(/\/([^\/]*)$/)[1], target: '_blank'}));
 	},
 	videoDownloadCover(player) {
-		const url = `https://i.ytimg.com/vi/${ new QueryObject(location).v }/maxresdefault.jpg`;
+		const url = `https://i.ytimg.com/vi/${ new QueryObject(location.search).v }/maxresdefault.jpg`;
 		HttpRequest({ url, responseType: 'blob', })
 		.then(({ response, }) => {
-			saveAs(response, document.title.replace(/^\u25b6| - YouTube$/g, '') +'.jpg'); // \u25b6 = play symbol
+			saveAs(response, document.title.replace(/^\u25b6| *-? ?YouTube$/ig, '') +'.jpg'); // \u25b6 = play symbol
 		})
 		.catch(Logger('Faild to load maxresdefault.jpg'));
 	},

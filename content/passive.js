@@ -42,12 +42,12 @@ return function(main) {
 			let queryObject = new QueryObject(window.location.search);
 			delete queryObject.list;
 			delete queryObject.index;
-			close.href = window.location.href.split('?')[0] +'?'+ queryObject.toString();
+			close.href = window.location.pathname +'?'+ queryObject.toString();
 
 			close.addEventListener('mousedown', function(event) {
 				let queryObject = new QueryObject(event.target.search);
-				queryObject.t = Math.floor(player.getTime());
-				event.target.href = event.target.href.split('?')[0] +'?'+ queryObject.toString();
+				queryObject.t = Math.floor(document.querySelector('.html5-main-video, video').currentTime);
+				event.target.href = event.target.pathname +'?'+ queryObject.toString();
 			});
 			container.appendChild(close);
 		}

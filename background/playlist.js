@@ -1,8 +1,6 @@
 'use strict'; define('background/playlist', [
-	'es6lib',
-], function({
-	object: { Class, },
-}) {
+], function(
+) {
 
 class PlayList extends Array {
 	constructor({ values, index, loop, onSeek, } = { }) {

@@ -25,11 +25,11 @@ return function(main) {
 		port.onMessage.addListener(({ type, args, }) => ({
 			play() {
 				console.log('control play');
-				player.play();
+				player.play(true);
 			},
 			pause() {
 				console.log('control pause');
-				player.pause();
+				player.pause(true);
 			},
 		})[type](...args));
 

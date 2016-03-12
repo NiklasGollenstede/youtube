@@ -8,6 +8,8 @@
 	}
 ) {
 
+const fadeIn_factor = 0.9, fadeIn_margin = 0.05;
+
 const target = {
 	other: 'unsafe-player-proxy',
 	self: 'content-player-proxy',
@@ -18,8 +20,8 @@ const methods = [
 	[ 'getQuality',         '_getQuality',      ],
 	[ 'setSpeed',           null,               ],
 	[ 'getSpeed',           '_getSpeed',        ],
-	[ 'play',               'playing',          () => video.readyState === 4 && (!video.paused || video.play() || true), ],
-	[ 'pause',              'paused',           () => video.pause() || true, ],
+	[ 'play',               'playing',          play, ],
+	[ 'pause',              'paused',           pause, ],
 	[ 'end',                'ended',            ],
 	[ 'stop',               'unstarted',        ],
 	[ 'start',              'playing',          ],
@@ -27,7 +29,7 @@ const methods = [
 	[ 'next',               'videoCued',        ],
 	[ 'previous',           'videoCued',        ],
 	[ 'seekTo',             null,               ],
-	[ 'togglePlayPause',    null,               ],
+	[ 'togglePlayPause',    null,               (smooth) => (video.paused ? play : pause)(smooth) ],
 	[ 'volume',             null,               ],
 	[ 'mute',               null,               ],
 	[ 'unMute',             null,               ],
@@ -46,8 +48,8 @@ function sendMessage(type, args = [ ]) {
 	return window.postMessage({ target: target.other, type, args, }, '*');
 }
 
-let playerCreated, scriptLoaded, queue = [ ], emit, video;
-let self;
+let self, playerCreated, scriptLoaded, queue = [ ], emit, video;
+
 const PlayerProxy = new Class({
 	extends: { public: EventEmitter, },
 	constructor: (Super, Private, Protected) => (function(main) {
@@ -63,7 +65,7 @@ const PlayerProxy = new Class({
 methods.forEach(([ method, event, local, ]) => {
 	if (!method) { return; }
 	PlayerProxy.prototype[method] = function(...args) {
-		let val; if (local && (val = local())) { return val; }
+		let val; if (local && (val = local(...args))) { return val; }
 		if (playerCreated && scriptLoaded) {
 			sendMessage(method, args);
 		} else {
@@ -127,6 +129,40 @@ function createInstance(main) {
 		setPromise(type);
 		!(/^_/).test(type) && emit(type, arg);
 	}
+}
+
+function pause(smooth) {
+	if (!smooth) { video.pause(); return true; }
+	if (video.paused) { return true; }
+	const old = video.volume, pos = video.currentTime;
+	let i = 1;
+	let cancel = setInterval(() => {
+		video.volume = old * (i *= fadeIn_factor);
+		if (i <= fadeIn_margin) {
+			clearTimeout(cancel);
+			video.pause();
+			video.volume = old;
+			video.currentTime = pos;
+		}
+	}, 10);
+	return true;
+}
+
+function play(smooth) {
+	if (video.readyState !== 4) { return false; }
+	if (!video.paused) { return true; }
+	if (!smooth) { video.play(); return true; }
+	video.play();
+	const old = video.volume;
+	let i = fadeIn_margin;
+	let cancel = setInterval(() => {
+		video.volume = old * (i /= fadeIn_factor);
+		if (i > 1) {
+			clearTimeout(cancel);
+			video.volume = old;
+		}
+	}, 10);
+	return true;
 }
 
 return (PlayerProxy.PlayerProxy = PlayerProxy); });

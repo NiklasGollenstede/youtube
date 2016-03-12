@@ -18,7 +18,7 @@ const playlist = new (require('background/playlist'))({
 const commands = {
 	play() {
 		Tab.pauseAllBut(playlist.get());
-		playlist.is(tab => tab.play());
+		playlist.is(tab => tab.play(true));
 	},
 	pause() {
 		Tab.pauseAllBut(null);
