@@ -12,13 +12,11 @@ return function(main) {
 	// remove any tooltips youtube forgot to remove
 	/* should not be necessary */ // Array.prototype.forEach.call(document.querySelectorAll('.yt-uix-tooltip-tip'), item => item.remove());
 
-	main.on('playerCreated', ({ options, }) => {
+	main.on('playerCreated', ({ options, listId, }) => {
 
 		// add watchpage & playlist css hints
 		document.documentElement.classList.add('watchpage');
-		document.documentElement.classList[
-			(/list=[0-9A-z\-\_]{12,}/).test(window.location.search) ? 'add' : 'remove'
-		]('playlist');
+		document.documentElement.classList[listId ? 'add' : 'remove']('playlist');
 
 		// use cinema mode to make progress-bar a bit larger
 		options.player.cinemaMode && (document.querySelector(".ytp-size-button") || noop).click();

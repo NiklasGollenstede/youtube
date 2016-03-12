@@ -30,31 +30,32 @@ const Main = new Class({
 		this.control = new (require('content/control'))(this);
 		this.observer = null;
 
+		self.updateIds(this);
+
 		window.addEventListener('DOMContentLoaded', self.loaded.bind(self));
-		window.addEventListener('spfdone', self.navigated.bind(self));
+		window.addEventListener('spfdone', setTimeout.bind(null, self.navigated.bind(self)), 10); // TODO: remove timeout (?)
 	}),
 
 	private: (Private, Protected, Public) => ({
-		playerCreated(target) {
-			const self = Public(this);
-			Protected(this).emitSync('playerCreated', self);
-		},
-
 		loaded() {
 			const self = Public(this);
+			this.updateIds();
 			self.observer = new CreationObserver(document);
-			self.observer.all('#movie_player', this.playerCreated.bind(this));
+			self.observer.all('#movie_player', this.navigated.bind(this));
 			Protected(this).emitSync('observerCreated', self);
 		},
 
 		navigated() {
 			const self = Public(this);
-			const player = document.querySelector("#player");
-			if (!player || player.classList.contains("off-screen")) {
-				Protected(this).emitSync('playerRemoved', self);
-			} else {
-				Protected(this).emitSync('playerCreated', self);
-			}
+			this.updateIds();
+			console.log('navigated', location.href, self);
+			Protected(this).emitSync(self.videoId ? 'playerCreated' : 'playerRemoved', self);
+		},
+
+		updateIds(self = Public(this)) {
+			const info = location.pathname === '/watch' && new QueryObject(location.search);
+			self.videoId = info && info.v;
+			self.listId = info && info.list;
 		},
 	}),
 });

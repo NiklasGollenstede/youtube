@@ -184,3 +184,13 @@ input.toggleswitch:checked + * { display: none; }
 #window-default {
 	display: none;
 }
+
+.button,
+.tab,
+.remove {
+	transition-property: color, fill, background-color, border-color;
+	transition-duration: 0.16s;
+}
+.tab {
+	transition-duration: 0.24s;
+}

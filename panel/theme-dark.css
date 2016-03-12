@@ -6,20 +6,27 @@ html, body {
 	color: white;
 	fill: white;
 }
-#left, #right {
+.column {
 	border-color: #555;
 	background-color: #000;
 }
 .window {
 	background-color: #222;
 }
-.tab, .placeholder {
+.tab,
+.placeholder {
 	background-color: #444;
 	border-color: #444;
+}
+.tab:hover{
+	background-color: #4D4D4D;
 }
 .tab.active {
 	background-color: #000;
 	border-color: red;
+}
+.tab.active:hover {
+	background-color: #191919;
 }
 .description .duration {
 	background-color: #000;
@@ -33,12 +40,12 @@ html, body {
 	fill: #E54949;
 }
 #controls .button:hover {
-	color: #80A1F3;
-	fill: #80A1F3;
+	background-color: #555;
 }
 #controls .button:active {
 	color: #5050E9;
 	fill: #5050E9;
+	transition-duration: 0.5s;
 }
 #controls .button.active {
 	color: #5959ED;

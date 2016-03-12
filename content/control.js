@@ -18,7 +18,9 @@ return function(main) {
 		port = extendPort(chrome.runtime.connect());
 
 		[ 'playing', 'videoCued', 'paused', 'ended', ]
-		.forEach(event => player.on(event, vId => port.emitSoon('player_'+ event, vId, Date.now())));
+		.forEach(event => player.on(event, () => {
+			main.videoId && port.emitSoon('player_'+ event, main.videoId);
+		}));
 
 		port.onMessage.addListener(({ type, args, }) => ({
 			play() {
@@ -31,10 +33,11 @@ return function(main) {
 			},
 		})[type](...args));
 
-		port.emitSoon('player_created', document.URL.match(/(?:v=)([\w-_]{11})/)[1], Date.now());
+		port.emitSoon('player_created', main.videoId);
+		main.on('playerRemoved', () => port.emitSoon('player_removed'));
+		main.on('playerCreated', () => port.emitSoon('player_created', main.videoId));
 	});
 
-	main.on('playerRemoved', () => port.emit('player_removed'));
 
 	main.on('playerCreated', async(function*({ options, player, }) {
 

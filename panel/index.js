@@ -21,7 +21,7 @@ window.addEventListener('DOMContentLoaded', () => {
 				win.tabs.sort((a, b) => a.index - b.index).forEach(tab => tabList.appendChild(createTab(tab)));
 				enableDragOut(tabList);
 			});
-			playlist.forEach(tab => tabList.appendChild(createTab(tab)));
+			playlist.forEach(id => tabList.appendChild(windowList.querySelector('.tab-'+ id).cloneNode(true)));
 			enableDragIn(tabList);
 			this.playlist_seek(active);
 			this.state_change(state);
@@ -38,6 +38,7 @@ window.addEventListener('DOMContentLoaded', () => {
 		},
 		playlist_add(index, tabId) {
 			console.log('playlist_add', index, tabId);
+			tabList.insertBefore(windowList.querySelector('.tab-'+ tabId).cloneNode(true), tabList.children[index + 1]);
 		},
 		playlist_seek(active) {
 			console.log('playlist_seek', active);
@@ -46,15 +47,19 @@ window.addEventListener('DOMContentLoaded', () => {
 		},
 		playlist_delete(index) {
 			console.log('playlist_delete', index);
+			tabList.children[index].remove();
 		},
 		tabs_open(tab) {
 			console.log('tabs_open', tab);
+			throw new Error('Not implemented'); // TODO: implement
 		},
 		tabs_update(tab) {
 			console.log('tabs_update', tab);
+			Array.prototype.forEach.call(document.querySelectorAll('.tab-'+ tab.id), element => updateTab(element, tab));
 		},
 		tabs_close(tabId) {
 			console.log('tabs_close', tabId);
+			Array.prototype.forEach.call(document.querySelectorAll('.tab-'+ tabId), element => element.remove());
 		},
 	})[type](...args));
 

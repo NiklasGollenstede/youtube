@@ -1,5 +1,7 @@
 'use strict';
 
+const Tabs = require('common/chrome').tabs;
+
 // init options
 chrome.storage.local.get('defaultOptions', ({ defaultOptions, }) => /*defaultOptions ||*/ chrome.storage.local.set({ defaultOptions: require('options/defaults'), }));
 chrome.storage.sync.get('options', ({ options, }) => /*options ||*/ chrome.storage.sync.set({ options: require('options/utils').simplify(require('options/defaults')), }));
@@ -54,23 +56,24 @@ class Panel {
 	}
 
 	init() {
-		this.emit('init', {
+		Promise.all(Array.from(tabs.values()).map(tab => tab.info()))
+		.then(tabs => this.emit('init', {
 			windows: ((windows) => (tabs.forEach(tab => {
 				!windows[tab.windowId] && (windows[tab.windowId] = { id: tab.windowId, tabs: [ ], });
-				windows[tab.windowId].tabs.push(tab.info);
+				windows[tab.windowId].tabs.push(tab);
 			}), windows))({ }),
-			playlist: playlist.map(tab => tab.info),
+			playlist: playlist.map(tab => tab.id),
 			active: playlist.index,
 			state: {
 				playing: playlist.is(port => port.playing),
 				looping: playlist.loop,
 			},
-		});
+		}));
 	}
 
 	tab_focus(tabId) {
 		console.log('tab_focus', tabId);
-		chrome.tabs.update(tabId, { highlighted: true, }, () => console.log('tab focused'));
+		Tabs.update(tabId, { highlighted: true, }).then(() => console.log('tab focused'));
 	}
 	playlist_add(index, tabId) {
 		console.log('playlist_add', index, tabId);
@@ -97,29 +100,24 @@ class Tab {
 	constructor(port) {
 		console.log('tab', port);
 		this.port = port;
+		this.id = port.sender.tab.id;
+		this.windowId = port.sender.tab.windowId;
 
 		port.onMessage.addListener(({ type, args, }) => (this)[type](...args));
 		port.onDisconnect.addListener(() => this.remove());
 	}
 
-	get tab() {
-		return this.port.sender.tab;
+	tab() {
+		return Tabs.get(this.id);
 	}
 
-	get id() {
-		return this.port.sender.tab.id;
-	}
-
-	get windowId() {
-		return this.port.sender.tab.windowId;
-	}
-
-	get info() {
-		const { id, windowId, url, index, title, } = this.tab;
-		const videoId = url.match(/(?:v=)([\w-_]{11})/)[1];
-		return {
-			tabId: id, windowId, videoId, index, title: title.replace(/ *-? ?YouTube$/i, ''),
-		};
+	info() {
+		return this.tab().then(({ id, windowId, url, index, title, }) => {
+			const videoId = url.match(/(?:v=)([\w-_]{11})/)[1];
+			return {
+				tabId: id, windowId, videoId, index, title: title.replace(/ *-? ?YouTube$/i, ''),
+			};
+		});
 	}
 
 	emit(type, ...args) {
@@ -127,10 +125,10 @@ class Tab {
 	}
 
 	play() {
-		this.emit('play', Date.now());
+		this.emit('play');
 	}
 	pause() {
-		this.emit('pause', Date.now());
+		this.emit('pause');
 	}
 	static pauseAllBut(exclude) {
 		tabs.forEach(tab => tab !== exclude && tab.pause());
@@ -179,6 +177,7 @@ class Tab {
 		console.log('player_ended', vId);
 		this.playing = false;
 		commands.next();
+		panel && panel.emit('state_change', { playing: playlist.is(tab => tab.playing), });
 	}
 	player_removed() {
 		console.log('player_removed');

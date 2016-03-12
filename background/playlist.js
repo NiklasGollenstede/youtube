@@ -95,7 +95,7 @@ class PlayList extends Array {
 		let deleted = 0;
 		const filtered = this.filter((item, index) => {
 			if (item === value) {
-				this.index >= index && --this.index;
+				this.index > index && --this.index;
 				++deleted;
 			} else {
 				return true;

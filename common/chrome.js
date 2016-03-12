@@ -5,6 +5,7 @@ const cache = new WeakMap;
 return {
 	wrapApi: wrap,
 	get storage() { return wrap(chrome.storage); },
+	get tabs() { return wrap(chrome.tabs); },
 };
 
 function wrap(api) {
