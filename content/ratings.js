@@ -63,7 +63,7 @@ function attatchRatingBar(element)  {
 	if (element.matches('img, .videowall-still-image')) {
 		element = element.parentNode;
 		if (element.matches('.yt-thumb-clip')) {
-			element = element.parentNode;
+			element = element.parentNode.parentNode;
 		}
 	}
 	element.classList.add('yt-uix-tooltip');

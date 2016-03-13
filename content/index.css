@@ -13,11 +13,11 @@
 }
 
 /* ratings */
-.video-time
+.video-time /* make room for ratings bar */
 {
-    margin-bottom: 4px;
+    margin-bottom: 2px;
 }
-.yt-uix-simple-thumb-related>img
+.yt-uix-simple-thumb-related>img /* without this, the ratings bar will be hidden far below the sidebar images */
 {
     margin-bottom: -27px !important;
 }
@@ -25,28 +25,20 @@
 {
     height: 167px;
 }
-a.videowall-still.ytp-suggestion-set
+.inserted-ratings
 {
-    box-sizing: content-box !important;
-    border: 1px solid black !important;
-}
-span.video-thumb.yt-thumb>.yt-thumb-default
-{
-    display: block !important;
-}
-.inserted-ratings {
     position: relative;
 }
-.videowall-endscreen .inserted-ratings {
+.videowall-endscreen .inserted-ratings
+{
     top: -2px;
 }
-.inserted-ratings>* {
-    height: 3px;
-}
-.inserted-ratings .video-extras-sparkbar-likes {
+.inserted-ratings .video-extras-sparkbar-likes
+{
     background-color: #0b2;
 }
-.inserted-ratings .video-extras-sparkbar-dislikes {
+.inserted-ratings .video-extras-sparkbar-dislikes
+{
     background-color: #C00;
 }
 
@@ -286,6 +278,14 @@ span.video-thumb.yt-thumb>.yt-thumb-default
     margin-right: auto !important;
     position: relative;
     bottom: 40px !important;
+}
+.watchpage .ytp-storyboard /* shift seek preview strip to left */
+{
+    transform: translateX(calc(50% - 455px));
+}
+.ytp-storyboard-framepreview /* bad looking and misplaced preview while seeking */
+{
+    display: none;
 }
 
 /* add/share button */

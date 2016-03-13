@@ -57,6 +57,7 @@ function init({ options, }) {
 		) { // scroll to top
 			options.player.seamlessFullscreen.showOnScrollTop && document.documentElement.classList.add('fullscreen');
 		} else {
+			window.scrollY === 0 && document.documentElement.classList.contains('fullscreen') && event.preventDefault();
 			options.player.seamlessFullscreen.hideOnScrollDown && document.documentElement.classList.remove('fullscreen');
 		}
 	});
@@ -76,13 +77,10 @@ function scaleVideo(event, factor = 1.1) {
 	const rect = document.querySelector('#player-api').getBoundingClientRect();
 	current.x = ((event.clientX - rect.left) / rect.width) * (1 - divisor) + current.x * divisor;
 	current.y = ((event.clientY - rect.top) / rect.height) * (1 - divisor) + current.y * divisor;
-
 	current.factor = event.deltaY < 0 ? (current.factor * factor) : (current.factor / factor);
 
-	style.setProperty('width', (current.factor * 100).toFixed(6) +'%', 'important');
-	style.setProperty('height', (current.factor * 100).toFixed(6) +'%', 'important');
-	style.marginLeft = (current.x * (1 - current.factor) * 100).toFixed(6) +'%';
-	style.marginTop = (current.y * (1 - current.factor) * 100).toFixed(6) +'%';
+	style.transform = style.transform.replace(/(scale\(.*?\)|none)?/, () => `scale(${ current.factor.toFixed(6) })`);
+	style.transformOrigin = `${ (current.x * 100).toFixed(6) }% ${ (current.y * 100).toFixed(6) }%`;
 }
 
 });

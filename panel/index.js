@@ -25,6 +25,7 @@ window.addEventListener('DOMContentLoaded', () => {
 			enableDragIn(tabList);
 			this.playlist_seek(active);
 			this.state_change(state);
+			tabList.children[active] && tabList.children[active].scrollIntoViewIfNeeded();
 		},
 		state_change(state) {
 			console.log('state_change', state);
@@ -51,7 +52,9 @@ window.addEventListener('DOMContentLoaded', () => {
 		},
 		tabs_open(tab) {
 			console.log('tabs_open', tab);
-			throw new Error('Not implemented'); // TODO: implement
+			const tabList = windowList.querySelector(`#window-${ tab.windowId } .tabs`);
+			const next = Array.prototype.find.call(tabList.children, ({ dataset: { index, }, }) => index > tab.index);
+			tabList.insertBefore(createTab(tab), next);
 		},
 		tabs_update(tab) {
 			console.log('tabs_update', tab);
@@ -141,8 +144,9 @@ function createTab(tab) {
 	return updateTab(defaultTab.cloneNode(true), tab);
 }
 
-function updateTab(element, { tabId, videoId, title, duration, }) {
+function updateTab(element, { tabId, videoId, index, title, duration, }) {
 	element.dataset.tabId = tabId;
+	element.dataset.index = index;
 	element.className = element.className.replace(/tab-[^ ]*/, 'tab-'+ tabId).replace(/video-[^ ]*/, 'video-'+ videoId);
 	element.querySelector('.title').textContent = title;
 	element.querySelector('.duration').textContent = duration || '?:??';

@@ -145,7 +145,7 @@ class Tab {
 		console.log('add', playlist);
 		tabs.set(this.id, this);
 		playlist.add(this);
-		panel && panel.emit('tabs_create', this.info);
+		panel && this.info().then(info => panel.emit('tabs_open', info));
 	}
 
 	remove() {
