@@ -14,52 +14,28 @@
 	}
 ) {
 
-let options, observer;
+// rotating thumb preview
+function onMouseover({ target: image, }) {
+	if (image.nodeName !== 'IMG') { return; }
+	const videoId = getVideoIdFromImageSrc(image);
+	if (!videoId) { return; }
+	let original = image.src;
+	let index = 0;
 
-function enableThumbPreview() {
-	document.addEventListener('mouseover', event => {
-		let element = event.target;
-		if (!element.videoInfo || element.videoInfo.originalSrc) { return; }
-		element.videoInfo.originalSrc = element.nodeName == 'IMG' ? element.src : element.style.backgroundImage;
+	(function loop() {
+		if (!original) { return; }
+		index = index % 3 + 1;
+		image.src = `https://i.ytimg.com/vi/${ videoId }/${ index }.jpg`;
+		setTimeout(loop, 1000);
+	})();
 
-		let id = element.videoInfo.id = element.videoInfo.id || getVideoIdFromImageSrc(element);
-		let i = 0, url = '';
-		(function displayNextThumbRecursion() {
-			if (!element.videoInfo.originalSrc) { return; }
-			if (++i > 3) { i = 1; }
-			url = `https://i.ytimg.com/vi/${ id }/${ i }.jpg`;
-			if (element.nodeName == 'IMG') {
-				element.src = url;
-			} else {
-				element.style.backgroundImage = url;
-			}
-			setTimeout(displayNextThumbRecursion, 1000);
-		})();
-
-		once(element, 'mouseout', event => {
-			if (element.nodeName == 'IMG') {
-				element.src = element.videoInfo.originalSrc;
-			} else {
-				element.style.backgroundImage = element.videoInfo.originalSrc;
-			}
-			element.videoInfo.originalSrc = undefined;
-		});
+	once(image, 'mouseout', event => {
+		image.src = original;
+		original = null;
 	});
 }
 
-function attatchRatingBar(element)  {
-	let likes, dislikes, total;
-	if (
-		!(
-			element.videoInfo
-			&& element.videoInfo.public
-			&& (total = (likes = element.videoInfo.public.likes) + (dislikes = element.videoInfo.public.dislikes) || 1)
-		)
-		|| element.querySelector('.video-extras-sparkbarks')
-	) { console.error('elements videoInfo misformed', element.videoInfo); return; }
-	const views = element.videoInfo.public.views || 0;
-	const published = element.videoInfo.public.published || 0;
-
+function attatchRatingBar(element, { public: { likes, dislikes, views, published, }, })  {
 	if (element.matches('img, .videowall-still-image')) {
 		element = element.parentNode;
 		if (element.matches('.yt-thumb-clip')) {
@@ -67,8 +43,7 @@ function attatchRatingBar(element)  {
 		}
 	}
 	element.classList.add('yt-uix-tooltip');
-	element.insertAdjacentHTML('beforeend', Templates.ratingsBar(likes, dislikes, total));
-
+	element.insertAdjacentHTML('beforeend', Templates.ratingsBar(likes, dislikes));
 	element.title = Templates.videoInfoTitle(likes, dislikes, views, published);
 }
 
@@ -93,48 +68,50 @@ const loadRatingFromServer = id => HttpRequest('https://www.youtube.com/watch?v=
 }, { })));
 
 
-const loadVideoInfo = id => storage.local.get('videoInfo-'+ id).then(value => value['vieoInfo-'+ id] || { id: id, });
+const loadVideoInfo = id => storage.local.get('videoInfo-'+ id).then(value => value['videoInfo-'+ id] || { id: id, });
 const storeVideoInfo = videoInfo => storage.local.set({ ['videoInfo-'+ videoInfo.id]: videoInfo, });
 
 const loadAndDisplayRating = (element, id) => spawn(function*() {
-	if (!options.displayRatings || element.dataset.rating) { return; }
 	element.dataset.rating = true;
-	element.videoInfo = element.videoInfo || { id, };
-
-	let fromCache = true;
 
 	const videoInfo = (yield loadVideoInfo(id));
-
 	if (!videoInfo.public) {
 		videoInfo.public = (yield loadRatingFromServer(id));
 		storeVideoInfo(videoInfo);
 	}
-	copyProperties(element.videoInfo, videoInfo);
-	attatchRatingBar(element);
+	attatchRatingBar(element, videoInfo);
 
 }).catch(error => console.error(error) === delete element.dataset.rating);
 
-function displayRatingOnImageLoad() {
-	observer.all('img:not([data-rating="true"]), .videowall-still-image:not([data-rating="true"])', (element, id) =>
-		!(element.videoInfo && element.dataset.rating)
-		&& (id = getVideoIdFromImageSrc(element))
-		&& !element.querySelector(".video-extras-sparkbarks")
-		&& loadAndDisplayRating(element, id)
-	);
-
-	new MutationObserver(mutations => mutations.forEach((mutation, id) =>
-		!(mutation.target.videoInfo && mutation.target.dataset.rating)
-		&& (id = getVideoIdFromImageSrc(mutation.target))
-		&& loadAndDisplayRating(mutation.target, id)
-	)).observe(document, { subtree: true, attributes: true, attributeFilter: [ 'src', 'style', ], });
-}
-
 return function(main) {
-	main.once('observerCreated', main => {
-		options = main.options; observer = main.observer;
-		(options.displayRatings || options.animateThumbs) && displayRatingOnImageLoad();
-		options.animateThumbs && enableThumbPreview();
-	});
+
+	if (main.options.displayRatings) {
+		main.once('observerCreated', ({ observer, }) => {
+			observer.all('img:not([data-rating="true"]), .videowall-still-image:not([data-rating="true"])', (element) => {
+				const videoId = getVideoIdFromImageSrc(element);
+				videoId && loadAndDisplayRating(element, videoId);
+			});
+
+			const obs = new MutationObserver(mutations => mutations.forEach(({ target: element, }) => {
+				obs.takeRecords();
+				if (element.dataset.rating || !element.matches || !element.matches('img, .videowall-still-image')) { return; }
+				const videoId = getVideoIdFromImageSrc(element);
+				videoId && loadAndDisplayRating(element, videoId);
+			}));
+			obs.observe(document, { subtree: true, attributes: true, attributeFilter: [ 'src', 'style', ], });
+
+			main.once(Symbol.for('destroyed'), () => {
+				obs.disconnect();
+				Array.prototype.forEach.call(document.querySelectorAll('[data-rating="true"]'), element => delete element.dataset.rating);
+				Array.prototype.forEach.call(document.querySelectorAll('.inserted-ratings'), element => element.remove());
+			});
+		});
+	}
+
+	if (main.options.animateThumbs) {
+		document.addEventListener('mouseover', onMouseover);
+		main.once(Symbol.for('destroyed'), () => window.removeEventListener('mouseover', onMouseover));
+	}
 };
 
 });

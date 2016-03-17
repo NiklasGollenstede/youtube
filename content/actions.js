@@ -174,12 +174,15 @@ Object.freeze(actions);
 
 
 
-return function({ options, player, }) {
+return function({ options, player, port, }) {
 
 	updateKeyMap(options);
 
+	window.addEventListener('keypress', onKeyPress, true);
+	port.once(Symbol.for('destroyed'), () => window.removeEventListener('keypress', onKeyPress, true));
+
 	// apply hotkeys
-	window.addEventListener('keypress', event => {
+	function onKeyPress(event) {
 		if (event.target && (event.target.tagName == 'INPUT' || event.target.tagName == 'TEXTAREA')) { return; }
 		const key = (event.ctrlKey ? 'Ctrl' : '') + (event.altKey ? 'Alt' : '') + (event.shiftKey ? 'Shift' : '') + event.code;
 		const name = options.keyMap[key];
@@ -187,8 +190,7 @@ return function({ options, player, }) {
 		if (!name || !actions[name]) { return; }
 		event.stopPropagation(); event.preventDefault();
 		actions[name](player);
-	}, true);
-
+	}
 };
 
 });

@@ -135,13 +135,13 @@ return Object.freeze({
 			)
 		),
 
-		ratingsBar: (likes, dislikes, total) => (stringToHtml`
+		ratingsBar: (likes, dislikes, total = ((likes + dislikes) || 1)) => (stringToHtml`
 <div class="video-extras-sparkbarks inserted-ratings">
 	<div class="video-extras-sparkbar-likes" style="
-		width: ${ ((100*likes)/total) }%
+		width: ${ ((100 * likes) / total) }%
 	"></div>
 	<div class="video-extras-sparkbar-dislikes" style="
-		width: ${ ((100*dislikes)/total) }%
+		width: ${ ((100 * dislikes) / total) }%
 	"></div>
 </div>`
 		),
@@ -150,7 +150,7 @@ return Object.freeze({
 			numberToRoundString(views, 2) +': '+
 			likes.toLocaleString() +' \uD83D\uDC4D, '+
 			dislikes.toLocaleString() +' \uD83D\uDC4E '+
-			'['+ timeToRoundString(Date.now() - published, 1.7) +' \uD83D\uDD52]'
+			(published ? '['+ timeToRoundString(Date.now() - published, 1.7) +' \uD83D\uDD52]' : '')
 		),
 
 	});

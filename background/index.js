@@ -105,13 +105,28 @@ class Tab {
 		this.port = port;
 		this.id = port.sender.tab.id;
 		this.windowId = port.sender.tab.windowId;
+		this.videoId = null;
 
-		port.onMessage.addListener(({ type, value, }) => (this)[type](value));
-		port.onDisconnect.addListener(() => this.remove());
+		port.onMessage.addListener(({ type, value, }) => !this.destructed && (this)[type](value));
+		port.onDisconnect.addListener(() => this.destructor());
 
 		this.pingCount = 0;
 		this.pingInterval = 25;
 		this.pingId = -1;
+		this.destructed = false;
+	}
+
+	destructor() {
+		if (this.destructed) { return; }
+		try { console.log('Tab.destructor', this.id); } catch (e) { }
+		try { tabs.delete(this.id); } catch (e) { }
+		try { playlist.delete(this); } catch (e) { }
+		try { panel && panel.emit('tabs_close', this.id); } catch (e) { }
+		try { this.playing && commands.play(); } catch (e) { }
+		try { this.port.disconnect(); } catch (e) { }
+		try { clearInterval(this.pingId); } catch (e) { }
+		this.playing = false;
+		this.destructed = true;
 	}
 
 	tab() {
@@ -119,16 +134,21 @@ class Tab {
 	}
 
 	info() {
-		return this.tab().then(({ id, windowId, url, index, title, }) => {
-			const videoId = url.match(/(?:v=)([\w-_]{11})/)[1];
+		return this.tab().then(({ id, windowId, index, }) => {
+			const videoId = this.videoId, tabId = this.id;
 			return {
-				tabId: id, windowId, videoId, index, title: title.replace(/ *-? ?YouTube$/i, ''),
+				tabId, windowId, videoId, index,
 			};
 		});
 	}
 
 	emit(type, value) {
-		this.port.postMessage({ type, value, });
+		try {
+			this.port.postMessage({ type, value, });
+		} catch (error) { if ((/disconnected/).test(error.message)) {
+			console.error('Error in emit, removing Tab instance', error);
+			this.destructor();
+		} else { throw error; } }
 	}
 
 	play() {
@@ -141,14 +161,18 @@ class Tab {
 		tabs.forEach(tab => tab !== exclude && tab.pause());
 	}
 
-	insert() {
+	insert(vId) {
+		this.videoId = vId;
+		if (tabs.has(this.id)) { return false; }
 		console.log('add', playlist);
 		tabs.set(this.id, this);
 		playlist.add(this);
 		panel && this.info().then(info => panel.emit('tabs_open', info));
+		return true;
 	}
 
 	remove() {
+		this.videoId = null;
 		console.log('delete', playlist);
 		tabs.delete(this.id);
 		playlist.delete(this);
@@ -163,11 +187,11 @@ class Tab {
 
 	player_created(vId) {
 		console.log('player_created', vId);
-		if (!tabs.has(this.id)) { this.insert(); }
+		this.insert(vId);
 	}
 	player_playing(vId) {
 		console.log('player_playing', vId);
-		if (!tabs.has(this.id)) { this.insert(); }
+		this.insert(vId);
 		this.playing = true;
 		Tab.pauseAllBut(this);
 		playlist.seek(this);
@@ -175,12 +199,12 @@ class Tab {
 	}
 	player_videoCued(vId) {
 		console.log('player_videoCued', vId);
-		if (!tabs.has(this.id)) { this.insert(); }
-		else { panel && panel.emit('tabs_update', this.info); }
+		!this.insert(vId)
+		&& panel && panel.emit('tabs_update', this.info);
 	}
 	player_paused(vId) {
 		console.log('player_paused', vId);
-		if (!tabs.has(this.id)) { this.insert(); }
+		this.insert(vId);
 		this.playing = false;
 		panel && panel.emit('state_change', { playing: playlist.is(tab => tab.playing), });
 	}
@@ -200,9 +224,10 @@ class Tab {
 		this.pingId = setInterval(this.ping.bind(this), this.pingInterval);
 	}
 	ping_stop() {
-		this.pingCount--;
-		if (this.pingCount !== 0) { return; }
+		if (this.pingCount > 0) { this.pingCount--; }
+		if (this.pingCount > 0) { return; }
 		clearInterval(this.pingId);
+		this.pingId = -1;
 	}
 }
 
@@ -213,3 +238,17 @@ chrome.commands.onCommand.addListener(command => ({
 }[command]()));
 
 chrome.runtime.onConnect.addListener(port => port.sender.tab ? new Tab(port) : new Panel(port));
+
+Tabs.query({ }).then(tabs => {
+	console.log(tabs);
+	const { js, css, } = chrome.runtime.getManifest().content_scripts[0];
+	Promise.all(tabs.map(({ id, }) =>
+		Tabs.executeScript(id, { file: './content/cleanup.js', })
+		.then(() => {
+			css.forEach(file => chrome.tabs.insertCSS(id, { file: './'+ file, }));
+			js.forEach(file => chrome.tabs.executeScript(id, { file: './'+ file, }));
+			return true;
+		})
+		.catch(error => console.log('skipped tab', error)) // not allowed to execute, i.e. not YouTube
+	)).then(success => console.log('attached to', success.filter(x=>x).length, 'tabs'));
+});

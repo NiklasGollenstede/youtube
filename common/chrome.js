@@ -25,7 +25,7 @@ function promisifyAll(api) {
 			desc.value = function() {
 				return new Promise((resolve, reject) => {
 					method.call(api, ...arguments, function() {
-						const error = chrome.extension.lastError;
+						const error = chrome.extension.lastError || chrome.runtime.lastError;
 						return error ? reject(error) : resolve(...arguments);
 					});
 				});

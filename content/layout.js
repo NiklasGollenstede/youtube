@@ -9,9 +9,6 @@ return function(main) {
 
 	main.once('playerCreated', init);
 
-	// remove any tooltips youtube forgot to remove
-	/* should not be necessary */ // Array.prototype.forEach.call(document.querySelectorAll('.yt-uix-tooltip-tip'), item => item.remove());
-
 	main.on('playerCreated', ({ options, listId, }) => {
 
 		// add watchpage & playlist css hints
@@ -19,10 +16,10 @@ return function(main) {
 		document.documentElement.classList[listId ? 'add' : 'remove']('playlist');
 
 		// use cinema mode to make progress-bar a bit larger
-		options.player.cinemaMode && (document.querySelector(".ytp-size-button") || noop).click();
+		options.player.cinemaMode && (document.querySelector('.ytp-size-button') || noop).click();
 
 		// always display volume
-		options.player.alwaysVolume && (document.querySelector(".ytp-volume-panel") || noop).classList.add("ytp-volume-control-hover");
+		options.player.alwaysVolume && (document.querySelector('.ytp-volume-panel') || noop).classList.add('ytp-volume-control-hover');
 
 		// disable annotations (and all other checkboxes in the player settings)
 		if (!options.player.annotations) {
@@ -32,19 +29,24 @@ return function(main) {
 		}
 	});
 
-	main.on('playerRemoved', () => {
-		// remove watchpage & playlist css hints
+	main.on('playerRemoved', remove);
+	main.once(Symbol.for('destroyed'), remove);
+	function remove() {
 		document.documentElement.classList.remove('watchpage');
 		document.documentElement.classList.remove('playlist');
-	});
+	}
+
 };
 
-function init({ options, }) {
+function init({ options, port, }) {
 
 	// apply 'fullscreen' class to <html> as appropriate
 	options.player.seamlessFullscreen.atStart && document.documentElement.classList.add('fullscreen');
 
-	window.addEventListener('wheel', event => {
+	window.addEventListener('wheel', onWheel);
+	port.once(Symbol.for('destroyed'), () => window.removeEventListener('wheel', onWheel));
+
+	function onWheel(event) {
 		if (event.ctrlKey && event.deltaY &&  event.target.matches('#player-api, #player-api *')) {
 			event.preventDefault();
 			scaleVideo(event, options.player.zoomFactor / 100);
@@ -52,20 +54,27 @@ function init({ options, }) {
 			&& options.player.seamlessFullscreen
 			&& event.deltaY <= 0 && window.pageYOffset === 0
 			&& event.target && event.target.matches
-			// && document.documentElement.classList.contains('watchpage')
 			&& !event.target.matches('#playlist-autoscroll-list *')
 		) { // scroll to top
 			options.player.seamlessFullscreen.showOnScrollTop && document.documentElement.classList.add('fullscreen');
-		} else {
-			window.scrollY === 0 && document.documentElement.classList.contains('fullscreen') && event.preventDefault();
-			options.player.seamlessFullscreen.hideOnScrollDown && document.documentElement.classList.remove('fullscreen');
+		} else if (
+			options.player.seamlessFullscreen.hideOnScrollDown
+			&& document.documentElement.classList.contains('fullscreen')
+		) {
+			document.documentElement.classList.remove('fullscreen');
+			window.scrollY === 0 && event.preventDefault();
 		}
-	});
+	}
 
-	options.player.seamlessFullscreen && options.player.seamlessFullscreen.showOnMouseRight && window.addEventListener('mousemove', event => {
+	if (options.player.seamlessFullscreen && options.player.seamlessFullscreen.showOnMouseRight) {
+		window.addEventListener('mousemove', onMouseMove);
+		port.once(Symbol.for('destroyed'), () => window.removeEventListener('mousemove', onMouseMove));
+	}
+
+	function onMouseMove(event) {
 		options.player.seamlessFullscreen && event.pageX < (options.player.seamlessFullscreen.showOnMouseRight || 0)
 		&& document.documentElement.classList.add('fullscreen');
-	});
+	}
 }
 
 function scaleVideo(event, factor = 1.1) {

@@ -10,12 +10,15 @@
 return function(main) {
 
 	// auto load more
-	main.options.autoExpandLists && window.addEventListener('scroll', function(event) { // ugly, but working
+	main.options.autoExpandLists && window.addEventListener('scroll', onScroll);
+	main.once(Symbol.for('destroyed'), () => window.removeEventListener('scroll', onScroll));
+
+	function onScroll(event) { // ugly, but working
 		if ((window.scrollY + window.innerHeight) >= document.getElementById('content').offsetHeight) { // close to the bottom
 			const button = document.querySelector('#watch-more-related-button, .load-more-button, .yt-uix-load-more, .browse-items-load-more-button');
 			button && button.style.display !== 'none' && button.click();
 		}
-	});
+	}
 
 	// open search results in new tab, may require user to accept popups from youtube.com
 	main.once('observerCreated', ({ observer, }) => observer.all('#search-btn', searchButton =>

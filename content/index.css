@@ -114,6 +114,14 @@
 {
     min-width: 0 !important;
 }
+/* menu */
+#appbar-guide-menu
+{
+    position: absolute;
+    top: 40px;
+    right: 115px !important;
+    max-width: 230px;
+}
 /* searchbar */
 .watchpage #masthead-positioner
 {

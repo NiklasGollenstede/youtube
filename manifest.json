@@ -12,7 +12,6 @@
 
 	"permissions": [
 		"storage",
-		"tabs",
 		"https://www.youtube.com/*"
 	],
 	"optional_permissions": [ ],
@@ -36,6 +35,7 @@
 				"common/chrome.js",
 				"common/event-emitter.js",
 				"content/utils.js",
+				"content/port.js",
 				"content/templates.js",
 				"content/player-proxy.js",
 				"content/ratings.js",
@@ -69,34 +69,28 @@
 		"default_popup": "panel/index.html"
 	},
 	"options_ui": {
-		"chrome_style": true,
-		"page": "options/index.html"
+		"page": "options/index.html",
+		"chrome_style": true
 	},
 
 	"commands": {
+		"MediaPlayPause": {
+			"suggested_key": {
+				"default": "MediaPlayPause"
+			},
+			"description": "PlayPause the current video"
+		},
 		"MediaNextTrack": {
 			"suggested_key": {
 				"default": "MediaNextTrack"
 			},
-			"description": "MediaNextTrack"
+			"description": "Play next video in playlist"
 		},
 		"MediaPrevTrack": {
 			"suggested_key": {
 				"default": "MediaPrevTrack"
 			},
-			"description": "MediaPrevTrack"
-		},
-		"MediaPlayPause": {
-			"suggested_key": {
-				"default": "MediaPlayPause"
-			},
-			"description": "MediaPlayPause"
-		},
-		"MediaStop": {
-			"suggested_key": {
-				"default": "MediaStop"
-			},
-			"description": "MediaStop"
+			"description": "Play previous video in playlist"
 		}
 	},
 

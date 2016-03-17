@@ -15,13 +15,20 @@ window.addEventListener('DOMContentLoaded', () => {
 	port.onMessage.addListener(({ type, value, }) => ({
 		init({ windows, playlist, active, state, }) {
 			console.log('init', windows, playlist, active, state);
+			const videos = [ ];
 			Object.keys(windows).forEach(windowId => {
 				const win = windows[windowId];
 				const tabList = windowList.appendChild(createWindow(win)).querySelector('.tabs');
 				win.tabs.sort((a, b) => a.index - b.index).forEach(tab => tabList.appendChild(createTab(tab)));
 				enableDragOut(tabList);
+				win.tabs.forEach(({ videoId, }) => videos.push(videoId));
 			});
-			playlist.forEach(id => tabList.appendChild(windowList.querySelector('.tab-'+ id).cloneNode(true)));
+			playlist.forEach(tabId => tabList.appendChild(windowList.querySelector('.tab-'+ tabId).cloneNode(true)));
+			chrome.storage.local.get(videos.map(videoId => 'videoInfo-'+ videoId), reply => videos.forEach(videoId => {
+				const videoInfo = reply['videoInfo-'+ videoId];
+				if (!videoInfo) { return console.error('Missing videoInfo for', videoId, 'in', reply); }
+				this.tabs_update({ videoId, title: videoInfo.public.title, });
+			}));
 			enableDragIn(tabList);
 			this.playlist_seek(active);
 			this.state_change(state);
@@ -58,7 +65,11 @@ window.addEventListener('DOMContentLoaded', () => {
 		},
 		tabs_update(tab) {
 			console.log('tabs_update', tab);
-			Array.prototype.forEach.call(document.querySelectorAll('.tab-'+ tab.id), element => updateTab(element, tab));
+			if ('tabId' in tab) {
+				Array.prototype.forEach.call(document.querySelectorAll('.tab-'+ tab.tabId), element => updateTab(element, tab));
+			} else if ('videoId' in tab) {
+				Array.prototype.forEach.call(document.querySelectorAll('.video-'+ tab.videoId), element => updateTab(element, tab));
+			}
 		},
 		tabs_close(tabId) {
 			console.log('tabs_close', tabId);
@@ -144,12 +155,24 @@ function createTab(tab) {
 	return updateTab(defaultTab.cloneNode(true), tab);
 }
 
-function updateTab(element, { tabId, videoId, index, title, duration, }) {
-	element.dataset.tabId = tabId;
-	element.dataset.index = index;
-	element.className = element.className.replace(/tab-[^ ]*/, 'tab-'+ tabId).replace(/video-[^ ]*/, 'video-'+ videoId);
-	element.querySelector('.title').textContent = title;
-	element.querySelector('.duration').textContent = duration || '?:??';
-	element.querySelector('.icon').style.backgroundImage = `url(\'https://i.ytimg.com/vi/${ videoId }/default.jpg\')`;
+function updateTab(element, tab) {
+	if ('index' in tab) {
+		element.dataset.index = tab.index;
+	}
+	if ('tabId' in tab) {
+		element.dataset.tabId = tab.tabId;
+		element.className = element.className.replace(/tab-[^ ]*/, 'tab-'+ tab.tabId);
+	}
+	if ('videoId' in tab) {
+		element.className = element.className.replace(/video-[^ ]*/, 'video-'+ tab.videoId);
+		element.querySelector('.icon').style.backgroundImage = `url(\'https://i.ytimg.com/vi/${ tab.videoId }/default.jpg\')`;
+	}
+	if ('title' in tab) {
+		element.querySelector('.title').textContent = tab.title;
+	}
+	if ('duration' in tab) {
+		const duration = typeof tab.duration === 'string' ? tab.duration : (Math.floor(tab.duration / 60) +':'+ tab.duration % 60);
+		element.querySelector('.duration').textContent = duration;
+	}
 	return element;
 }
