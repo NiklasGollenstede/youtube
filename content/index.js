@@ -3,9 +3,10 @@
 chrome.storage.sync.get('options', x => new Main(x.options.content));
 
 const {
-	dom: { CreationObserver, DOMContentLoaded, },
+	dom: { CreationObserver, DOMContentLoaded, createElement, },
 	format: { QueryObject, },
 	object: { Class, setConst, },
+	namespace: { IterableNameSpace, }
 } = require('es6lib');
 
 const EventEmitter = require('common/event-emitter');
@@ -20,6 +21,14 @@ const Main = new Class({
 		console.log('content attatched', options);
 
 		this.options = options;
+		self.styles = null;
+		self.nodesCapture = new IterableNameSpace;
+		self.nodesBubble = new IterableNameSpace;
+
+		this.addStyle = this.addStyle.bind(this);
+		this.addStyleLink = this.addStyleLink.bind(this);
+		this.addDomListener = this.addDomListener.bind(this);
+		this.removeDomListener = this.removeDomListener.bind(this);
 
 		this.port = new (require('content/port'))(this);
 		this.player = new (require('content/player-proxy'))(this);
@@ -35,13 +44,45 @@ const Main = new Class({
 		this.port.on(Symbol.for('destroyed'), self.destroy.bind(self));
 		DOMContentLoaded.then(self.loaded.bind(self));
 		self.navigated = self.navigated.bind(self);
-		window.addEventListener('spfdone', self.navigated);
+		this.addDomListener(window, 'spfdone', self.navigated);
+	}),
+
+	public: (Private, Protected, Public) => ({
+		addStyle(css) {
+			const self = Private(this);
+			return self.styles.appendChild(createElement('style', {
+				textContent: css,
+			}));
+		},
+		addStyleLink(href) {
+			const self = Private(this);
+			return self.styles.appendChild(createElement('link', {
+				rel: 'stylesheet', href,
+			}));
+		},
+		addDomListener(node, type, listener, capture) {
+			const self = Private(this);
+			const _node = (capture ? self.nodesCapture : self.nodesBubble)(node);
+			const _type = _node[type] || (_node[type] = new Set);
+			_type.add(listener);
+			node.addEventListener(type, listener, !!capture);
+			return listener;
+		},
+		removeDomListener(node, type, listener, capture) {
+			const self = Private(this);
+			const _node = (capture ? self.nodesCapture : self.nodesBubble)(node);
+			const _type = _node[type];
+			_type && _type.delete(listener);
+			node.removeEventListener(type, listener, !!capture);
+			return node;
+		},
 	}),
 
 	private: (Private, Protected, Public) => ({
 		loaded() {
 			const self = Public(this);
 			this.updateIds();
+			this.styles = document.head.appendChild(createElement('span'));
 			self.observer = new CreationObserver(document);
 			self.observer.all('#movie_player', this.navigated.bind(this));
 			Protected(this).emitSync('observerCreated', self);
@@ -66,7 +107,19 @@ const Main = new Class({
 			Protected(this).destroy();
 			// TODO: destroy self.observer
 			Object.keys(self).forEach(key => delete self[key]);
-			window.removeEventListener('spfdone', self.navigated);
+
+			this.styles.remove();
+
+			// remove all listeners
+			[ this.nodesCapture, this.nodesBubble ]
+			.forEach(nodes => nodes.forEach((_node, node) => {
+				Object.keys(_node).forEach(type => {
+					const _type = _node[type];
+					_type.forEach(listener => node.removeEventListener(type, listener, nodes === self.nodesCapture));
+					_type.clear();
+				});
+				nodes.destroy();
+			}));
 		},
 	}),
 });

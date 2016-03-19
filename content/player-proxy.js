@@ -5,6 +5,7 @@
 	EventEmitter,
 	{
 		object: { Class, },
+		dom: { createElement, },
 	}
 ) {
 
@@ -104,9 +105,9 @@ const PlayerProxy = new Class({
 
 			const loadScript = () => {
 				// inject unsafe script
-				const script = document.createElement('script');
-				script.src = chrome.extension.getURL('content/unsafe.js');
-				document.body.appendChild(script).remove();
+				document.body.appendChild(createElement('script', {
+					src: chrome.extension.getURL('content/unsafe.js'),
+				})).remove();
 
 				const done = (message) => {
 					// wait for script
@@ -174,6 +175,7 @@ const PlayerProxy = new Class({
 			return true;
 
 			function iterate() {
+				i *= fadeIn_factor;
 				if (i <= fadeIn_margin) {
 					video.pause();
 					video.volume = old;
@@ -181,7 +183,7 @@ const PlayerProxy = new Class({
 					main.port.off('ping', iterate);
 					main.port.emit('ping_stop');
 				} else {
-					video.volume = old * (i *= fadeIn_factor);
+					video.volume = old * i;
 				}
 			}
 		},
@@ -200,12 +202,13 @@ const PlayerProxy = new Class({
 			return true;
 
 			function iterate() {
+				i /= fadeIn_factor;
 				if (i > 1) {
 					video.volume = old;
 					main.port.off('ping', iterate);
 					main.port.emit('ping_stop');
 				} else {
-					video.volume = old * (i /= fadeIn_factor);
+					video.volume = old * i;
 				}
 			}
 		},

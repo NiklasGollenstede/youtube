@@ -1,8 +1,10 @@
 'use strict'; define('content/layout', [
-], function(
-) {
+	'es6lib',
+], function({
+	dom: { createElement, },
+}) {
 
-let loaded = false;
+let style = null, zoom = null, scale = 1, scaleX = 0.5, scaleY = 0.5;
 
 return function(main) {
 	const noop = document.createElement('p');
@@ -38,25 +40,33 @@ return function(main) {
 
 };
 
-function init({ options, port, }) {
+function init({ options, port, addDomListener, addStyle, addStyleLink, }) {
+
+	// load style
+	style = addStyleLink(chrome.extension.getURL('content/layout.css'));
+	zoom = addStyle('');
 
 	// apply 'fullscreen' class to <html> as appropriate
-	options.player.seamlessFullscreen.atStart && document.documentElement.classList.add('fullscreen');
+	options.player.seamlessFullscreen && options.player.seamlessFullscreen.atStart && document.documentElement.classList.add('fullscreen');
 
-	window.addEventListener('wheel', onWheel);
-	port.once(Symbol.for('destroyed'), () => window.removeEventListener('wheel', onWheel));
-
+	addDomListener(window, 'wheel', onWheel);
 	function onWheel(event) {
-		if (event.ctrlKey && event.deltaY &&  event.target.matches('#player-api, #player-api *')) {
+		if (
+			event.ctrlKey && event.deltaY
+			&& event.target.matches('#player-api, #player-api *')
+		) {
 			event.preventDefault();
 			scaleVideo(event, options.player.zoomFactor / 100);
-		} else if (!event.ctrlKey && !event.altKey && !event.shiftKey
-			&& options.player.seamlessFullscreen
-			&& event.deltaY <= 0 && window.pageYOffset === 0
+		} else if (
+			!options.player.seamlessFullscreen
+			|| event.ctrlKey || event.altKey || event.shiftKey
+		) { } else if (
+			event.deltaY <= 0 && window.pageYOffset === 0
 			&& event.target && event.target.matches
 			&& !event.target.matches('#playlist-autoscroll-list *')
 		) { // scroll to top
-			options.player.seamlessFullscreen.showOnScrollTop && document.documentElement.classList.add('fullscreen');
+			options.player.seamlessFullscreen.showOnScrollTop
+			&& document.documentElement.classList.add('fullscreen');
 		} else if (
 			options.player.seamlessFullscreen.hideOnScrollDown
 			&& document.documentElement.classList.contains('fullscreen')
@@ -67,29 +77,27 @@ function init({ options, port, }) {
 	}
 
 	if (options.player.seamlessFullscreen && options.player.seamlessFullscreen.showOnMouseRight) {
-		window.addEventListener('mousemove', onMouseMove);
-		port.once(Symbol.for('destroyed'), () => window.removeEventListener('mousemove', onMouseMove));
-	}
-
-	function onMouseMove(event) {
-		options.player.seamlessFullscreen && event.pageX < (options.player.seamlessFullscreen.showOnMouseRight || 0)
-		&& document.documentElement.classList.add('fullscreen');
+		addDomListener(window, 'mousemove', event => {
+			options.player.seamlessFullscreen && event.pageX < (options.player.seamlessFullscreen.showOnMouseRight || 0)
+			&& document.documentElement.classList.add('fullscreen');
+		});
 	}
 }
 
 function scaleVideo(event, factor = 1.1) {
-	const video = document.querySelector('#player-api .html5-video-container video');
-	const current = video.currentZoom || (video.currentZoom = { factor: 1, x: 0.5, y: 0.5, });
-	const style = video.style;
 	const divisor = 1 / factor;
-
 	const rect = document.querySelector('#player-api').getBoundingClientRect();
-	current.x = ((event.clientX - rect.left) / rect.width) * (1 - divisor) + current.x * divisor;
-	current.y = ((event.clientY - rect.top) / rect.height) * (1 - divisor) + current.y * divisor;
-	current.factor = event.deltaY < 0 ? (current.factor * factor) : (current.factor / factor);
+	scaleX = ((event.clientX - rect.left) / rect.width) * (1 - divisor) + scaleX * divisor;
+	scaleY = ((event.clientY - rect.top) / rect.height) * (1 - divisor) + scaleY * divisor;
+	scale = event.deltaY < 0 ? (scale * factor) : (scale / factor);
 
-	style.transform = style.transform.replace(/(scale\(.*?\)|none)?/, () => `scale(${ current.factor.toFixed(6) })`);
-	style.transformOrigin = `${ (current.x * 100).toFixed(6) }% ${ (current.y * 100).toFixed(6) }%`;
+	zoom.textContent = `
+		#player-api .html5-video-container video
+		{
+			transform: scale(${ scale.toFixed(6) }) !important;
+			transform-origin: ${ (scaleX * 100).toFixed(6) }% ${ (scaleY * 100).toFixed(6) }% !important;
+		}
+	`;
 }
 
 });

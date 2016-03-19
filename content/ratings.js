@@ -5,14 +5,42 @@
 	{ getVideoIdFromImageSrc, },
 	Templates,
 	{
-		concurrent: { async, spawn, sleep, timeout, },
-		dom: { clickElement, createElement, CreationObserver, notify, once, saveAs, },
-		format: { hhMmSsToSeconds, numberToRoundString, timeToRoundString, QueryObject, },
-		functional: { noop, Logger, log, },
-		object: { copyProperties, },
+		concurrent: { async, spawn, },
+		dom: { once, },
 		network: { HttpRequest, },
 	}
 ) {
+
+const CSS = ({ colorLikes, and, so, no, }) => ` /* TODO: add variables */
+.video-time /* make room for ratings bar */
+{
+    margin-bottom: 2px;
+}
+.yt-uix-simple-thumb-related>img /* without this, the ratings bar will be hidden far below the sidebar images */
+{
+    margin-bottom: -27px !important;
+}
+.channels-browse-content-grid .channels-content-item
+{
+    height: 167px;
+}
+.inserted-ratings
+{
+    position: relative;
+}
+.videowall-endscreen .inserted-ratings
+{
+    top: -2px;
+}
+.inserted-ratings .video-extras-sparkbar-likes
+{
+    background-color: #0b2;
+}
+.inserted-ratings .video-extras-sparkbar-dislikes
+{
+    background-color: #C00;
+}
+`;
 
 // rotating thumb preview
 function onMouseover({ target: image, }) {
@@ -47,18 +75,21 @@ function attatchRatingBar(element, { public: { likes, dislikes, views, published
 	element.title = Templates.videoInfoTitle(likes, dislikes, views, published);
 }
 
+const decoder = document.createElement('textarea');
+const decodeHtml = html => (decoder.innerHTML = html) && decoder.value;
+
 const loadRatingFromServer = id => HttpRequest('https://www.youtube.com/watch?v='+ id).then(({ response, }) => ([
 	{ name: 'id', regex: (/(?:)/),
 		mapper: s => id, },
-	{ name: 'likes', regex: (/class=".*?like-button-renderer-like-button.*?".*?><span .*?>([\d\.\,]+)<\//),
+	{ name: 'likes', regex: (/<[^\/>]*?class="[^"]*?like-button-renderer-like-button[^"]*?"[^\/>]*?><span [^\/>]*?>([\d\.\,]+)<\//),
 		mapper: s => parseInt(s.replace(/[\,\.]*/g, ''), 10), },
-	{ name: 'dislikes', regex: (/class=".*?like-button-renderer-dislike-button.*?".*?><span .*?>([\d\.\,]+)<\//),
+	{ name: 'dislikes', regex: (/<[^\/>]*?class="[^"]*?like-button-renderer-dislike-button[^"]*?"[^\/>]*?><span [^\/>]*?>([\d\.\,]+)<\//),
 		mapper: s => parseInt(s.replace(/[\,\.]*/g, ''), 10), },
-	{ name: 'views', regex: (/class=".*?watch-view-count.*?".*?>([\d\.\,]+)<\//),
+	{ name: 'views', regex: (/<[^\/>]*?class="[^"]*?watch-view-count[^"]*?"[^\/>]*?>([\d\.\,]+)<\//),
 		mapper: s => parseInt(s.replace(/[\,\.]*/g, ''), 10), },
-	{ name: 'title', regex: (/<meta[^>]*?name="title"[^>]*?content="(.*?)">/),
-		mapper: s => s, },
-	{ name: 'published', regex: (/<meta[^>]*?itemprop="datePublished"[^>]*?content="(.*?)">/),
+	{ name: 'title', regex: (/<meta[^\/>]*?name="title"[^\/>]*?content="([^"]*?)">/),
+		mapper: s => decodeHtml(s), },
+	{ name: 'published', regex: (/<meta[^\/>]*?itemprop="datePublished"[^\/>]*?content="([^"]*?)">/),
 		mapper: s => +new Date(s), },
 	{ name: 'timestamp', regex: (/(?:)/),
 		mapper: s => Date.now(), },
@@ -77,6 +108,7 @@ const loadAndDisplayRating = (element, id) => spawn(function*() {
 	const videoInfo = (yield loadVideoInfo(id));
 	if (!videoInfo.public) {
 		videoInfo.public = (yield loadRatingFromServer(id));
+		// TODO: implement cache timeout
 		storeVideoInfo(videoInfo);
 	}
 	attatchRatingBar(element, videoInfo);
@@ -86,7 +118,7 @@ const loadAndDisplayRating = (element, id) => spawn(function*() {
 return function(main) {
 
 	if (main.options.displayRatings) {
-		main.once('observerCreated', ({ observer, }) => {
+		main.once('observerCreated', ({ observer, addStyle, }) => {
 			observer.all('img:not([data-rating="true"]), .videowall-still-image:not([data-rating="true"])', (element) => {
 				const videoId = getVideoIdFromImageSrc(element);
 				videoId && loadAndDisplayRating(element, videoId);
@@ -100,10 +132,13 @@ return function(main) {
 			}));
 			obs.observe(document, { subtree: true, attributes: true, attributeFilter: [ 'src', 'style', ], });
 
+			const style = addStyle(CSS({ }));
+
 			main.once(Symbol.for('destroyed'), () => {
 				obs.disconnect();
 				Array.prototype.forEach.call(document.querySelectorAll('[data-rating="true"]'), element => delete element.dataset.rating);
 				Array.prototype.forEach.call(document.querySelectorAll('.inserted-ratings'), element => element.remove());
+				style.remove();
 			});
 		});
 	}

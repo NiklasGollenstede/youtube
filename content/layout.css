@@ -12,36 +12,6 @@
     display: none !important;
 }
 
-/* ratings */
-.video-time /* make room for ratings bar */
-{
-    margin-bottom: 2px;
-}
-.yt-uix-simple-thumb-related>img /* without this, the ratings bar will be hidden far below the sidebar images */
-{
-    margin-bottom: -27px !important;
-}
-.channels-browse-content-grid .channels-content-item
-{
-    height: 167px;
-}
-.inserted-ratings
-{
-    position: relative;
-}
-.videowall-endscreen .inserted-ratings
-{
-    top: -2px;
-}
-.inserted-ratings .video-extras-sparkbar-likes
-{
-    background-color: #0b2;
-}
-.inserted-ratings .video-extras-sparkbar-dislikes
-{
-    background-color: #C00;
-}
-
 .draggborder
 {
     background: linear-gradient(grey 0%,
@@ -51,7 +21,6 @@
     ) !important;
     margin: 0 5px !important;
 }
-
 
 /*
 * non-fullscreen watchpage
@@ -181,16 +150,6 @@
 .watchpage .watch-view-count
 {
     position: initial !important;
-}
-.watchpage #watch-like *
-{
-    color: #0B2;
-    font-weight: bold !important;
-}
-.watchpage #watch-dislike *
-{
-    color: #C00;
-    font-weight: bold !important;
 }
 /* share */
 .watchpage #watch-action-panels
