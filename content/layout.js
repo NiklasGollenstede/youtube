@@ -1,16 +1,24 @@
 'use strict'; define('content/layout', [
-	'es6lib',
-], function({
-	dom: { createElement, },
-}) {
+	'content/utils', 'es6lib',
+], function(
+	{ getVideoIdFromImageSrc, },
+	{
+		dom: { createElement, once, },
+	}
+) {
 
 let style = null, zoom = null, scale = 1, scaleX = 0.5, scaleY = 0.5;
+const noop = document.createElement('p');
 
 return function(main) {
-	const noop = document.createElement('p');
+	// load style
+	style = main.addStyleLink(chrome.extension.getURL('content/layout.css'));
+	zoom = main.addStyle('');
 
+	// apply 'fullscreen' class to <html> as appropriate
 	main.once('playerCreated', init);
 
+	// apply 'watchpage' and 'playlist' class to <html> as appropriate
 	main.on('playerCreated', ({ options, listId, }) => {
 
 		// add watchpage & playlist css hints
@@ -38,15 +46,30 @@ return function(main) {
 		document.documentElement.classList.remove('playlist');
 	}
 
+	// rotating thumb preview
+	main.options.animateThumbs
+	&& main.addDomListener(window, 'mouseover', ({ target: image, }) => {
+		if (image.nodeName !== 'IMG') { return; }
+		const videoId = getVideoIdFromImageSrc(image);
+		if (!videoId) { return; }
+		let original = image.src;
+		let index = 0;
+
+		(function loop() {
+			if (!original) { return; }
+			index = index % 3 + 1;
+			image.src = `https://i.ytimg.com/vi/${ videoId }/${ index }.jpg`;
+			setTimeout(loop, 1000);
+		})();
+
+		once(image, 'mouseout', event => {
+			image.src = original;
+			original = null;
+		});
+	});
 };
 
-function init({ options, port, addDomListener, addStyle, addStyleLink, }) {
-
-	// load style
-	style = addStyleLink(chrome.extension.getURL('content/layout.css'));
-	zoom = addStyle('');
-
-	// apply 'fullscreen' class to <html> as appropriate
+function init({ options, port, addDomListener, }) {
 	options.player.seamlessFullscreen && options.player.seamlessFullscreen.atStart && document.documentElement.classList.add('fullscreen');
 
 	addDomListener(window, 'wheel', onWheel);
@@ -76,12 +99,11 @@ function init({ options, port, addDomListener, addStyle, addStyleLink, }) {
 		}
 	}
 
-	if (options.player.seamlessFullscreen && options.player.seamlessFullscreen.showOnMouseRight) {
-		addDomListener(window, 'mousemove', event => {
-			options.player.seamlessFullscreen && event.pageX < (options.player.seamlessFullscreen.showOnMouseRight || 0)
-			&& document.documentElement.classList.add('fullscreen');
-		});
-	}
+	options.player.seamlessFullscreen && options.player.seamlessFullscreen.showOnMouseRight
+	&& addDomListener(window, 'mousemove', event => {
+		options.player.seamlessFullscreen && event.pageX < (options.player.seamlessFullscreen.showOnMouseRight || 0)
+		&& document.documentElement.classList.add('fullscreen');
+	});
 }
 
 function scaleVideo(event, factor = 1.1) {
@@ -91,13 +113,13 @@ function scaleVideo(event, factor = 1.1) {
 	scaleY = ((event.clientY - rect.top) / rect.height) * (1 - divisor) + scaleY * divisor;
 	scale = event.deltaY < 0 ? (scale * factor) : (scale / factor);
 
-	zoom.textContent = `
+	zoom.textContent = (`
 		#player-api .html5-video-container video
 		{
 			transform: scale(${ scale.toFixed(6) }) !important;
 			transform-origin: ${ (scaleX * 100).toFixed(6) }% ${ (scaleY * 100).toFixed(6) }% !important;
 		}
-	`;
+	`);
 }
 
 });

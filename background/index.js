@@ -5,6 +5,9 @@ const Tabs = require('common/chrome').tabs;
 // init options
 chrome.storage.sync.get('options', ({ options, }) => /*options ||*/ chrome.storage.sync.set({ options: require('options/utils').simplify(require('options/defaults')), }));
 
+let db; require('db/meta-data').then(_db => (db = _db), error => console.error(error));
+window.logP = p => p.then(v => console.log('value', v), e => console.error('error', e));
+
 const tabs = new Map;
 let panel = null;
 const playlist = new (require('background/playlist'))({
@@ -41,22 +44,30 @@ const commands = {
 class Panel {
 	constructor(port) {
 		console.log('panel', port);
-		this.port = port;
-		panel = this;
+		if (panel) {
+			panel.ports.add(port);
+		} else {
+			panel = this;
+			panel.ports = new Set([ port, ]);
+		}
 
-		port.onMessage.addListener(({ type, value, }) => (this)[type](value));
-		port.onDisconnect.addListener(() => panel = null);
-
-		this.init();
+		port.onMessage.addListener(({ type, value, }) => (panel)[type](port, value));
+		port.onDisconnect.addListener(() => {
+			panel.ports.delete(port);
+			!panel.ports.size && (panel = null);
+		});
+		this.init(port);
+		return panel;
 	}
 
-	emit(type, value) {
-		this.port.postMessage({ type, value, });
+	emit(type, value, { exclude, } = { }) {
+		const message = { type, value, };
+		this.ports.forEach(port => port !== exclude && port.postMessage(message));
 	}
 
-	init() {
+	init(port) {
 		Promise.all(Array.from(tabs.values()).map(tab => tab.info()))
-		.then(tabs => this.emit('init', {
+		.then(tabs => port.postMessage({ type: 'init', value: {
 			windows: ((windows) => (tabs.forEach(tab => {
 				!windows[tab.windowId] && (windows[tab.windowId] = { id: tab.windowId, tabs: [ ], });
 				windows[tab.windowId].tabs.push(tab);
@@ -67,18 +78,23 @@ class Panel {
 				playing: playlist.is(port => port.playing),
 				looping: playlist.loop,
 			},
-		}));
+		}, }));
 	}
 
-	tab_focus(tabId) {
+	tab_focus(sender, tabId) {
 		console.log('tab_focus', tabId);
 		Tabs.update(tabId, { highlighted: true, }).then(() => console.log('tab focused'));
 	}
-	playlist_add({ index, tabId, }) {
+	tab_close(sender, tabId) {
+		console.log('tab_close', tabId);
+		Tabs.remove(tabId).then(() => console.log('tab closed'));
+	}
+	playlist_add(sender, { index, tabId, }) {
 		console.log('playlist_add', index, tabId);
 		playlist.insertAt(index, tabs.get(tabId));
+		this.emit('playlist_add', { index, tabId, }, { exclude: sender, });
 	}
-	playlist_seek(index) {
+	playlist_seek(sender, index) {
 		console.log('playlist_seek', index);
 		if (playlist.index === index) {
 			this.tab_focus(playlist.get().id);
@@ -87,10 +103,11 @@ class Panel {
 		}
 		commands.play();
 	}
-	playlist_delete(index) {
+	playlist_delete(sender, index) {
 		console.log('playlist_delete', index);
 		const old = playlist.deleteAt(index);
 		old && old.playing && commands.play();
+		this.emit('playlist_delete', index, { exclude: sender, });
 	}
 	command_play() { commands.play(); }
 	command_pause() { commands.pause(); }
@@ -107,7 +124,18 @@ class Tab {
 		this.windowId = port.sender.tab.windowId;
 		this.videoId = null;
 
-		port.onMessage.addListener(({ type, value, }) => !this.destructed && (this)[type](value));
+		port.onMessage.addListener(message => {
+			if (this.destructed) { return; }
+			const { name, id } = message;
+			if (id) {
+				(db)[name](...message.args).then(
+					value => this.postMessage({ name, value, id: id, }),
+					error => this.postMessage({ name, error, id: id, })
+				);
+			} else {
+				(this)[name](message.value);
+			}
+		});
 		port.onDisconnect.addListener(() => this.destructor());
 
 		this.pingCount = 0;
@@ -118,15 +146,16 @@ class Tab {
 
 	destructor() {
 		if (this.destructed) { return; }
-		try { console.log('Tab.destructor', this.id); } catch (e) { }
-		try { tabs.delete(this.id); } catch (e) { }
-		try { playlist.delete(this); } catch (e) { }
-		try { panel && panel.emit('tabs_close', this.id); } catch (e) { }
-		try { this.playing && commands.play(); } catch (e) { }
-		try { this.port.disconnect(); } catch (e) { }
-		try { clearInterval(this.pingId); } catch (e) { }
+		try { console.log('Tab.destructor', this.id); } catch (e) { error(e); }
+		try { tabs.delete(this.id); } catch (e) { error(e); }
+		try { playlist.delete(this); } catch (e) { error(e); }
+		try { panel && panel.emit('tab_close', this.id); } catch (e) { error(e); }
+		try { this.playing && commands.play(); } catch (e) { error(e); }
+		try { this.port.disconnect(); } catch (e) { error(e); }
+		try { clearInterval(this.pingId); } catch (e) { error(e); }
 		this.playing = false;
 		this.destructed = true;
+		function error(e) { console.error(e); }
 	}
 
 	tab() {
@@ -134,17 +163,25 @@ class Tab {
 	}
 
 	info() {
-		return this.tab().then(({ id, windowId, index, }) => {
-			const videoId = this.videoId, tabId = this.id;
-			return {
-				tabId, windowId, videoId, index,
-			};
-		});
+		const videoId = this.videoId, tabId = this.id;
+		return Promise.all([
+			this.tab(),
+			db.get(videoId, [ 'meta', ]),
+		]).then(([
+			{ id, windowId, index, },
+			{ meta: { title, duration, }, },
+		]) => ({
+			tabId, windowId, videoId, index, title, duration,
+		}));
 	}
 
-	emit(type, value) {
+	emit(name, value) {
+		this.postMessage({ name, value, });
+	}
+
+	postMessage(message) {
 		try {
-			this.port.postMessage({ type, value, });
+			this.port.postMessage(message);
 		} catch (error) { if ((/disconnected/).test(error.message)) {
 			console.error('Error in emit, removing Tab instance', error);
 			this.destructor();
@@ -167,7 +204,7 @@ class Tab {
 		console.log('add', playlist);
 		tabs.set(this.id, this);
 		playlist.add(this);
-		panel && this.info().then(info => panel.emit('tabs_open', info));
+		panel && this.info().then(info => panel.emit('tab_open', info));
 		return true;
 	}
 
@@ -176,7 +213,7 @@ class Tab {
 		console.log('delete', playlist);
 		tabs.delete(this.id);
 		playlist.delete(this);
-		panel && panel.emit('tabs_close', this.id);
+		panel && panel.emit('tab_close', this.id);
 		this.playing && commands.play();
 		this.playing = false;
 	}
@@ -200,7 +237,7 @@ class Tab {
 	player_videoCued(vId) {
 		console.log('player_videoCued', vId);
 		!this.insert(vId)
-		&& panel && panel.emit('tabs_update', this.info);
+		&& panel && this.info().then(info => panel.emit('tab_update', info));
 	}
 	player_paused(vId) {
 		console.log('player_paused', vId);
@@ -237,7 +274,17 @@ chrome.commands.onCommand.addListener(command => ({
 	MediaPrevTrack: commands.prev,
 }[command]()));
 
-chrome.runtime.onConnect.addListener(port => port.sender.tab ? new Tab(port) : new Panel(port));
+chrome.runtime.onConnect.addListener(port => { switch (port.name) {
+	case 'panel': {
+		new Panel(port);
+	} break;
+	case 'tab': {
+		new Tab(port);
+	} break;
+	default: {
+		console.error('connection with hunknown name:', port.name);
+	}
+} });
 
 Tabs.query({ }).then(tabs => {
 	console.log(tabs);

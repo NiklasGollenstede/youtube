@@ -155,9 +155,6 @@ body {
     line-height: 17px;
     border-radius: 8px;
 }
-#windows .tab .remove {
-	display: none;
-}
 
 .window {
 	margin: 5px 2px;

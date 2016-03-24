@@ -3,6 +3,7 @@
 ], function(
 	{
 		concurrent: { async, },
+		format: { hhMmSsToSeconds, },
 		object: { Class, },
 	},
 	EventEmitter
@@ -45,7 +46,7 @@ return function(main) {
 			|| options.player.pauseOnStart.playOnNotHidden && !document.hidden
 			|| options.player.pauseOnStart.playOnFocus && document.hasFocus()
 		) {
-			// keep playing
+			(yield player.play());
 		} else if (options.player.pauseOnStart.preventBuffering) {
 			(yield player.stop());
 		} else {
@@ -53,6 +54,10 @@ return function(main) {
 		}
 
 		unMute();
+
+		const duration = hhMmSsToSeconds(document.querySelector('.ytp-time-duration').textContent);
+		console.log('duration', duration);
+		(yield port.request('assign', main.videoId, 'meta', { duration, }));
 
 	}, error => console.error(error)));
 

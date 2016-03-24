@@ -13,29 +13,54 @@ const Port = new Class({
 	constructor: (Super, Private, Protected) => (function() {
 		Super.call(this);
 		const self = Private(this);
-		const _this = Protected(this);
-		self.port = chrome.runtime.connect();
-		self.port.onMessage.addListener(({ type, value, }) => _this.emitSync(type, value));
+		const _this = self._this = Protected(this);
+		self.requests = new Map;
+		self.nextId = 1;
+		self.port = chrome.runtime.connect({ name: 'tab', });
+		self.port.onMessage.addListener(self.onMessage.bind(self));
 		self.port.onDisconnect.addListener(() => _this.destroy());
 	}),
 
 	public: (Private, Protected, Public) => ({
-		emit(type, value) {
+		emit(name, value) {
 			const self = Private(this);
+			self.postMessage({ name, value, });
+		},
+		request(name, ...args) {
+			const self = Private(this);
+			return new Promise((resolve, reject) => {
+				self.requests.set(self.nextId, [ resolve, reject, ]);
+				self.postMessage({ name, id: self.nextId++, args, });
+			});
+		},
+		emitSoon(name, value) {
+			clearTimeout(this.timeoutHandler);
+			this.timeoutHandler = setTimeout(() => this.emit(name, value), 300);
+		},
+	}),
+
+	private: (Private, Protected, Public) => ({
+		postMessage(message) {
 			try {
-				self.port.postMessage({ type, value, });
+				this.port.postMessage(message);
 			} catch (error) { if ((/disconnected/).test(error.message)) {
 				console.error('Error in emit, destroying Port instance', error);
 				Protected(this).destroy();
 			} else { throw error; } }
 		},
-		emitSoon(type, value) {
-			clearTimeout(this.timeoutHandler);
-			this.timeoutHandler = setTimeout(() => this.emit(type, value), 300);
+		onMessage(message) {
+			const { id, } = message;
+			if (id) {
+				if (message.hasOwnProperty('value')) {
+					this.requests.get(id)[0](message.value);
+				} else {
+					this.requests.get(id)[1](message.error);
+				}
+				this.requests.delete(id);
+			} else {
+				this._this.emitSync(message.name, message.value);
+			}
 		},
-	}),
-
-	private: (Private, Protected, Public) => ({
 	}),
 });
 

@@ -1,12 +1,13 @@
 'use strict'; (() => {
 
-chrome.storage.sync.get('options', x => new Main(x.options.content));
+require('common/chrome').storage.sync.get('options')
+.then(({ options, }) => new Main(options.content));
 
 const {
 	dom: { CreationObserver, DOMContentLoaded, createElement, },
 	format: { QueryObject, },
 	object: { Class, setConst, },
-	namespace: { IterableNameSpace, }
+	namespace: { IterableNameSpace, },
 } = require('es6lib');
 
 const EventEmitter = require('common/event-emitter');
@@ -21,7 +22,7 @@ const Main = new Class({
 		console.log('content attatched', options);
 
 		this.options = options;
-		self.styles = null;
+		self.styles = createElement('span');
 		self.nodesCapture = new IterableNameSpace;
 		self.nodesBubble = new IterableNameSpace;
 
@@ -82,7 +83,7 @@ const Main = new Class({
 		loaded() {
 			const self = Public(this);
 			this.updateIds();
-			this.styles = document.head.appendChild(createElement('span'));
+			document.head.appendChild(this.styles);
 			self.observer = new CreationObserver(document);
 			self.observer.all('#movie_player', this.navigated.bind(this));
 			Protected(this).emitSync('observerCreated', self);
