@@ -88,6 +88,7 @@ return function(main) {
 			const loaded = (yield loadRatingFromServer(id));
 			attatchRatingBar(element, loaded);
 			return port.request('set', typeof stored.meta !== 'object' ? loaded : {
+				id,
 				rating: loaded.rating,
 				meta: Object.assign(stored.meta, loaded.meta),
 			});

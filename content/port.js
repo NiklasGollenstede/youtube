@@ -33,10 +33,6 @@ const Port = new Class({
 				self.postMessage({ name, id: self.nextId++, args, });
 			});
 		},
-		emitSoon(name, value) {
-			clearTimeout(this.timeoutHandler);
-			this.timeoutHandler = setTimeout(() => this.emit(name, value), 300);
-		},
 	}),
 
 	private: (Private, Protected, Public) => ({

@@ -16,10 +16,13 @@ return function(main) {
 	zoom = main.addStyle('');
 
 	// apply 'fullscreen' class to <html> as appropriate
-	main.once('playerCreated', init);
+	initFullscreen(main);
 
 	// apply 'watchpage' and 'playlist' class to <html> as appropriate
-	main.on('playerCreated', ({ options, listId, }) => {
+	main.on('navigated', ({ options, videoId, listId, }) => {
+		if (!videoId) {
+			return document.documentElement.classList.remove('watchpage');
+		}
 
 		// add watchpage & playlist css hints
 		document.documentElement.classList.add('watchpage');
@@ -39,12 +42,10 @@ return function(main) {
 		}
 	});
 
-	main.on('playerRemoved', remove);
-	main.once(Symbol.for('destroyed'), remove);
-	function remove() {
+	main.once(Symbol.for('destroyed'), () => {
 		document.documentElement.classList.remove('watchpage');
 		document.documentElement.classList.remove('playlist');
-	}
+	});
 
 	// rotating thumb preview
 	main.options.animateThumbs
@@ -69,11 +70,12 @@ return function(main) {
 	});
 };
 
-function init({ options, port, addDomListener, }) {
+function initFullscreen({ options, port, addDomListener, }) {
 	options.player.seamlessFullscreen && options.player.seamlessFullscreen.atStart && document.documentElement.classList.add('fullscreen');
 
 	addDomListener(window, 'wheel', onWheel);
 	function onWheel(event) {
+		if (!document.documentElement.classList.contains('watchpage')) { return; }
 		if (
 			event.ctrlKey && event.deltaY
 			&& event.target.matches('#player-api, #player-api *')
@@ -102,6 +104,7 @@ function init({ options, port, addDomListener, }) {
 	options.player.seamlessFullscreen && options.player.seamlessFullscreen.showOnMouseRight
 	&& addDomListener(window, 'mousemove', event => {
 		options.player.seamlessFullscreen && event.pageX < (options.player.seamlessFullscreen.showOnMouseRight || 0)
+		&& document.documentElement.classList.contains('watchpage')
 		&& document.documentElement.classList.add('fullscreen');
 	});
 }

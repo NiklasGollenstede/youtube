@@ -55,6 +55,10 @@ function onMessage(message) {
 }
 
 function initPlayer() {
+	try {
+		player && player.removeEventListener('onStateChange', 'unsafeOnPlaybackStateChange');
+		player && player.removeEventListener('onPlaybackQualityChange', 'unsafeOnPlaybackQualityChange');
+	} catch (error) { console.error(error); }
 	player = document.querySelector('.html5-video-player');
 	console.log('player', player);
 	player.addEventListener('onStateChange', 'unsafeOnPlaybackStateChange');
@@ -81,7 +85,7 @@ window.unsafeOnPlaybackStateChange = function(state) {
 		5: 'videoCued',
 	}[state];
 
-	sendMessage(type, player.getVideoData().video_id);
+	sendMessage(type);
 };
 
 window.unsafeOnPlaybackQualityChange = function(quality) {

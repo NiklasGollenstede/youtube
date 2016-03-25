@@ -1,5 +1,7 @@
 'use strict'; /* global Sortable */
 
+const { secondsToHhMmSs, } = window['es6lib/format'];
+
 let defaultWindow, defaultTab, port, windowList, tabList;
 
 window.addEventListener('DOMContentLoaded', () => {
@@ -39,7 +41,7 @@ window.addEventListener('DOMContentLoaded', () => {
 		},
 		playlist_add({ index, tabId, }) {
 			console.log('playlist_add', index, tabId);
-			tabList.insertBefore(windowList.querySelector('.tab-'+ tabId).cloneNode(true), tabList.children[index + 1]);
+			tabList.insertBefore(windowList.querySelector('.tab-'+ tabId).cloneNode(true), tabList.children[index]);
 		},
 		playlist_seek(active) {
 			console.log('playlist_seek', active);
@@ -52,6 +54,7 @@ window.addEventListener('DOMContentLoaded', () => {
 		},
 		tab_open(tab) {
 			console.log('tab_open', tab);
+			if (document.querySelector('.tab-'+ tab.tabId)) { return this.tab_update(tab); }
 			const tabList = windowList.querySelector(`#window-${ tab.windowId } .tabs`);
 			const next = Array.prototype.find.call(tabList.children, ({ dataset: { index, }, }) => index > tab.index);
 			tabList.insertBefore(createTab(tab), next);
@@ -169,8 +172,18 @@ function updateTab(element, tab) {
 		element.querySelector('.title').textContent = tab.title;
 	}
 	if ('duration' in tab) {
-		const duration = typeof tab.duration === 'string' ? tab.duration : (Math.floor(tab.duration / 60) +':'+ Math.floor(tab.duration % 60));
+		const duration = typeof tab.duration === 'string' ? tab.duration : secondsToHhMmSs(tab.duration);
 		element.querySelector('.duration').textContent = duration;
 	}
 	return element;
 }
+
+// activete next element if active one is removed
+const __remove__ = HTMLElement.prototype.remove;
+HTMLElement.prototype.remove = function() {
+	console.log('remove');
+	if (!this.nextSibling || !this.classList.contains('active') || !this.classList.contains('tab')) { return __remove__.call(this); }
+	console.log('removing active');
+	this.nextSibling.classList.add('active');
+	return __remove__.call(this);
+};

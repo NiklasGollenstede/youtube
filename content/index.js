@@ -31,6 +31,10 @@ const Main = new Class({
 		this.addDomListener = this.addDomListener.bind(this);
 		this.removeDomListener = this.removeDomListener.bind(this);
 
+		this.videoId = null;
+		this.listId = null;
+		this.navigationTarget = { url: null, };
+
 		this.port = new (require('content/port'))(this);
 		this.player = new (require('content/player-proxy'))(this);
 		this.layout = new (require('content/layout'))(this);
@@ -40,12 +44,12 @@ const Main = new Class({
 		this.control = new (require('content/control'))(this);
 		this.observer = null;
 
-		self.updateIds(this);
+		self.update(this);
 
 		this.port.on(Symbol.for('destroyed'), self.destroy.bind(self));
 		DOMContentLoaded.then(self.loaded.bind(self));
-		self.navigated = self.navigated.bind(self);
-		this.addDomListener(window, 'spfdone', self.navigated);
+		this.addDomListener(window, 'spfrequest', self.navigate.bind(self));
+		this.addDomListener(window, 'spfdone', self.navigated.bind(self));
 	}),
 
 	public: (Private, Protected, Public) => ({
@@ -81,22 +85,32 @@ const Main = new Class({
 
 	private: (Private, Protected, Public) => ({
 		loaded() {
-			const self = Public(this);
-			this.updateIds();
+			const self = Public(this), _this = Protected(this);
+			this.update(self);
 			document.head.appendChild(this.styles);
 			self.observer = new CreationObserver(document);
-			self.observer.all('#movie_player', this.navigated.bind(this));
-			Protected(this).emitSync('observerCreated', self);
+			_this.emitSync('observerCreated', self);
+			_this.emitSync('navigated', self);
+			self.observer.all('#movie_player', () => _this.emitSync('playerCreated', self));
+		},
+
+		navigate({ detail: { url, }, }) {
+			const self = Public(this), _this = Protected(this);
+			this.update(self);
+			console.log('navigate', url);
+			self.navigationTarget = { url, };
+			_this.emitSync('navigate', self);
+			self.navigationTarget = { url: null, };
 		},
 
 		navigated() {
-			const self = Public(this);
-			this.updateIds();
+			const self = Public(this), _this = Protected(this);
+			this.update(self);
 			console.log('navigated', location.href, self);
-			Protected(this).emitSync(self.videoId ? 'playerCreated' : 'playerRemoved', self);
+			_this.emitSync('navigated', self);
 		},
 
-		updateIds(self = Public(this)) {
+		update(self = Public(this)) {
 			const info = location.pathname === '/watch' && new QueryObject(location.search);
 			self.videoId = info && info.v;
 			self.listId = info && info.list;

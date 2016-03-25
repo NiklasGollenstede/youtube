@@ -19,7 +19,6 @@ const playlist = new (require('background/playlist'))({
 
 const commands = {
 	play() {
-		Tab.pauseAllBut(playlist.get());
 		playlist.is(tab => tab.play(true));
 	},
 	pause() {
@@ -91,13 +90,13 @@ class Panel {
 	}
 	playlist_add(sender, { index, tabId, }) {
 		console.log('playlist_add', index, tabId);
-		playlist.insertAt(index, tabs.get(tabId));
 		this.emit('playlist_add', { index, tabId, }, { exclude: sender, });
+		playlist.insertAt(index, tabs.get(tabId));
 	}
 	playlist_seek(sender, index) {
 		console.log('playlist_seek', index);
 		if (playlist.index === index) {
-			this.tab_focus(playlist.get().id);
+			this.tab_focus(sender, playlist.get().id);
 		} else {
 			playlist.index = index;
 		}
@@ -105,9 +104,10 @@ class Panel {
 	}
 	playlist_delete(sender, index) {
 		console.log('playlist_delete', index);
-		const old = playlist.deleteAt(index);
-		old && old.playing && commands.play();
 		this.emit('playlist_delete', index, { exclude: sender, });
+		const old = playlist.deleteAt(index);
+		old.pause();
+		old && old.playing && commands.play();
 	}
 	command_play() { commands.play(); }
 	command_pause() { commands.pause(); }
@@ -198,50 +198,34 @@ class Tab {
 		tabs.forEach(tab => tab !== exclude && tab.pause());
 	}
 
-	insert(vId) {
-		this.videoId = vId;
-		if (tabs.has(this.id)) { return false; }
-		console.log('add', playlist);
-		tabs.set(this.id, this);
-		playlist.add(this);
-		panel && this.info().then(info => panel.emit('tab_open', info));
-		return true;
-	}
-
-	remove() {
-		this.videoId = null;
-		console.log('delete', playlist);
-		tabs.delete(this.id);
-		playlist.delete(this);
-		panel && panel.emit('tab_close', this.id);
-		this.playing && commands.play();
-		this.playing = false;
-	}
-
 	ping() {
 		this.emit('ping');
 	}
 
 	player_created(vId) {
 		console.log('player_created', vId);
-		this.insert(vId);
+		this.videoId = vId;
+		if (!tabs.has(this.id)) { tabs.set(this.id, this); }
+		const added = playlist.add(this);
+		panel && this.info().then(info => {
+			panel.emit('tab_open', info);
+			added !== -1 && panel.emit('playlist_add', { index: added, tabId: this.id, });
+		});
 	}
 	player_playing(vId) {
 		console.log('player_playing', vId);
-		this.insert(vId);
 		this.playing = true;
 		Tab.pauseAllBut(this);
-		playlist.seek(this);
 		panel && panel.emit('state_change', { playing: true, });
+		const added = playlist.seek(this);
+		added !== -1 && panel.emit('playlist_add', { index: added, tabId: this.id, });
 	}
 	player_videoCued(vId) {
-		console.log('player_videoCued', vId);
-		!this.insert(vId)
-		&& panel && this.info().then(info => panel.emit('tab_update', info));
+		console.log('ignoreing player_videoCued', vId);
 	}
 	player_paused(vId) {
 		console.log('player_paused', vId);
-		this.insert(vId);
+		if (!this.playing) { return; }
 		this.playing = false;
 		panel && panel.emit('state_change', { playing: playlist.is(tab => tab.playing), });
 	}
@@ -252,8 +236,13 @@ class Tab {
 		panel && panel.emit('state_change', { playing: playlist.is(tab => tab.playing), });
 	}
 	player_removed() {
-		console.log('player_removed');
-		this.remove();
+		console.log('player_removed', this.videoId);
+		this.videoId = null;
+		tabs.delete(this.id);
+		playlist.delete(this);
+		panel && panel.emit('tab_close', this.id);
+		this.playing && commands.play();
+		this.playing = false;
 	}
 	ping_start() {
 		this.pingCount++;
