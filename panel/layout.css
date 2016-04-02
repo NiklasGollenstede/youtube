@@ -35,7 +35,6 @@ body {
 	top: 0px;
 	bottom: 0px;
 	margin: 0px;
-	padding: 5px;
 	border-width: 2px;
 	border-style: solid;
 	overflow: hidden;
@@ -56,14 +55,20 @@ body {
 	bottom: 0px;
 	right: 0px;
 }
+.scrolling-disabled .scroll-outer {
+	right: 0px;
+}
+.scrolling-disabled .scroll-inner {
+	overflow-y: hidden;
+}
 
 #left {
 	left: 0px;
-	right: 50%;
+	right: calc(50% + 2px);
 }
 #right {
 	right: 0px;
-	left: 50%;
+	left: calc(50% - 2px);
 }
 #playlist {
 	top: 56px;
@@ -85,6 +90,7 @@ body {
 	height: 52px;
 	overflow: hidden;
 	background-color: inherit;
+	margin: 5px;
 }
 #controls .button {
 	display: inline-block;
@@ -96,8 +102,8 @@ body {
 }
 
 #playlist .tabs {
-    display: block;
-    min-height: calc(100% - 10px);
+	display: block;
+	min-height: calc(100% - 10px);
 }
 
 .tab {
@@ -130,12 +136,10 @@ body {
 	bottom: 3px;
 }
 .tab .title {
+	display: block;
 	line-height: 1.22;
 	margin-right: 20px;
 	padding: 0px;
-}
-#playlist .tab .title {
-	display: block;
 }
 .tab .duration {
 	position: absolute;
@@ -148,12 +152,12 @@ body {
 	position: absolute;
 	right: 0px;
 	top: 0px;
-    vertical-align: middle;
-    text-align: center;
-    width: 17px;
-    height: 17px;
-    line-height: 17px;
-    border-radius: 8px;
+	vertical-align: middle;
+	text-align: center;
+	width: 17px;
+	height: 17px;
+	line-height: 17px;
+	border-radius: 8px;
 }
 
 .window {
@@ -190,4 +194,36 @@ input.toggleswitch:checked + * { display: none; }
 }
 .tab {
 	transition-duration: 0.24s;
+}
+
+.popup-background {
+	position: absolute;
+	top: 0;
+	left: 0;
+	bottom: 0;
+	right: 0;
+}
+.popup-menu, .submenu {
+	position: absolute;
+	padding: 2px;
+	border: 1px solid transparent;
+	border-color: inherit;
+	white-space: nowrap;
+}
+.menu-item:not(:first-child) {
+	border-top: 1px solid transparent;
+	border-color: inherit;
+}
+.menu-item {
+	padding: 2px 10px 2px 10px;
+	position: relative;
+}
+.menu-submenu .submenu {
+	display: none;
+	float: left;
+	left: calc(100% - 5px);
+	top: -3px;
+}
+.menu-submenu:hover .submenu {
+	display: unset;
 }

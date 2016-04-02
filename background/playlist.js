@@ -108,14 +108,14 @@ class PlayList extends Array {
 			this.push(value);
 			this.index = this.length - 1;
 		} else {
-			this.splice(index, 0, value);
+			this.splice(index + 1, 0, value);
 			this.index = index + 1;
 		}
 		return this.index;
 	}
 
 	/**
-	 * Removes all instances of value from this.
+	 * Removes all instances of a value from this.
 	 * @param  {any}    value  Value to remove.
 	 * @return {int}           Number of elements removed.
 	 */
@@ -155,6 +155,21 @@ class PlayList extends Array {
 	is(test) {
 		const current = this.get();
 		return !!(current && test(current));
+	}
+
+	/**
+	 * Sorts the values in this.
+	 * @param  {...}        ...  Same argument as [ ].sort().
+	 * @return {PlayList}        this.
+	 */
+	sort() {
+		const current = this.get();
+		const sorted = super.sort(...arguments);
+		for (let i = 0; i < sorted.length; ++i) {
+			this[i] = sorted[i];
+		}
+		this.index = super.lastIndexOf(current);
+		return this;
 	}
 }
 

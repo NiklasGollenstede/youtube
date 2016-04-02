@@ -52,6 +52,13 @@ window.addEventListener('DOMContentLoaded', () => {
 			console.log('playlist_delete', index);
 			tabList.children[index].remove();
 		},
+		playlist_replace(playlist) {
+			console.log('playlist_replace', playlist);
+			const active = Array.prototype.indexOf.call(tabList.children, tabList.querySelector('.active'));
+			tabList.textContent = '';
+			playlist.forEach(tabId => tabList.appendChild(windowList.querySelector('.tab-'+ tabId).cloneNode(true)));
+			this.playlist_seek(active);
+		},
 		tab_open(tab) {
 			console.log('tab_open', tab);
 			if (document.querySelector('.tab-'+ tab.tabId)) { return this.tab_update(tab); }
@@ -81,7 +88,7 @@ window.addEventListener('DOMContentLoaded', () => {
 document.addEventListener('dblclick', function({ target, button, }) {
 	if (button || !target.matches || !target.matches('.description, .description :not(.remove)')) { return; }
 
-	while (!target.matches('.tab')) { target = target.parentNode; }
+	target = getParent(target, '.tab');
 	if (target.matches('#playlist *')) {
 		port.emit('playlist_seek', Array.prototype.indexOf.call(tabList.children, target));
 	} else if (target.matches('#windows *')) {
@@ -93,7 +100,7 @@ document.addEventListener('dblclick', function({ target, button, }) {
 document.addEventListener('click', function({ target, button, }) {
 	if (button || !target.matches || !target.matches('.tab .remove, .tab .remove *')) { return; }
 
-	while (!target.matches('.tab')) { target = target.parentNode; }
+	target = getParent(target, '.tab');
 	if (target.matches('#playlist *')) {
 		port.emit('playlist_delete', Array.prototype.indexOf.call(tabList.children, target));
 		target.remove();
@@ -101,6 +108,38 @@ document.addEventListener('click', function({ target, button, }) {
 		port.emit('tab_close', +target.dataset.tabId);
 	}
 });
+
+// show context menus
+document.addEventListener('contextmenu', function(event) {
+	const { target, x, y, } = event;
+	if (!target.matches) { return; }
+	const items = [ ];
+	if (target.matches('.tab, .tab *')) {
+		const { tabId, } = getParent(target, '.tab').dataset;
+		items.push(
+			{ label: 'Close tab', onClick: () => port.emit('tab_close', +tabId), },
+			{ label: 'Show tab', onClick: () => port.emit('tab_focus', +tabId), }
+		);
+	}
+	if (target.matches('#playlist, #playlist *')) {
+		items.push(
+			{ label: 'Sort by ...', type: 'menu', value: [
+				{ label: '... position', onClick: () => port.emit('playlist_sort', 'position'), },
+				{ label: '... views (global)', onClick: () => port.emit('playlist_sort', 'viewsGlobal'), },
+				{ label: 'Shuffle', onClick: () => port.emit('playlist_sort', 'random'), },
+			], }
+		);
+	}
+
+	if (!items.length) { return; }
+	new ContextMenu({ x, y, items, });
+	event.preventDefault();
+});
+
+function getParent(element, selector) {
+	while (!element.matches('.tab')) { element = element.parentNode; }
+	return element;
+}
 
 // enable drag & drop
 function enableDragOut(element) {
@@ -166,7 +205,7 @@ function updateTab(element, tab) {
 	}
 	if ('videoId' in tab) {
 		element.className = element.className.replace(/video-[^ ]*/, 'video-'+ tab.videoId);
-		element.querySelector('.icon').style.backgroundImage = `url(\'https://i.ytimg.com/vi/${ tab.videoId }/default.jpg\')`;
+		element.querySelector('.icon').style.backgroundImage = `url("https://i.ytimg.com/vi/${ tab.videoId }/default.jpg")`;
 	}
 	if ('title' in tab) {
 		element.querySelector('.title').textContent = tab.title;
@@ -178,10 +217,56 @@ function updateTab(element, tab) {
 	return element;
 }
 
+class ContextMenu {
+	constructor({ x, y, items, }) {
+		const element = this.element = document.createElement('div');
+		element.className = 'popup-menu';
+		element.style.top = y +'px';
+		element.style.left = x +'px';
+		document.body.click();
+		document.body.classList.add('scrolling-disabled');
+		document.body.appendChild(element);
+		document.body.addEventListener('click', this, true);
+		items.forEach(item => this.addItem(item));
+	}
+
+	addItem({ type, label, value, onClick, }, parent = this.element) {
+		const item = document.createElement('div');
+		item.className = 'menu-item';
+		const _label = item.appendChild(document.createElement('div'));
+		_label.textContent = label;
+		switch (type) {
+			case 'menu': {
+				item.classList.add('menu-submenu');
+				const submenu = item.appendChild(document.createElement('div'));
+				submenu.className = 'submenu';
+				value.forEach(child => this.addItem(child, submenu));
+			} break;
+			case 'label':
+			default: {
+				item.classList.add('menu-label');
+			}
+		}
+		onClick && item.addEventListener('click', event => !event.button && onClick(event, value) == this.remove());
+		return parent.appendChild(item);
+	}
+
+	remove() {
+		document.body.classList.remove('scrolling-disabled');
+		this.element.remove();
+		document.body.removeEventListener('click', this, true);
+	}
+
+	handleEvent(event) { // click
+		if (!event.target.matches || event.target.matches('.popup-menu, .popup-menu *')) { return; }
+		event.stopPropagation(); event.preventDefault();
+		this.remove();
+	}
+}
+
 // activete next element if active one is removed
 const __remove__ = HTMLElement.prototype.remove;
 HTMLElement.prototype.remove = function() {
-	console.log('remove');
 	if (!this.nextSibling || !this.classList.contains('active') || !this.classList.contains('tab')) { return __remove__.call(this); }
 	console.log('removing active');
 	this.nextSibling.classList.add('active');

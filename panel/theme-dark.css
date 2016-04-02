@@ -51,3 +51,11 @@ html, body {
 	color: #5959ED;
 	fill: #5959ED;
 }
+
+.popup-menu, .submenu {
+	background-color: black;
+	border-color: #333;
+}
+.menu-item:hover {
+	background-color: #191919;
+}

@@ -19,7 +19,7 @@ const playlist = new (require('background/playlist'))({
 
 const commands = {
 	play() {
-		playlist.is(tab => tab.play(true));
+		playlist.is(tab => tab.play());
 	},
 	pause() {
 		Tab.pauseAllBut(null);
@@ -109,12 +109,34 @@ class Panel {
 		old.pause();
 		old && old.playing && commands.play();
 	}
+	playlist_sort(sender, by, revert) {
+		if (!(revert > 0 || revert < 0)) {
+			revert = this.lastSortCriterium === by ? -1 : 1;
+		}
+		this.lastSortCriterium = revert === 1 && by;
+		console.log('playlist_sort', by, revert);
+		const mapper = {
+			random: Math.random,
+			position: tab => tab.tab().then(info => (info.windowId << 16) + info.index),
+			viewsGlobal: tab => db.get(tab.videoId, [ 'rating', ]).then(({ rating, }) => rating.views),
+		}[by];
+		const data = new WeakMap;
+		return Promise.all(playlist.map(tab => Promise.resolve(tab).then(mapper).then(value => data.set(tab, value))))
+		.then((values, index) => {
+			console.log('sorting by', data);
+			playlist.sort((a, b) => (data.get(a) - data.get(b)) * revert);
+			this.emit('playlist_replace', playlist.map(tab => tab.id));
+		})
+		.catch(error => console.error('Sorting failed', error));
+	}
 	command_play() { commands.play(); }
 	command_pause() { commands.pause(); }
 	command_next() { commands.next(); }
 	command_prev() { commands.prev(); }
 	command_loop() { commands.loop(); }
 }
+
+// TODO: listen to tabs being moved
 
 class Tab {
 	constructor(port) {
@@ -232,7 +254,7 @@ class Tab {
 	player_ended(vId) {
 		console.log('player_ended', vId);
 		this.playing = false;
-		commands.next();
+		playlist.get() === this && commands.next();
 		panel && panel.emit('state_change', { playing: playlist.is(tab => tab.playing), });
 	}
 	player_removed() {
@@ -271,7 +293,7 @@ chrome.runtime.onConnect.addListener(port => { switch (port.name) {
 		new Tab(port);
 	} break;
 	default: {
-		console.error('connection with hunknown name:', port.name);
+		console.error('connection with unknown name:', port.name);
 	}
 } });
 
@@ -288,3 +310,5 @@ Tabs.query({ }).then(tabs => {
 		.catch(error => console.log('skipped tab', error)) // not allowed to execute, i.e. not YouTube
 	)).then(success => console.log('attached to', success.filter(x=>x).length, 'tabs'));
 });
+
+// TODO: try an onbeforeunload hook to destroy all tabs
