@@ -6,7 +6,6 @@ const Tabs = require('common/chrome').tabs;
 chrome.storage.sync.get('options', ({ options, }) => /*options ||*/ chrome.storage.sync.set({ options: require('options/utils').simplify(require('options/defaults')), }));
 
 let db; require('db/meta-data').then(_db => (db = _db), error => console.error(error));
-window.logP = p => p.then(v => console.log('value', v), e => console.error('error', e));
 
 const tabs = new Map;
 let panel = null;
@@ -80,6 +79,10 @@ class Panel {
 		}, }));
 	}
 
+	tab_play(sender, tabId) {
+		console.log('tab_play', tabId);
+		tabs.get(tabId).play();
+	}
 	tab_focus(sender, tabId) {
 		console.log('tab_focus', tabId);
 		Tabs.update(tabId, { highlighted: true, }).then(() => console.log('tab focused'));
@@ -87,6 +90,12 @@ class Panel {
 	tab_close(sender, tabId) {
 		console.log('tab_close', tabId);
 		Tabs.remove(tabId).then(() => console.log('tab closed'));
+	}
+	window_close(sender, windowId) {
+		console.log('window_close', windowId);
+		const closing = [ ];
+		tabs.forEach(tab => tab.windowId === windowId && closing.push(Tabs.remove(tab.id)));
+		Promise.all(closing).then(() => console.log(closing.length +' tabs closed'));
 	}
 	playlist_add(sender, { index, tabId, }) {
 		console.log('playlist_add', index, tabId);
@@ -104,7 +113,7 @@ class Panel {
 	}
 	playlist_delete(sender, index) {
 		console.log('playlist_delete', index);
-		this.emit('playlist_delete', index, { exclude: sender, });
+		this.emit('playlist_delete', index);
 		const old = playlist.deleteAt(index);
 		old.pause();
 		old && old.playing && commands.play();

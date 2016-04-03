@@ -1,6 +1,7 @@
 'use strict'; /* global Sortable */
 
-const { secondsToHhMmSs, } = window['es6lib/format'];
+const { secondsToHhMmSs, } = require('es6lib/format');
+const ContextMenu = require('context-menu');
 
 let defaultWindow, defaultTab, port, windowList, tabList;
 
@@ -50,7 +51,7 @@ window.addEventListener('DOMContentLoaded', () => {
 		},
 		playlist_delete(index) {
 			console.log('playlist_delete', index);
-			tabList.children[index].remove();
+			removeTab(tabList.children[index]);
 		},
 		playlist_replace(playlist) {
 			console.log('playlist_replace', playlist);
@@ -58,11 +59,12 @@ window.addEventListener('DOMContentLoaded', () => {
 			tabList.textContent = '';
 			playlist.forEach(tabId => tabList.appendChild(windowList.querySelector('.tab-'+ tabId).cloneNode(true)));
 			this.playlist_seek(active);
+			tabList.children[active] && tabList.children[active].scrollIntoViewIfNeeded();
 		},
 		tab_open(tab) {
 			console.log('tab_open', tab);
 			if (document.querySelector('.tab-'+ tab.tabId)) { return this.tab_update(tab); }
-			const tabList = windowList.querySelector(`#window-${ tab.windowId } .tabs`);
+			const tabList = windowList.querySelector(`#window-${ tab.windowId } .tabs`) || windowList.appendChild(createWindow({ id: tab.windowId, title: tab.windowId, })).querySelector('.tabs');
 			const next = Array.prototype.find.call(tabList.children, ({ dataset: { index, }, }) => index > tab.index);
 			tabList.insertBefore(createTab(tab), next);
 		},
@@ -76,7 +78,7 @@ window.addEventListener('DOMContentLoaded', () => {
 		},
 		tab_close(tabId) {
 			console.log('tab_close', tabId);
-			Array.prototype.forEach.call(document.querySelectorAll('.tab-'+ tabId), element => element.remove());
+			Array.prototype.forEach.call(document.querySelectorAll('.tab-'+ tabId), tab => removeTab(tab));
 		},
 	})[type](value));
 
@@ -103,7 +105,6 @@ document.addEventListener('click', function({ target, button, }) {
 	target = getParent(target, '.tab');
 	if (target.matches('#playlist *')) {
 		port.emit('playlist_delete', Array.prototype.indexOf.call(tabList.children, target));
-		target.remove();
 	} else if (target.matches('#windows *')) {
 		port.emit('tab_close', +target.dataset.tabId);
 	}
@@ -117,8 +118,9 @@ document.addEventListener('contextmenu', function(event) {
 	if (target.matches('.tab, .tab *')) {
 		const { tabId, } = getParent(target, '.tab').dataset;
 		items.push(
-			{ label: 'Close tab', onClick: () => port.emit('tab_close', +tabId), },
-			{ label: 'Show tab', onClick: () => port.emit('tab_focus', +tabId), }
+			{ label: 'Play video', onClick: () => port.emit('tab_play', +tabId), default: target.matches('#playlist *') && !target.matches('.remove'), },
+			{ label: 'Show tab', onClick: () => port.emit('tab_focus', +tabId), default: target.matches('#windows *') && !target.matches('.remove'), },
+			{ label: 'Close tab', onClick: () => port.emit('tab_close', +tabId), default: target.matches('.remove'), }
 		);
 	}
 	if (target.matches('#playlist, #playlist *')) {
@@ -130,6 +132,20 @@ document.addEventListener('contextmenu', function(event) {
 			], }
 		);
 	}
+	if (target.matches('.window .header .title')) {
+		const box = windowList.querySelector('#'+ target.htmlFor);
+		items.push(
+			{ label: (box.checked ? 'Expand' : 'Collapse') +' tab list', onClick: () => box.checked = !box.checked, default: true, }
+		);
+	}
+	if (target.matches('#windows, #windows *')) {
+		const windowId = getParent(target, '.window').id.match(/^window-(.+)$/)[1];
+		items.push(
+			{ label: 'Close window', onClick: () => confirm(
+				'Close all '+ windowList.querySelectorAll('#window-'+ windowId +' .tab').length +' tabs in this window?'
+			) && port.emit('window_close', +windowId), }
+		);
+	}
 
 	if (!items.length) { return; }
 	new ContextMenu({ x, y, items, });
@@ -137,7 +153,7 @@ document.addEventListener('contextmenu', function(event) {
 });
 
 function getParent(element, selector) {
-	while (!element.matches('.tab')) { element = element.parentNode; }
+	while (element && (!element.matches || !element.matches(selector))) { element = element.parentNode; }
 	return element;
 }
 
@@ -217,58 +233,9 @@ function updateTab(element, tab) {
 	return element;
 }
 
-class ContextMenu {
-	constructor({ x, y, items, }) {
-		const element = this.element = document.createElement('div');
-		element.className = 'popup-menu';
-		element.style.top = y +'px';
-		element.style.left = x +'px';
-		document.body.click();
-		document.body.classList.add('scrolling-disabled');
-		document.body.appendChild(element);
-		document.body.addEventListener('click', this, true);
-		items.forEach(item => this.addItem(item));
-	}
-
-	addItem({ type, label, value, onClick, }, parent = this.element) {
-		const item = document.createElement('div');
-		item.className = 'menu-item';
-		const _label = item.appendChild(document.createElement('div'));
-		_label.textContent = label;
-		switch (type) {
-			case 'menu': {
-				item.classList.add('menu-submenu');
-				const submenu = item.appendChild(document.createElement('div'));
-				submenu.className = 'submenu';
-				value.forEach(child => this.addItem(child, submenu));
-			} break;
-			case 'label':
-			default: {
-				item.classList.add('menu-label');
-			}
-		}
-		onClick && item.addEventListener('click', event => !event.button && onClick(event, value) == this.remove());
-		return parent.appendChild(item);
-	}
-
-	remove() {
-		document.body.classList.remove('scrolling-disabled');
-		this.element.remove();
-		document.body.removeEventListener('click', this, true);
-	}
-
-	handleEvent(event) { // click
-		if (!event.target.matches || event.target.matches('.popup-menu, .popup-menu *')) { return; }
-		event.stopPropagation(); event.preventDefault();
-		this.remove();
-	}
+function removeTab(tab) {
+	tab.classList.contains('active') && tab.nextSibling && tab.nextSibling.classList.add('active');
+	const window = tab.matches('.window *') && getParent(tab, '.window');
+	window && window.querySelectorAll('.tabs').length === 1 && window.remove();
+	return tab.remove();
 }
-
-// activete next element if active one is removed
-const __remove__ = HTMLElement.prototype.remove;
-HTMLElement.prototype.remove = function() {
-	if (!this.nextSibling || !this.classList.contains('active') || !this.classList.contains('tab')) { return __remove__.call(this); }
-	console.log('removing active');
-	this.nextSibling.classList.add('active');
-	return __remove__.call(this);
-};

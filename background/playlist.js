@@ -99,11 +99,11 @@ class PlayList extends Array {
 	 * @return {integer}       The new index of value in this or -1 if value was not inserted.
 	 */
 	seek(value) {
-		const index = this.index;
-		this._index = this.indexOf(value, this.index);
-		if (this._index !== -1) { this.index = this._index; return -1; }
-		this._index = this.indexOf(value);
-		if (this._index !== -1) { this.index = this._index; return -1; }
+		const index = this.index; let seeked;
+		seeked = this.indexOf(value, this.index);
+		if (seeked !== -1) { this.index = seeked; return -1; }
+		seeked = this.indexOf(value);
+		if (seeked !== -1) { this.index = seeked; return -1; }
 		if (index < 0 || index >= this.length) {
 			this.push(value);
 			this.index = this.length - 1;
