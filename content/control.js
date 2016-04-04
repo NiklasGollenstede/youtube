@@ -1,12 +1,11 @@
 'use strict'; define('content/control', [
-	'es6lib', 'common/event-emitter',
+	'es6lib',
 ], function(
 	{
 		concurrent: { async, },
 		format: { hhMmSsToSeconds, },
 		object: { Class, },
-	},
-	EventEmitter
+	}
 ) {
 
 let loaded = false;

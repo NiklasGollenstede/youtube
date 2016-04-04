@@ -306,6 +306,10 @@ chrome.runtime.onConnect.addListener(port => { switch (port.name) {
 	}
 } });
 
+chrome.runtime.onMessage.addListener((message, sender, reply) => reply({ alert, confirm, prompt, }[message.name].apply(window, message.args)));
+
+chrome.storage.onChanged.addListener(({ options, }, sync) => sync === 'sync' && options && console.log('options changed', options.newValue));
+
 Tabs.query({ }).then(tabs => {
 	console.log(tabs);
 	const { js, css, } = chrome.runtime.getManifest().content_scripts[0];

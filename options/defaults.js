@@ -1,14 +1,14 @@
-'use strict'; define('options/defaults', function() {
+'use strict'; define('options/defaults', [
+	'es6lib/format',
+], function(
+	{ RegExpX, }
+) {
 
 return [
 	{
 		name: "debug",
 		type: "hidden",
 		value: true,
-	}, {
-		name: "playlistPanelScrollbarMargin",
-		type: "hidden",
-		value: "-17px",
 	}, {
 		name: "doNotUseContentStyle",
 		type: "hidden",
@@ -118,8 +118,9 @@ return [
 						name: "zoomFactor",
 						title: "Video zoom levels",
 						description: "factor (in %) that each zooming will scale th video",
-						type: "number",
-						value: 110,
+						type: "integer",
+						value: 10,
+						restrict: { from: -50, to: 100, },
 					}, {
 						name: "annotations",
 						title: "Display annotations",
@@ -188,6 +189,7 @@ return [
 								title: "Right edge motion",
 								description: "enables full screen when cursor is moved within X pixels of the right edge of the window",
 								type: "integer",
+								restrict: { from: 0, to: 100, },
 								value: 20,
 							}, {
 								name: "showOnScrollTop",
@@ -211,6 +213,39 @@ return [
 				description: "Uncheck to disable all shortcuts",
 				type: "bool",
 				value: true,
+				restrict: { match: (RegExpX`^ (?:Ctrl\+)? (?:Alt\+)? (?:Shift\+)? (?:
+					  Key[A-Z]
+					| F\d\d?
+					| Digit\d
+					| Numpad\d
+					| Numpad(Subtract | Add | Decimal | Divide | Multiply | Enter | ChangeSign | Paren(Left | Right))
+					| Minus | Equal
+					| BracketLeft | BracketRight
+					| Escape | Backspace | Enter | Tab
+					| Control(Left | Right)
+					| Shift(Left | Right) | CapsLock | NumLock
+					| Alt(Left | Right)
+					| OS(Left | Right)
+					| Quote | Backquote
+					| Slash | Backslash | IntlBackslash
+					| Semicolon | Comma | Period
+					| Space
+					| Pause | ScrollLock | PrintScreen
+					| Lang[12] | IntlYen
+					| Undo | Paste | Cut | Copy
+					| Media(PlayPause | Stop | Track(Previous | Next) | Select)
+					| LaunchMail
+					| Volume(Down | Up | Mute)
+					| Eject | BrowserHome | Help
+					| Insert | Delete
+					| Home | End
+					| PageUp | PageDown
+					| Arrow(Up | Down | Left | Right)
+					| ContextMenu
+					| Power
+					| Browser(Search | Favorites | Refresh | Stop | Forward | Back)
+					| Launch(App1 | Mail)
+				) $`), message: 'Please enter a valid key combination', },
 				children: [
 					{
 						name: "openRelatedModifier",
@@ -219,45 +254,50 @@ return [
 						description: "Press this key(s) and any number from 1 to 9 to load the corresponding video from the related videos colom (same as on the videos endscreen, if counted colom first",
 						value: [ "" ],
 						options: [
-							{ value: "\0",	label: "[disabled]" },
-							{ value: "",		label: "[none]" },
-							{ value: "Ctrl",	label: "Ctrl" },
-							{ value: "Alt",		label: "Alt" },
+							{ value: "\0",   label: "[disabled]", },
+							{ value: "",     label: "[none]", },
+							{ value: "Ctrl", label: "Ctrl", },
+							{ value: "Alt",  label: "Alt", },
 						],
 					}, {
 						name: "videoIncreaseQuality",
 						title: "",
 						description: "",
 						type: "keybordKey",
-						value: [ "CtrlUp", "*", "Numpad8", ],
+						value: [ "Ctrl+ArrowUp", "Shift+BracketRight", "Numpad8", ],
+						restrict: "inherit",
 						maxLength: 5,
 					}, {
 						name: "videoDecreaseQuality",
 						title: "",
 						description: "",
 						type: "keybordKey",
-						value: [ "CtrlDown", "_", "Numpad2", ],
+						value: [ "Ctrl+ArrowDown", "Shift+Slash", "Numpad2", ],
+						restrict: "inherit",
 						maxLength: 5,
 					}, {
 						name: "videoIncreaseSpeed",
 						title: "",
 						description: "",
 						type: "keybordKey",
-						value: [ "+", "Numpad6", ],
+						value: [ "BracketRight", "Numpad6", ],
+						restrict: "inherit",
 						maxLength: 5,
 					}, {
 						name: "videoDecreaseSpeed",
 						title: "",
 						description: "",
 						type: "keybordKey",
-						value: [ "-", "Numpad4", ],
+						value: [ "Slash", "Numpad4", ],
+						restrict: "inherit",
 						maxLength: 5,
 					}, {
 						name: "videoTogglePause",
 						title: "",
 						description: "",
 						type: "keybordKey",
-						value: [ "Space", " ", "MediaPlayPause", ],
+						value: [ "Space", "MediaPlayPause", ],
+						restrict: "inherit",
 						maxLength: 5,
 					}, {
 						name: "videoToggleFullscreen",
@@ -265,6 +305,7 @@ return [
 						description: "Toggle video full screen",
 						type: "keybordKey",
 						value: [ "KeyF", ],
+						restrict: "inherit",
 						maxLength: 5,
 					}, {
 						name: "videoPromptPosiotion",
@@ -272,6 +313,7 @@ return [
 						description: "Prompt for video position in hh:mm:SS.ss",
 						type: "keybordKey",
 						value: [ "KeyT", ],
+						restrict: "inherit",
 						maxLength: 5,
 					}, {
 						name: "videoPromptVolume",
@@ -279,20 +321,23 @@ return [
 						description: "Prompt for video volume in %",
 						type: "keybordKey",
 						value: [ "KeyV", ],
+						restrict: "inherit",
 						maxLength: 5,
 					}, {
 						name: "playlistNext",
 						title: "",
 						description: "",
 						type: "keybordKey",
-						value: [ "KeyN", "MediaNextTrack", ],
+						value: [ "KeyN", "MediaTrackNext", ],
+						restrict: "inherit",
 						maxLength: 5,
 					}, {
 						name: "playlistPrevious",
 						title: "",
 						description: "",
 						type: "keybordKey",
-						value: [ "KeyP", "MediaPreviousTrack", ],
+						value: [ "KeyP", "MediaTrackPrevious", ],
+						restrict: "inherit",
 						maxLength: 5,
 					}, {
 						name: "playlistToggleShuffle",
@@ -300,6 +345,7 @@ return [
 						description: "",
 						type: "keybordKey",
 						value: [ "KeyS", ],
+						restrict: "inherit",
 						maxLength: 5,
 					}, {
 						name: "playlistToggleLoop",
@@ -307,6 +353,7 @@ return [
 						description: "",
 						type: "keybordKey",
 						value: [ "KeyR", ],
+						restrict: "inherit",
 						maxLength: 5,
 					}, {
 						name: "playlistClear",
@@ -314,6 +361,7 @@ return [
 						description: "",
 						type: "keybordKey",
 						value: [ "KeyE", ],
+						restrict: "inherit",
 						maxLength: 5,
 					}, {
 						name: "videoStop",
@@ -321,6 +369,7 @@ return [
 						description: "",
 						type: "keybordKey",
 						value: [ "KeyQ", ],
+						restrict: "inherit",
 						maxLength: 5,
 					}, {
 						name: "videoToggleMute",
@@ -328,6 +377,7 @@ return [
 						description: "",
 						type: "keybordKey",
 						value: [ "KeyM", ],
+						restrict: "inherit",
 						maxLength: 5,
 					}, {
 						name: "videoToggleInfoScreen",
@@ -335,6 +385,7 @@ return [
 						description: "",
 						type: "keybordKey",
 						value: [ "KeyI", ],
+						restrict: "inherit",
 						maxLength: 5,
 					}, {
 						name: "videoPushScreenshot",
@@ -342,27 +393,31 @@ return [
 						description: "",
 						type: "keybordKey",
 						value: [ "KeyC", ],
+						restrict: "inherit",
 						maxLength: 5,
 					}, {
 						name: "videoPopScreenshot",
 						title: "",
 						description: "",
 						type: "keybordKey",
-						value: [ "KeyX", "Del", ],
+						value: [ "KeyX", "Delete", ],
+						restrict: "inherit",
 						maxLength: 5,
 					}, {
 						name: "videoSave",
 						title: "",
 						description: "",
 						type: "keybordKey",
-						value: [ "CtrlKeyS", ],
+						value: [ "Ctrl+KeyS", ],
+						restrict: "inherit",
 						maxLength: 5,
 					}, {
 						name: "videoDownloadCover",
 						title: "",
 						description: "",
 						type: "keybordKey",
-						value: [ "CtrlAltKeyS", "Numpad5", ],
+						value: [ "Ctrl+Alt+KeyS", "Numpad5", ],
+						restrict: "inherit",
 						maxLength: 5,
 					},
 				],

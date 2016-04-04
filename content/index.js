@@ -6,7 +6,7 @@ require('common/chrome').storage.sync.get('options')
 const {
 	dom: { CreationObserver, DOMContentLoaded, createElement, },
 	format: { QueryObject, },
-	object: { Class, setConst, },
+	object: { Class, setConst, copyProperties, },
 	namespace: { IterableNameSpace, },
 } = require('es6lib');
 
@@ -42,6 +42,7 @@ const Main = new Class({
 		this.passive = new (require('content/passive'))(this);
 		this.actions = new (require('content/actions'))(this);
 		this.control = new (require('content/control'))(this);
+		// this.skip = new (require('content/skip'))(this);
 		this.observer = null;
 
 		self.update(this);
@@ -50,6 +51,7 @@ const Main = new Class({
 		DOMContentLoaded.then(self.loaded.bind(self));
 		this.addDomListener(window, 'spfrequest', self.navigate.bind(self));
 		this.addDomListener(window, 'spfdone', self.navigated.bind(self));
+		chrome.storage.onChanged.addListener(self.onOptionsChanged = self.onOptionsChanged.bind(self));
 	}),
 
 	public: (Private, Protected, Public) => ({
@@ -116,6 +118,14 @@ const Main = new Class({
 			self.listId = info && info.list;
 		},
 
+		onOptionsChanged({ options, }, sync) {
+			const self = Public(this), _this = Protected(this);
+			if (sync !== 'sync' && !options) { return; }
+			copyProperties(self.options, options.newValue.content);
+			console.log('options changed', self.options);
+			_this.emitSync('optionsChanged', self);
+		},
+
 		destroy() {
 			const self = Public(this);
 			console.log('Main.destroy');
@@ -135,6 +145,8 @@ const Main = new Class({
 				});
 				nodes.destroy();
 			}));
+
+			chrome.storage.onChanged.removeListener(this.onOptionsChanged);
 		},
 	}),
 });

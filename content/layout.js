@@ -81,7 +81,7 @@ function initFullscreen({ options, port, addDomListener, }) {
 			&& event.target.matches('#player-api, #player-api *')
 		) {
 			event.preventDefault();
-			scaleVideo(event, options.player.zoomFactor / 100);
+			scaleVideo(event, 1 + options.player.zoomFactor / 100);
 		} else if (
 			!options.player.seamlessFullscreen
 			|| event.ctrlKey || event.altKey || event.shiftKey

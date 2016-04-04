@@ -44,7 +44,7 @@ body {
 	position: absolute;
 	overflow: hidden;
 	left: 0px;
-	right: -17px;
+	right: 0px;
 }
 .scroll-inner {
 	position: absolute;
@@ -55,10 +55,9 @@ body {
 	bottom: 0px;
 	right: 0px;
 }
-.context-menu-showing .scroll-outer {
-	right: 0px;
-}
+.context-menu-showing.scroll-inner,
 .context-menu-showing .scroll-inner {
+	margin-right: unset;
 	overflow-y: hidden;
 }
 

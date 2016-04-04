@@ -9,7 +9,9 @@ const {
 	network: { HttpRequest, },
 } = require('es6lib');
 
-const { storage, } = require('common/chrome');
+const { storage: { sync: Storage }, runtime: { sendMessage, }, } = require('common/chrome');
+const { simplify, } = require('options/utils');
+const preferences = require('options/defaults');
 
 function setButtonDisabled(element) {
 	const container = element.querySelector('.values-container');
@@ -21,39 +23,71 @@ function setButtonDisabled(element) {
 }
 
 document.addEventListener('click', function({ target, button, }) {
-	if (button) { return; }
-	if (target.matches && target.matches('.remove-value-entry')) {
+	if (button || !target.matches) { return; }
+	if (target.matches('.remove-value-entry')) {
 		const element = target.parentNode.parentNode.parentNode;
 		target.parentNode.remove();
 		setButtonDisabled(element);
 	} else
-	if (target.matches && target.matches('.add-value-entry')) {
+	if (target.matches('.add-value-entry')) {
 		const element = target.parentNode;
 		const container = element.querySelector('.values-container');
 		container.appendChild(cloneInput(element.input, ''));
 		setButtonDisabled(element);
 	} else
-	if (target.matches && target.matches('.value-entry-input') && target.dataset.type === 'control') {
+	if (target.matches('.value-input') && target.dataset.type === 'control') {
 		console.log('button clicked', target);
+	}
+});
+document.addEventListener('submit', function(event) {
+	event.preventDefault(); event.stopPropagation();
+	console.log('submitting ...');
+	const invalid = document.querySelector('.invalid');
+	if (invalid) {
+		invalid.scrollIntoViewIfNeeded();
+		sendMessage({ name: 'alert', args: [ 'Saving failed because at least one field holds an invalid value: "'+ invalid.title +'"', ], })
+		.then(value => console.log('... failed'));
+	} else {
+		Array.prototype.forEach.call(document.querySelectorAll('.pref-container'), element => {
+			element.pref.value = Array.isArray(element.pref.value)
+			? Array.prototype.map.call(element.querySelectorAll('.value-container'), getInputValue)
+			: getInputValue(element.querySelector('.value-container'));
+		});
+		console.log('saving', preferences);
+		console.log('as', simplify(preferences));
+		Storage.set({ options: simplify(preferences), })
+		.then(() => window.close());
 	}
 });
 document.addEventListener('keypress', function(event) {
 	const { target, } = event;
-	if (!target.matches || !target.matches('.value-entry-input') || target.dataset.type !== 'keybordKey') { return; }
+	if (!target.matches || !target.matches('.value-input') || target.dataset.type !== 'keybordKey') { return; }
 	event.stopPropagation(); event.preventDefault();
-	const key = (event.ctrlKey ? 'Ctrl' : '') + (event.altKey ? 'Alt' : '') + (event.shiftKey ? 'Shift' : '') + event.code;
+	const key = (event.ctrlKey ? 'Ctrl+' : '') + (event.altKey ? 'Alt+' : '') + (event.shiftKey ? 'Shift+' : '') + event.code;
 	target.value = key;
+	validate(target);
+});
+document.addEventListener('change', function({ target, }) {
+	if (!target.matches || !target.matches('.value-input')) { return; }
+	validate(target);
 });
 
+function validate(target, value = target.value) {
+	if (target.type === 'checkbox') { return; }
+	const { pref, } = target.parentNode;
+	const message = pref.validate(value);
+	target.title = message;
+	target.classList[message ? 'add' : 'remove']('invalid');
+}
+
 function createInput(pref) {
-	return createElement('div', {
-		pref,
-		className: 'value-entry-container',
+	return Object.assign(createElement('div', {
+		className: 'value-container',
 	}, [
 		pref.type === 'menulist'
 		? createElement('select', {
 			name: pref.name,
-			className: 'value-entry-input',
+			className: 'value-input',
 			dataset: {
 				type: pref.type,
 			},
@@ -63,7 +97,7 @@ function createInput(pref) {
 		})))
 		: createElement('input', {
 			name: pref.name,
-			className: 'value-entry-input',
+			className: 'value-input',
 			dataset: {
 				type: pref.type,
 			},
@@ -83,7 +117,9 @@ function createInput(pref) {
 			value: '-',
 			className: 'remove-value-entry',
 		}),
-	]);
+	]), {
+		pref,
+	});
 }
 
 function setInputValue(input, value) {
@@ -108,7 +144,26 @@ function setInputValue(input, value) {
 			field.value = value;
 			break;
 	}
+	validate(field, value);
 	return input;
+}
+
+function getInputValue(input) {
+	const { pref, firstChild: field, } = input;
+	switch (pref.type) {
+		case "control":
+			return undefined;
+		case "bool":
+			return field.checked;
+		case "boolInt":
+			return field.checked ? pref.on : pref.off;
+		case "integer":
+			return +field.value;
+		case "label":
+			return undefined;
+		default:
+			return field.value;
+	}
 }
 
 function cloneInput(input, value) {
@@ -117,18 +172,28 @@ function cloneInput(input, value) {
 	setInputValue(clone, value);
 	return clone;
 }
+function createValidator({ restrict, parent, }) {
+	if (!restrict) { return () => ''; }
+	if (restrict === 'inherit') { return parent.validate; }
+	return function(value) {
+		if ('from' in restrict && value < restrict.from) { return 'This value must be at least '+ restrict.from; }
+		if ('to' in restrict && value > restrict.to) { return 'This value can be at most '+ restrict.to; }
+		if ('match' in restrict && !restrict.match.test(value)) { return restrict.message ? restrict.message : ('This value must match '+ restrict.match); }
+		return '';
+	};
+}
 
-function displayPreferences(preferences, values, parent = document.body) {
-	parent.textContent = '';
-	parent.classList.add('preferences-container');
+function displayPreferences(prefs, values, host = document.body, parent = null) {
 
-	preferences.forEach(pref => {
+	prefs.forEach(pref => {
+		pref.parent = parent;
+		pref.validate = createValidator(pref);
 		if (pref.type === 'hidden') { return; }
 
 		const input = createInput(pref);
 		const valueEntries = Array.isArray(values[pref.name]) ? values[pref.name] : [ values[pref.name], ];
 
-		const element = parent.appendChild(createElement('div', {
+		const element = Object.assign(host.appendChild(createElement('form', {
 			input,
 			className: 'pref-container',
 		}, [
@@ -150,26 +215,26 @@ function displayPreferences(preferences, values, parent = document.body) {
 					minLength: pref.minLength || 0,
 				},
 			}),
-			pref.children && createElement('div', { }, [
-				displayPreferences(
-					pref.children,
-					values[pref.name],
-					createElement('fieldset', {
-						className: values[pref.name] || pref.type == 'label' ? '' : 'disabled',
-					})
-				),
-			]),
-		]));
+			pref.children && displayPreferences(
+				pref.children,
+				values[pref.name],
+				createElement('fieldset', {
+					className: 'pref-children'+ (values[pref.name] || pref.type == 'label' ? '' : 'disabled'),
+				}),
+				pref
+			),
+		])), { pref, });
 
 		setButtonDisabled(element);
 	});
-	return parent;
+	return host;
 }
 
-
-Promise.all([
-	storage.local.get('defaultOptions'),
-	storage.sync.get('options'),
-]).then(([ { defaultOptions, }, { options, }, ]) => displayPreferences(defaultOptions, options));
-
+Storage.get('options').then(({ options, }) => displayPreferences(
+	preferences, options,
+	document.body.appendChild(createElement('form'))
+).appendChild(createElement('button', {
+	textContent: 'Save',
+	type: 'submit',
+})));
 

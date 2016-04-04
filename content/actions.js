@@ -184,7 +184,7 @@ return function({ options, player, port, }) {
 	// apply hotkeys
 	function onKeyPress(event) {
 		if (event.target && (event.target.tagName == 'INPUT' || event.target.tagName == 'TEXTAREA')) { return; }
-		const key = (event.ctrlKey ? 'Ctrl' : '') + (event.altKey ? 'Alt' : '') + (event.shiftKey ? 'Shift' : '') + event.code;
+		const key = (event.ctrlKey ? 'Ctrl+' : '') + (event.altKey ? 'Alt+' : '') + (event.shiftKey ? 'Shift+' : '') + event.code;
 		const name = options.keyMap[key];
 		console.log('keypress', key, name);
 		if (!name || !actions[name]) { return; }

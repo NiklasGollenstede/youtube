@@ -84,6 +84,8 @@ window.addEventListener('DOMContentLoaded', () => {
 
 	[ 'prev', 'play', 'pause', 'next', 'loop', ]
 	.forEach(command => document.querySelector('#'+ command).addEventListener('click', ({ button, }) => !button && port.emit('command_'+ command)));
+
+	hideScrollBars();
 });
 
 // focus tab (windows) or play tab on dblclick
@@ -238,4 +240,12 @@ function removeTab(tab) {
 	const window = tab.matches('.window *') && getParent(tab, '.window');
 	window && window.querySelectorAll('.tabs').length === 1 && window.remove();
 	return tab.remove();
+}
+
+function hideScrollBars() {
+	const element = document.body.appendChild(document.createElement('div'));
+	element.classList.add('scroll-inner');
+	const width = element.offsetWidth - element.clientWidth;
+	document.styleSheets[0].insertRule(`.scroll-inner { margin-right: -${ width }px; }`, 0);
+	element.remove();
 }
