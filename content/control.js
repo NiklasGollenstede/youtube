@@ -11,7 +11,7 @@
 let loaded = false;
 
 return function(main) {
-	const { player, port, } = main;
+	const { options, player, port, } = main;
 
 	let reportState = false;
 
@@ -21,7 +21,7 @@ return function(main) {
 	port.on('play', () => console.log('control play') === player.play(true));
 	port.on('pause', () => console.log('control pause') === player.pause(true));
 
-	main.on('navigated', async(function*({ options, player, videoId, }) {
+	main.on('navigated', async(function*({ videoId, }) {
 		if (!videoId) {
 			console.log('player removed');
 			return port.emit('player_removed');
@@ -54,7 +54,7 @@ return function(main) {
 
 		unMute();
 
-		const duration = hhMmSsToSeconds(document.querySelector('.ytp-time-duration').textContent);
+		const duration = hhMmSsToSeconds(player.root.querySelector('.ytp-time-duration').textContent);
 		const title = document.querySelector('#eow-title').textContent;
 		(yield port.request('assign', main.videoId, 'meta', { title, duration, }));
 
@@ -70,7 +70,7 @@ return function(main) {
 		reportState = false;
 	});
 
-	player.on('ended', checkbox => (checkbox = document.querySelector("#autoplay-checkbox")) && checkbox.checked && checkbox.click());
+	player.on('ended', checkbox => (checkbox = player.root.querySelector("#autoplay-checkbox")) && checkbox.checked && checkbox.click());
 };
 
 });

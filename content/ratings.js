@@ -54,7 +54,7 @@ function attatchRatingBar(element, { rating: { likes, dislikes, views, }, meta: 
 }
 
 const decoder = document.createElement('textarea');
-const decodeHtml = html => (decoder.innerHTML = html) && decoder.value;
+const decodeHtml = html => (decoder.innerHTML = html) && decoder.value; // TODO: test XSS
 const getInt = (string, regexp) => parseInt((string.match(regexp) || [0,'0'])[1].replace(/[\,\.]*/g, ''), 10);
 const getString = (string, regexp) => decodeHtml((string.match(regexp) || [0,''])[1]);
 const getTime = (string, regexp) => +new Date((string.match(regexp) || [0,''])[1]);

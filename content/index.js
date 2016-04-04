@@ -93,7 +93,6 @@ const Main = new Class({
 			self.observer = new CreationObserver(document);
 			_this.emitSync('observerCreated', self);
 			_this.emitSync('navigated', self);
-			self.observer.all('#movie_player', () => _this.emitSync('playerCreated', self));
 		},
 
 		navigate({ detail: { url, }, }) {

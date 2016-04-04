@@ -18,7 +18,7 @@ function updateKeyMap(settings) {
 	settings.keyMap = { };
 	Object.keys(settings.keys).forEach(command => settings.keys[command].forEach(shortcut => settings.keyMap[shortcut] = command));
 	for (let i = 1; i <= 10; i++) {
-		settings.keyMap[settings.keys.openRelatedModifier + (i % 10)] = 'openRelated'+ i;
+		settings.keyMap[settings.keys.openRelatedModifier +'Digit'+ (i % 10)] = 'openRelated'+ i;
 	}
 }
 

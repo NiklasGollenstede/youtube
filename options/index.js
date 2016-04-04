@@ -193,7 +193,7 @@ function displayPreferences(prefs, values, host = document.body, parent = null) 
 		const input = createInput(pref);
 		const valueEntries = Array.isArray(values[pref.name]) ? values[pref.name] : [ values[pref.name], ];
 
-		const element = Object.assign(host.appendChild(createElement('form', {
+		const element = Object.assign(host.appendChild(createElement('div', {
 			input,
 			className: 'pref-container',
 		}, [
@@ -219,7 +219,7 @@ function displayPreferences(prefs, values, host = document.body, parent = null) 
 				pref.children,
 				values[pref.name],
 				createElement('fieldset', {
-					className: 'pref-children'+ (values[pref.name] || pref.type == 'label' ? '' : 'disabled'),
+					className: 'pref-children'+ (values[pref.name] || pref.type === 'label' ? '' : 'disabled'),
 				}),
 				pref
 			),

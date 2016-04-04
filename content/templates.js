@@ -26,12 +26,14 @@ const urlToHtml = transformVars(value => encodeHTML(decodeURI((value || '') +'')
 
 const stringToHtml = transformVars(value => encodeHTML((value || '') +''));
 
-return Object.freeze({
+const sides = [ 'top', 'right', 'bottom', 'left', ];
 
-		commentsIframe: (videoId, onLoad) => (urlToHtml`
+const Templates = ({
+
+	commentsIframe: (videoId, onLoad) => (urlToHtml`
 <iframe
 	id="external_comments"
-	data-videoid="${ videoId }"
+	data-video-id="${ videoId }"
 	class="yt-card yt-card-has-padding"
 	type="text/html"
 	frameborder="0"
@@ -43,9 +45,9 @@ return Object.freeze({
 	"
 	src="https://www.youtube.com/all_comments?v=${ videoId }"
 />`
-		),
+	),
 
-		youtubeIframe: videoId => (stringToHtml`
+	youtubeIframe: videoId => (stringToHtml`
 <iframe
 	id="external_player"
 	data-videoid="${ videoId }"
@@ -60,19 +62,19 @@ return Object.freeze({
 	src="//www.youtube.com/embed/${ videoId }?autoplay=1"
 	allowfullscreen
 />`
-		),
+	),
 
-		relatedVideoList: ulContent => (`
+	relatedVideoList: items => (`
 <div class="watch-sidebar-section">
 	<div class="watch-sidebar-body">
 		<ul id="watch-related" class="video-list">
-			${ ulContent }
+			${ typeof items === 'string' ? items : items.join('') }
 		</ul>
 	</div>
 </div>
-`		),
+`	),
 
-		relatedVideoListItem: ({ id, title, author, length_seconds, video_id, list, playlist_length, playlist_title, playlist_author }) => (
+	relatedVideoListItem: ({ id, title, author, length_seconds, video_id, list, playlist_length, playlist_title, playlist_author }) => (
 			id ? (urlToHtml`
 <li class="video-list-item related-list-item">
 	<div class="content-wrapper">
@@ -80,7 +82,6 @@ return Object.freeze({
 			<span dir="ltr" class="title">${ title }</span>
 			<span class="stat attribution">
 				<span class="g-hovercard">
-					by
 					<span class=" g-hovercard" data-name="">${ author }</span>
 				</span>
 			</span>
@@ -95,7 +96,7 @@ return Object.freeze({
 		<span class="video-time">${ secondsToHhMmSs(length_seconds) }</span>
 	</div>
 </li>`
-			) : (urlToHtml`
+		) : (urlToHtml`
 <li class="video-list-item related-list-item show-video-time">
 	<a href="/watch?v=${ video_id }&amp;list=${ list }" class="related-playlist yt-pl-thumb-link  spf-link  yt-uix-sessionlink" rel="spf-prefetch">
 		<span class="yt-pl-thumb  is-small yt-mix-thumb">
@@ -132,10 +133,10 @@ return Object.freeze({
 		</span>
 	</a>
 </li>`
-			)
-		),
+		)
+	),
 
-		ratingsBar: (likes, dislikes, total = ((likes + dislikes) || 1)) => (stringToHtml`
+	ratingsBar: (likes, dislikes, total = ((likes + dislikes) || 1)) => (stringToHtml`
 <div class="video-extras-sparkbarks inserted-ratings">
 	<div class="video-extras-sparkbar-likes" style="
 		width: ${ ((100 * likes) / total) }%
@@ -144,15 +145,17 @@ return Object.freeze({
 		width: ${ ((100 * dislikes) / total) }%
 	"></div>
 </div>`
-		),
+	),
 
-		videoInfoTitle: (likes, dislikes, views, published) => (
-			numberToRoundString(views, 2) +': '+
-			likes.toLocaleString() +' \uD83D\uDC4D, '+
-			dislikes.toLocaleString() +' \uD83D\uDC4E '+
-			(published ? '['+ timeToRoundString(Date.now() - published, 1.7) +' \uD83D\uDD52]' : '')
-		),
+	videoInfoTitle: (likes, dislikes, views, published) => (
+		numberToRoundString(views, 2) +': '+
+		likes.toLocaleString() +' \uD83D\uDC4D, '+
+		dislikes.toLocaleString() +' \uD83D\uDC4E '+
+		(published ? '['+ timeToRoundString(Date.now() - published, 1.7) +' \uD83D\uDD52]' : '')
+	),
 
-	});
+});
+
+return (Templates.Templates = Templates);
 
 });

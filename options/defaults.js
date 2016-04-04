@@ -256,8 +256,8 @@ return [
 						options: [
 							{ value: "\0",   label: "[disabled]", },
 							{ value: "",     label: "[none]", },
-							{ value: "Ctrl", label: "Ctrl", },
-							{ value: "Alt",  label: "Alt", },
+							{ value: "Ctrl+", label: "Ctrl", },
+							{ value: "Alt+",  label: "Alt", },
 						],
 					}, {
 						name: "videoIncreaseQuality",

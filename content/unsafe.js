@@ -44,8 +44,8 @@ let player;
 function onMessage(message) {
 	if (!isTrusted(message)) { return; }
 	const { type, args, } = message.data;
-	if (type === 'initPlayer') { return initPlayer(); }
-	if (type === 'destroy') { return destroy(); }
+	if (type === 'initPlayer') { return initPlayer(...args); }
+	if (type === 'destroy') { return destroy(...args); }
 
 	const method = type && methods[type];
 	if (!method) { throw new Error('Unknown event type: "'+ type +'"'); }
@@ -54,12 +54,17 @@ function onMessage(message) {
 	method(player, args);
 }
 
-function initPlayer() {
+function initPlayer(isExternal) {
 	try {
 		player && player.removeEventListener('onStateChange', 'unsafeOnPlaybackStateChange');
 		player && player.removeEventListener('onPlaybackQualityChange', 'unsafeOnPlaybackQualityChange');
 	} catch (error) { console.error(error); }
-	player = document.querySelector('.html5-video-player');
+
+	const cw = isExternal ? document.querySelector('#external_player').contentWindow : window;
+	cw.unsafeOnPlaybackStateChange = unsafeOnPlaybackStateChange;
+	cw.unsafeOnPlaybackQualityChange = unsafeOnPlaybackQualityChange;
+
+	player = cw.document.querySelector('.html5-video-player');
 	console.log('player', player);
 	player.addEventListener('onStateChange', 'unsafeOnPlaybackStateChange');
 	player.addEventListener('onPlaybackQualityChange', 'unsafeOnPlaybackQualityChange');
@@ -68,14 +73,14 @@ function initPlayer() {
 function destroy() {
 	console.log('destroy unsave.js');
 	window.removeEventListener('message', onMessage);
-	window.unsafeOnPlaybackStateChange = null;
-	window.unsafeOnPlaybackQualityChange = null;
+	delete window.unsafeOnPlaybackStateChange;
+	delete window.unsafeOnPlaybackQualityChange;
 	player.removeEventListener('onStateChange', 'unsafeOnPlaybackStateChange');
 	player.removeEventListener('onPlaybackQualityChange', 'unsafeOnPlaybackQualityChange');
 	player = null;
 }
 
-window.unsafeOnPlaybackStateChange = function(state) {
+function unsafeOnPlaybackStateChange(state) {
 	const type = {
 		'-1': 'unstarted',
 		0: 'ended',
@@ -86,11 +91,11 @@ window.unsafeOnPlaybackStateChange = function(state) {
 	}[state];
 
 	sendMessage(type);
-};
+}
 
-window.unsafeOnPlaybackQualityChange = function(quality) {
+function unsafeOnPlaybackQualityChange(quality) {
 	sendMessage('qualityChanged', quality);
-};
+}
 
 window.addEventListener('message', onMessage);
 

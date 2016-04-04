@@ -1,13 +1,16 @@
 'use strict'; define('content/player-proxy', [
-	'common/event-emitter',
-	'es6lib',
+	'common/event-emitter', 'content/templates', 'es6lib',
 ], function(
 	EventEmitter,
+	Templates,
 	{
+		format: { QueryObject, },
+		functional: { log, },
+		dom: { createElement, DOMContentLoaded, },
 		object: { Class, },
-		dom: { createElement, },
+		network: { HttpRequest, },
 	}
-) {
+) { /* global WheelEvent */
 
 const fadeIn_factor = 0.7, fadeIn_margin = 0.05;
 
@@ -59,15 +62,13 @@ const PlayerProxy = new Class({
 	constructor: (Super, Private, Protected) => (function(main) {
 		if (Instance) { return Instance; }
 		Super.call(this);
-		const self = Private(this);
-		const _this = Protected(this);
+		const self = Private(this), _this = Protected(this);
 		self.main = main;
 		self.promises = { };
 		self.queue = [ ];
-		this.playerCreated = false;
-		this.scriptLoaded = false;
-		this.video = null;
+		this.video = self.video = this.root = self.root = null;
 		main.once(Symbol.for('destroyed'), () => self.destroy());
+		methods.forEach(([ method, event, ]) => event && self.setPromise(event, this));
 		self.create(this, _this);
 		Instance = this;
 	}),
@@ -79,10 +80,10 @@ const PlayerProxy = new Class({
 			members[method] = function(...args) {
 				const self = Private(this);
 				let value; if (self[method] && (value = self[method](...args))) { return value; }
-				if (self.playerCreated && self.scriptLoaded) {
-					sendMessage(method, args);
-				} else {
+				if (self.queue) {
 					self.queue.push([ method, args, ]);
+				} else {
+					sendMessage(method, args);
 				}
 				return event && this[event];
 			};
@@ -93,17 +94,8 @@ const PlayerProxy = new Class({
 	private: (Private, Protected, Public) => ({
 
 		create(self, _this) {
-			methods.forEach(([ method, event, ]) => event && this.setPromise(event, self));
 
-			this.main.once('playerCreated', () => this.playerCreated = true);
-
-			const initPlayer = () => {
-				sendMessage('initPlayer');
-				this.video = document.querySelector('.html5-main-video, video');
-			};
-			const sendQueue = () => this.queue.forEach(([ method, args, ]) => sendMessage(method, args)) === (this.queue = null);
-
-			const loadScript = () => {
+			DOMContentLoaded.then(() => {
 				// inject unsafe script
 				document.body.appendChild(createElement('script', {
 					src: chrome.extension.getURL('content/unsafe.js'),
@@ -112,27 +104,14 @@ const PlayerProxy = new Class({
 				const done = (message) => {
 					// wait for script
 					if (!isTrusted(message) || message.data.type !== '_scriptLoaded') { return; }
-					window.addEventListener('message', this);
 					window.removeEventListener('message', done);
-					this.scriptLoaded = true;
 
 					// wait for player
-					this.main.on('playerCreated', initPlayer);
-					if (this.playerCreated) {
-						initPlayer();
-						sendQueue();
-					} else {
-						this.main.once('playerCreated', sendQueue);
-					}
+					this.main.observer.all('#movie_player', this.initPlayer.bind(this));
+					this.main.observer.all('#watch7-player-age-gate-content', this.loadExternalPlayer.bind(this));
 				};
 				window.addEventListener('message', done);
-			};
-
-			if (document.readyState === 'interactive' || document.readyState === 'complete') {
-				loadScript();
-			} else {
-				document.addEventListener('DOMContentLoaded', loadScript);
-			}
+			});
 		},
 
 		destroy() {
@@ -161,6 +140,63 @@ const PlayerProxy = new Class({
 			return (self[type] = new Promise((resolve, reject) => {
 				this.promises[type] = { resolve, reject, };
 			}));
+		},
+
+		initPlayer(element) {
+			const self = Public(this), _this = Protected(this);
+			sendMessage('initPlayer', [ element.ownerDocument !== document, ]);
+			window.addEventListener('message', this);
+			this.root = self.root = element;
+			this.video = self.video = element.querySelector('video');
+			this.queue && this.queue.forEach(([ method, args, ]) => sendMessage(method, args));
+			this.queue = null;
+			_this.emit('videoLoaded', self);
+			// TODO: call removePlayer() on element.remove()
+		},
+
+		removePlayer() {
+			window.removeEventListener('message', this);
+			this.video = null;
+			!this.queue && (this.queue = [ ]);
+		},
+
+		loadExternalPlayer() {
+			// TODO: add option for opt-out
+			this.removePlayer();
+			const { videoId, } = this.main;
+			document.querySelector('#player-unavailable').classList.add("hid");
+			const container = document.querySelector('#player-api');
+			container.classList.remove('off-screen-target');
+			container.innerHTML = Templates.youtubeIframe(videoId);
+			const iframe = container.querySelector('#external_player');
+
+			// call initPlayer
+			iframe.onload = (() => {
+				const cd = iframe.contentDocument;
+				const element = cd.querySelector('.html5-video-player');
+				if (element) {
+					this.initPlayer(element);
+				} else {
+					const observer = new MutationObserver(mutations => mutations.forEach(({ addedNodes, }) => Array.prototype.forEach.call(addedNodes, element => {
+						if (!element.matches || !element.matches('.html5-video-player')) { return; }
+						observer.disconnect();
+						this.initPlayer(element);
+					})));
+					observer.observe(cd, { subtree: true, childList: true, });
+				}
+
+				// catch link clicks
+				cd.addEventListener('mousedown', ({ target, button, }) => !button && target.matches && target.matches('a *, a') && (location.href = getParent(target, 'a').href));
+				// forward mouse wheel events (bug in Firefox?)
+				// cd.addEventListener('wheel', event => iframe.dispatchEvent(new WheelEvent('wheel', event)));
+			});
+
+			// load related videos
+			new HttpRequest('https://www.youtube.com/get_video_info?asv=3&hl=en_US&video_id='+ videoId)
+			.then(({ responseText, }) => document.getElementById('watch7-sidebar-modules').innerHTML = Templates.relatedVideoList(
+				decodeURIComponent(new QueryObject(responseText).rvs).split(',')
+				.map(string => Templates.relatedVideoListItem(new QueryObject(string, '&', '=', decodeURIComponent)))
+			)).catch(error =>console.error('failed to load related videos', error));
 		},
 
 		pause(smooth) {
@@ -226,5 +262,10 @@ const PlayerProxy = new Class({
 		},
 	}),
 });
+
+function getParent(element, selector) {
+	while (element && (!element.matches || !element.matches(selector))) { element = element.parentNode; }
+	return element;
+}
 
 return (PlayerProxy.PlayerProxy = PlayerProxy); });
