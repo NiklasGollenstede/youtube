@@ -49,7 +49,7 @@ class Panel {
 			panel.ports = new Set([ port, ]);
 		}
 
-		port.onMessage.addListener(({ type, value, }) => (panel)[type](port, value));
+		port.onMessage.addListener(({ type, value, }) => (panel)[type](value));
 		port.onDisconnect.addListener(() => {
 			panel.ports.delete(port);
 			!panel.ports.size && (panel = null);
@@ -58,9 +58,9 @@ class Panel {
 		return panel;
 	}
 
-	emit(type, value, { exclude, } = { }) {
+	emit(type, value) {
 		const message = { type, value, };
-		this.ports.forEach(port => port !== exclude && port.postMessage(message));
+		this.ports.forEach(port => port.postMessage(message));
 	}
 
 	init(port) {
@@ -79,46 +79,46 @@ class Panel {
 		}, }));
 	}
 
-	tab_play(sender, tabId) {
+	tab_play(tabId) {
 		console.log('tab_play', tabId);
-		tabs.get(tabId).play();
+		tabs.get(+tabId).play();
 	}
-	tab_focus(sender, tabId) {
+	tab_focus(tabId) {
 		console.log('tab_focus', tabId);
 		Tabs.update(tabId, { highlighted: true, }).then(() => console.log('tab focused'));
 	}
-	tab_close(sender, tabId) {
+	tab_close(tabId) {
 		console.log('tab_close', tabId);
 		Tabs.remove(tabId).then(() => console.log('tab closed'));
 	}
-	window_close(sender, windowId) {
+	window_close(windowId) {
 		console.log('window_close', windowId);
 		const closing = [ ];
 		tabs.forEach(tab => tab.windowId === windowId && closing.push(Tabs.remove(tab.id)));
 		Promise.all(closing).then(() => console.log(closing.length +' tabs closed'));
 	}
-	playlist_add(sender, { index, tabId, }) {
-		console.log('playlist_add', index, tabId);
-		this.emit('playlist_add', { index, tabId, }, { exclude: sender, });
-		playlist.insertAt(index, tabs.get(tabId));
+	playlist_add({ index, tabId, reference, }) {
+		console.log('playlist_add', index, tabId, reference);
+		this.emit('playlist_add', { index, tabId, reference, });
+		playlist.insertAt(index, tabs.get(+tabId));
 	}
-	playlist_seek(sender, index) {
+	playlist_seek(index) {
 		console.log('playlist_seek', index);
 		if (playlist.index === index) {
-			this.tab_focus(sender, playlist.get().id);
+			this.tab_focus(playlist.get().id);
 		} else {
 			playlist.index = index;
 		}
 		commands.play();
 	}
-	playlist_delete(sender, index) {
+	playlist_delete(index) {
 		console.log('playlist_delete', index);
 		this.emit('playlist_delete', index);
+		playlist.index === index && playlist.is(tab => tab.pause());
 		const old = playlist.deleteAt(index);
-		old.pause();
 		old && old.playing && commands.play();
 	}
-	playlist_sort(sender, by, revert) {
+	playlist_sort(by, revert) {
 		if (!(revert > 0 || revert < 0)) {
 			revert = this.lastSortCriterium === by ? -1 : 1;
 		}
@@ -190,7 +190,7 @@ class Tab {
 	}
 
 	tab() {
-		return Tabs.get(this.id);
+		return Tabs.get(+this.id);
 	}
 
 	info() {
@@ -226,7 +226,7 @@ class Tab {
 		this.emit('pause');
 	}
 	static pauseAllBut(exclude) {
-		tabs.forEach(tab => tab !== exclude && tab.pause());
+		tabs.forEach(tab => tab.playing && tab !== exclude && tab.pause());
 	}
 
 	ping() {
@@ -236,7 +236,7 @@ class Tab {
 	player_created(vId) {
 		console.log('player_created', vId);
 		this.videoId = vId;
-		if (!tabs.has(this.id)) { tabs.set(this.id, this); }
+		if (!tabs.has(this.id)) { tabs.set(+this.id, this); }
 		const added = playlist.add(this);
 		panel && this.info().then(info => {
 			panel.emit('tab_open', info);

@@ -24,6 +24,7 @@
 			"matches": [ "https://www.youtube.com/*" ],
 			"js": [
 				"node_modules/es6lib/require.js",
+				"node_modules/es6lib/template/escape.js",
 				"node_modules/es6lib/namespace.js",
 				"node_modules/es6lib/object.js",
 				"node_modules/es6lib/functional.js",

@@ -166,13 +166,9 @@ const actions = {
 		.catch(Logger('Faild to load maxresdefault.jpg'));
 	},
 };
-[1,2,3,4,5,6,7,8,9,10].forEach((x, i) =>
-	actions['openRelated'+ (i- -1)] = () =>
-		document.querySelectorAll('li.video-list-item.related-list-item')[i].querySelector('a').click()
-);
-Object.freeze(actions);
-
-
+[1,2,3,4,5,6,7,8,9,10].forEach(i => {
+	actions['openRelated'+ i] = () => document.querySelectorAll('li.video-list-item.related-list-item')[i - 1].querySelector('a').click();
+});
 
 return function({ options, player, port, }) {
 

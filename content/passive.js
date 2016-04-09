@@ -21,7 +21,7 @@ return function(main) {
 	}
 
 	// open search results in new tab, may require user to accept popups from youtube.com
-	main.once('observerCreated', ({ observer, }) => observer.all('#search-btn', searchButton =>
+	main.once('observerCreated', () => main.observer.all('#search-btn', searchButton =>
 		searchButton.handled = searchButton.handled || !void searchButton.addEventListener('mousedown', event => {
 			if(event.button === 1) {
 				event.preventDefault();
@@ -32,7 +32,7 @@ return function(main) {
 	));
 
 	// add 'clear playlist' button
-	main.once('observerCreated', ({ observer, player, }) => observer.all('#watch-appbar-playlist', function(playlist) {
+	main.once('observerCreated', () => main.observer.all('#watch-appbar-playlist', function(playlist) {
 		let container;
 		if ((container = playlist.querySelector('.appbar-playlist-controls .yt-uix-clickcard-target'))) {
 			if (container.querySelector('.close-playlist-button')) { return; }

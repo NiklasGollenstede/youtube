@@ -6,7 +6,7 @@
 	{
 		format: { QueryObject, },
 		functional: { log, },
-		dom: { createElement, DOMContentLoaded, },
+		dom: { createElement, DOMContentLoaded, RemoveObserver, },
 		object: { Class, },
 		network: { HttpRequest, },
 	}
@@ -67,6 +67,7 @@ const PlayerProxy = new Class({
 		self.promises = { };
 		self.queue = [ ];
 		this.video = self.video = this.root = self.root = null;
+		self.removePlayer = self.removePlayer.bind(self);
 		main.once(Symbol.for('destroyed'), () => self.destroy());
 		methods.forEach(([ method, event, ]) => event && self.setPromise(event, this));
 		self.create(this, _this);
@@ -78,6 +79,7 @@ const PlayerProxy = new Class({
 		methods.forEach(([ method, event, ]) => {
 			if (!method) { return; }
 			members[method] = function(...args) {
+				if (Instance !== this) { return new Error('"'+ method +'" called on dead PlayerProxy'); }
 				const self = Private(this);
 				let value; if (self[method] && (value = self[method](...args))) { return value; }
 				if (self.queue) {
@@ -94,7 +96,6 @@ const PlayerProxy = new Class({
 	private: (Private, Protected, Public) => ({
 
 		create(self, _this) {
-
 			DOMContentLoaded.then(() => {
 				// inject unsafe script
 				document.body.appendChild(createElement('script', {
@@ -118,9 +119,9 @@ const PlayerProxy = new Class({
 			const self = Public(this);
 			Instance = null;
 			const canceled = new Error('Player was destroyed');
-			Object.keys(this.promises).forEach(type => this.promises[type].reject(canceled) === self[type].catch(x=>x));
-			window.removeEventListener('message', this);
+			Object.keys(this.promises).forEach(type => { this.promises[type].reject(canceled); self[type].catch(x=>x); });
 			sendMessage('destroy');
+			this.removePlayer();
 			Protected(this).destroy();
 		},
 
@@ -150,13 +151,15 @@ const PlayerProxy = new Class({
 			this.video = self.video = element.querySelector('video');
 			this.queue && this.queue.forEach(([ method, args, ]) => sendMessage(method, args));
 			this.queue = null;
-			_this.emit('videoLoaded', self);
-			// TODO: call removePlayer() on element.remove()
+			_this.emit('playerElementAdded', element);
+			RemoveObserver.on(this.root, this.removePlayer);
 		},
 
 		removePlayer() {
+			if (!this.root) { return; }
 			window.removeEventListener('message', this);
-			this.video = null;
+			RemoveObserver.off(this.root, this.removePlayer);
+			this.root = this.video = null;
 			!this.queue && (this.queue = [ ]);
 		},
 

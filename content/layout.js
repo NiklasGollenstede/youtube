@@ -19,7 +19,8 @@ return function(main) {
 	initFullscreen(main);
 
 	// apply 'watchpage' and 'playlist' class to <html> as appropriate
-	main.on('navigated', ({ options, videoId, listId, player, }) => {
+	main.on('navigated', () => {
+		const { options, videoId, listId, player, } = main;
 		if (!videoId) {
 			return document.documentElement.classList.remove('watchpage');
 		}
@@ -28,25 +29,25 @@ return function(main) {
 		document.documentElement.classList.add('watchpage');
 		document.documentElement.classList[listId ? 'add' : 'remove']('playlist');
 
-		if (player.root) { withRoot(); } else { player.once('videoLoaded', withRoot); }
-		function withRoot() {
+		if (player.root) { withPlayerElement(player.root); } else { player.once('playerElementAdded', withPlayerElement); }
+		function withPlayerElement(element) {
 			// use cinema mode to make progress-bar a bit larger
-			options.player.cinemaMode && (player.root.querySelector('.ytp-size-button') || noop).click();
+			options.player.cinemaMode && (element.querySelector('.ytp-size-button') || noop).click();
 
 			// always display volume
-			options.player.alwaysVolume && (player.root.querySelector('.ytp-volume-panel') || noop).classList.add('ytp-volume-control-hover');
+			options.player.alwaysVolume && (element.querySelector('.ytp-volume-panel') || noop).classList.add('ytp-volume-control-hover');
 
 			// disable annotations (and all other checkboxes in the player settings)
 			if (!options.player.annotations) { hide(); setTimeout(hide, 5e4); setTimeout(hide, 12e4); }
 			function hide() {
-				player.root.querySelector('.ytp-settings-button').click();
-				Array.prototype.forEach.call(player.root.querySelectorAll('#ytp-main-menu-id .ytp-menuitem[aria-checked="true"]'), button => button.click());
-				player.root.querySelector('.ytp-settings-button').click();
+				element.querySelector('.ytp-settings-button').click();
+				Array.prototype.forEach.call(element.querySelectorAll('#ytp-main-menu-id .ytp-menuitem[aria-checked="true"]'), button => button.click());
+				element.querySelector('.ytp-settings-button').click();
 			}
 
 			// remove title overlay of external player
-			const title = player.root.querySelector('.ytp-chrome-top');
-			title && title.remove() === player.root.querySelector('.ytp-gradient-top').remove();
+			const title = element.querySelector('.ytp-chrome-top');
+			title && title.remove() === element.querySelector('.ytp-gradient-top').remove();
 		}
 	});
 

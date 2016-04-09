@@ -12,7 +12,7 @@ class ContextMenu {
 		document.body.classList.add('context-menu-showing');
 		document.body.appendChild(element);
 		document.body.addEventListener('click', this, true);
-		items.forEach(item => this.addItem(item));
+		items.forEach(item => item && this.addItem(item));
 	}
 
 	addItem({ type, label, value, onClick, default: _default, }, parent = this.element) {
@@ -26,7 +26,7 @@ class ContextMenu {
 				item.classList.add('menu-submenu');
 				const submenu = item.appendChild(document.createElement('div'));
 				submenu.className = 'submenu';
-				value.forEach(child => this.addItem(child, submenu));
+				value.forEach(child => child && this.addItem(child, submenu));
 			} break;
 			case 'label':
 			default: {

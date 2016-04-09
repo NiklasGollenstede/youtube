@@ -21,7 +21,8 @@ return function(main) {
 	port.on('play', () => console.log('control play') === player.play(true));
 	port.on('pause', () => console.log('control pause') === player.pause(true));
 
-	main.on('navigated', async(function*({ videoId, }) {
+	main.on('navigated', async(function*() {
+		const { videoId, } = main;
 		if (!videoId) {
 			console.log('player removed');
 			return port.emit('player_removed');
@@ -39,13 +40,11 @@ return function(main) {
 		}
 
 		// play, stop or pause
-		let playing = false;
-		if (!options.player.pauseOnStart
-			|| options.player.pauseOnStart.playOnNotHidden && !document.hidden
-			|| options.player.pauseOnStart.playOnFocus && document.hasFocus()
-		) {
+		const play = !options.player.pauseOnStart
+		|| options.player.pauseOnStart.playOnNotHidden && !document.hidden
+		|| options.player.pauseOnStart.playOnFocus && document.hasFocus();
+		if (play) {
 			(yield player.play());
-			playing = true;
 		} else if (options.player.pauseOnStart.preventBuffering) {
 			(yield player.stop());
 		} else {
@@ -60,12 +59,12 @@ return function(main) {
 
 		console.log('control done', title, duration, main.videoId);
 		port.emit('player_created', main.videoId);
-		playing && port.emit('player_playing', main.videoId);
+		play && port.emit('player_playing', main.videoId);
 		reportState = true;
 
 	}, error => console.error(error)));
 
-	main.on('navigate', ({ navigationTarget: { url, }, }) => {
+	main.on('navigate', ({ url, }) => {
 		console.log('navigate to', url);
 		reportState = false;
 	});

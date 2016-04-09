@@ -40,9 +40,11 @@ window.addEventListener('DOMContentLoaded', () => {
 				document.querySelector('#loop').classList[state.looping ? 'add' : 'remove']('active');
 			}
 		},
-		playlist_add({ index, tabId, }) {
+		playlist_add({ index, tabId, reference, }) {
 			console.log('playlist_add', index, tabId);
+			if (reference && tabList.children[index] && tabList.children[index].reference === reference) { return; }
 			tabList.insertBefore(windowList.querySelector('.tab-'+ tabId).cloneNode(true), tabList.children[index]);
+			reference && (tabList.children[index].reference = reference);
 		},
 		playlist_seek(active) {
 			console.log('playlist_seek', active);
@@ -55,7 +57,7 @@ window.addEventListener('DOMContentLoaded', () => {
 		},
 		playlist_replace(playlist) {
 			console.log('playlist_replace', playlist);
-			const active = Array.prototype.indexOf.call(tabList.children, tabList.querySelector('.active'));
+			const active = positionInParent(tabList.querySelector('.active'));
 			tabList.textContent = '';
 			playlist.forEach(tabId => tabList.appendChild(windowList.querySelector('.tab-'+ tabId).cloneNode(true)));
 			this.playlist_seek(active);
@@ -94,7 +96,7 @@ document.addEventListener('dblclick', function({ target, button, }) {
 
 	target = getParent(target, '.tab');
 	if (target.matches('#playlist *')) {
-		port.emit('playlist_seek', Array.prototype.indexOf.call(tabList.children, target));
+		port.emit('playlist_seek', positionInParent(target));
 	} else if (target.matches('#windows *')) {
 		port.emit('tab_focus', +target.dataset.tabId);
 	}
@@ -106,7 +108,7 @@ document.addEventListener('click', function({ target, button, }) {
 
 	target = getParent(target, '.tab');
 	if (target.matches('#playlist *')) {
-		port.emit('playlist_delete', Array.prototype.indexOf.call(tabList.children, target));
+		port.emit('playlist_delete', positionInParent(target));
 	} else if (target.matches('#windows *')) {
 		port.emit('tab_close', +target.dataset.tabId);
 	}
@@ -118,11 +120,13 @@ document.addEventListener('contextmenu', function(event) {
 	if (!target.matches) { return; }
 	const items = [ ];
 	if (target.matches('.tab, .tab *')) {
-		const { tabId, } = getParent(target, '.tab').dataset;
+		const tab = getParent(target, '.tab');
+		const tabId = +tab.dataset.tabId;
 		items.push(
-			{ label: 'Play video', onClick: () => port.emit('tab_play', +tabId), default: target.matches('#playlist *') && !target.matches('.remove'), },
-			{ label: 'Show tab', onClick: () => port.emit('tab_focus', +tabId), default: target.matches('#windows *') && !target.matches('.remove'), },
-			{ label: 'Close tab', onClick: () => port.emit('tab_close', +tabId), default: target.matches('.remove'), }
+			{ label: 'Play video', onClick: () => port.emit('tab_play', tabId), default: target.matches('#playlist *') && !target.matches('.remove'), },
+			{ label: 'Show tab', onClick: () => port.emit('tab_focus', tabId), default: target.matches('#windows *') && !target.matches('.remove'), },
+			{ label: 'Close tab', onClick: () => port.emit('tab_close', tabId), default: target.matches('.remove'), },
+			target.matches('#playlist *') && { label: 'Duplicate', onClick: () => port.emit('playlist_add', { index: positionInParent(tab), tabId, }), }
 		);
 	}
 	if (target.matches('#playlist, #playlist *')) {
@@ -191,8 +195,12 @@ function enableDragIn(element) {
 		scrollSpeed: 10,
 		onSort({ newIndex, oldIndex, target, from, item, }) {
 			if (newIndex === oldIndex && from === target) { return; }
-			from === target && port.emit('playlist_delete', oldIndex);
-			port.emit('playlist_add', { index: newIndex, tabId: +item.dataset.tabId, });
+			if (from === target) {
+				tabList.insertBefore(document.createElement('dummy'), tabList.children[oldIndex]);
+				port.emit('playlist_delete', oldIndex);
+			}
+			const reference = item.reference || (item.reference = Math.floor(Math.random() * 0xffFFffFF).toString(16));
+			port.emit('playlist_add', { index: newIndex, tabId: +item.dataset.tabId, reference, });
 		},
 	}));
 }
@@ -240,6 +248,10 @@ function removeTab(tab) {
 	const window = tab.matches('.window *') && getParent(tab, '.window');
 	window && window.querySelectorAll('.tabs').length === 1 && window.remove();
 	return tab.remove();
+}
+
+function positionInParent(element) {
+	return Array.prototype.indexOf.call(element.parentNode.children, element);
 }
 
 function hideScrollBars() {

@@ -1,8 +1,11 @@
 'use strict'; define('content/templates', [
-	'es6lib',
-], function({
-	format: { secondsToHhMmSs, numberToRoundString, timeToRoundString, },
-}) {
+	'es6lib', 'es6lib/template/escape',
+], function(
+	{
+		format: { secondsToHhMmSs, numberToRoundString, timeToRoundString, },
+	},
+	{ encodeHtml, }
+) {
 
 const transformVars = transformer => function urlToHtml(strings, ...vars) {
 	const ret = Array(vars.length);
@@ -12,25 +15,13 @@ const transformVars = transformer => function urlToHtml(strings, ...vars) {
 	return ret.join('') + strings[strings.length - 1];
 };
 
-const htmlEscape = {
-	'&': '&amp;',
-	'<': '&lt;',
-	'>': '&gt;',
-	"'": '&#39;',
-	'"': '&quot;',
-};
+const urlToHtml = transformVars(value => encodeHtml(decodeURI(value).replace(/\+/g, ' ')));
 
-const encodeHTML = string => string.replace(/[&"'<>]/g, c => htmlEscape[c]);
-
-const urlToHtml = transformVars(value => encodeHTML(decodeURI((value || '') +'').replace(/\+/g, ' ')));
-
-const stringToHtml = transformVars(value => encodeHTML((value || '') +''));
-
-const sides = [ 'top', 'right', 'bottom', 'left', ];
+const stringToHtml = transformVars(encodeHtml);
 
 const Templates = ({
 
-	commentsIframe: (videoId, onLoad) => (urlToHtml`
+	commentsIframe: (videoId, onLoad) => (stringToHtml`
 <iframe
 	id="external_comments"
 	data-video-id="${ videoId }"

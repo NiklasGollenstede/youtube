@@ -1,5 +1,5 @@
 'use strict'; define('content/ratings', [
-	'content/utils', 'content/templates', 'es6lib',
+	'content/utils', 'content/templates', 'es6lib', 'es6lib/template/escape',
 ], function(
 	{ getVideoIdFromImageSrc, },
 	Templates,
@@ -7,7 +7,8 @@
 		concurrent: { async, spawn, },
 		dom: { once, },
 		network: { HttpRequest, },
-	}
+	},
+	{ decodeHtml, }
 ) {
 
 const CSS = ({ likesColor = '#0b2', dislikesColor = '#C00', } = { }) => (`
@@ -53,8 +54,6 @@ function attatchRatingBar(element, { rating: { likes, dislikes, views, }, meta: 
 	element.title = Templates.videoInfoTitle(likes, dislikes, views, published);
 }
 
-const decoder = document.createElement('textarea');
-const decodeHtml = html => (decoder.innerHTML = html) && decoder.value; // TODO: test XSS
 const getInt = (string, regexp) => parseInt((string.match(regexp) || [0,'0'])[1].replace(/[\,\.]*/g, ''), 10);
 const getString = (string, regexp) => decodeHtml((string.match(regexp) || [0,''])[1]);
 const getTime = (string, regexp) => +new Date((string.match(regexp) || [0,''])[1]);
@@ -76,7 +75,8 @@ const loadRatingFromServer = id => HttpRequest('https://www.youtube.com/watch?v=
 return function(main) {
 
 	main.options.displayRatings
-	&& main.once('observerCreated', ({ observer, addStyle, port, }) => {
+	&& main.once('observerCreated', () => {
+		const { observer, addStyle, port, } = main;
 		const style = addStyle(CSS({ }));
 
 		const loadAndDisplayRating = (element, id) => spawn(function*() {

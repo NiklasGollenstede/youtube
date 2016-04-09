@@ -33,7 +33,6 @@ const Main = new Class({
 
 		this.videoId = null;
 		this.listId = null;
-		this.navigationTarget = { url: null, };
 
 		this.port = new (require('content/port'))(this);
 		this.player = new (require('content/player-proxy'))(this);
@@ -91,24 +90,22 @@ const Main = new Class({
 			this.update(self);
 			document.head.appendChild(this.styles);
 			self.observer = new CreationObserver(document);
-			_this.emitSync('observerCreated', self);
-			_this.emitSync('navigated', self);
+			_this.emitSync('observerCreated', null);
+			_this.emitSync('navigated', null);
 		},
 
-		navigate({ detail: { url, }, }) {
+		navigate({ detail, }) {
 			const self = Public(this), _this = Protected(this);
 			this.update(self);
-			console.log('navigate', url);
-			self.navigationTarget = { url, };
-			_this.emitSync('navigate', self);
-			self.navigationTarget = { url: null, };
+			console.log('navigate', detail.url);
+			_this.emitSync('navigate', detail);
 		},
 
 		navigated() {
 			const self = Public(this), _this = Protected(this);
 			this.update(self);
 			console.log('navigated', location.href, self);
-			_this.emitSync('navigated', self);
+			_this.emitSync('navigated', null);
 		},
 
 		update(self = Public(this)) {
@@ -122,7 +119,7 @@ const Main = new Class({
 			if (sync !== 'sync' && !options) { return; }
 			copyProperties(self.options, options.newValue.content);
 			console.log('options changed', self.options);
-			_this.emitSync('optionsChanged', self);
+			_this.emitSync('optionsChanged', null);
 		},
 
 		destroy() {
