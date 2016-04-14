@@ -7,16 +7,16 @@
 	}
 ) {
 
-let style = null, zoom = null, scale = 1, scaleX = 0.5, scaleY = 0.5;
+let zoom = null, scale = 1, scaleX = 0.5, scaleY = 0.5;
 const noop = document.createElement('p');
 
 return function(main) {
 	// load style
-	style = main.addStyleLink(chrome.extension.getURL('content/layout.css'));
 	zoom = main.addStyle('');
 
 	// apply 'fullscreen' class to <html> as appropriate
-	initFullscreen(main);
+	main.once('optionsLoaded', ({ value: { player, }, }) => {
+		player.seamlessFullscreen && initFullscreen(main)});
 
 	// apply 'watchpage' and 'playlist' class to <html> as appropriate
 	main.on('navigated', () => {
@@ -57,8 +57,7 @@ return function(main) {
 	});
 
 	// rotating thumb preview
-	main.options.animateThumbs
-	&& main.addDomListener(window, 'mouseover', ({ target: image, }) => {
+	main.once('optionsLoaded', ({ value: { animateThumbs, }, }) => animateThumbs && main.addDomListener(window, 'mouseover', ({ target: image, }) => {
 		if (image.nodeName !== 'IMG') { return; }
 		const videoId = getVideoIdFromImageSrc(image);
 		if (!videoId) { return; }
@@ -76,11 +75,13 @@ return function(main) {
 			image.src = original;
 			original = null;
 		});
-	});
+	}));
 };
 
-function initFullscreen({ options, port, addDomListener, }) {
-	options.player.seamlessFullscreen && options.player.seamlessFullscreen.atStart && document.documentElement.classList.add('fullscreen');
+function initFullscreen({ options, port, addDomListener, addStyleLink, }) {
+	addStyleLink(chrome.extension.getURL('web/layout.css'));
+
+	options.player.seamlessFullscreen.atStart && document.documentElement.classList.add('fullscreen');
 
 	addDomListener(window, 'wheel', onWheel);
 	function onWheel(event) {

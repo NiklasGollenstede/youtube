@@ -246,7 +246,7 @@ function updateTab(element, tab) {
 function removeTab(tab) {
 	tab.classList.contains('active') && tab.nextSibling && tab.nextSibling.classList.add('active');
 	const window = tab.matches('.window *') && getParent(tab, '.window');
-	window && window.querySelectorAll('.tabs').length === 1 && window.remove();
+	window && window.querySelectorAll('.tab').length === 1 && window.remove();
 	return tab.remove();
 }
 

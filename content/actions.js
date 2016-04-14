@@ -170,7 +170,8 @@ const actions = {
 	actions['openRelated'+ i] = () => document.querySelectorAll('li.video-list-item.related-list-item')[i - 1].querySelector('a').click();
 });
 
-return function({ options, player, port, }) {
+return function(main) { main.once('optionsLoaded', () => {
+	const { options, player, port, } = main;
 
 	updateKeyMap(options);
 
@@ -187,6 +188,6 @@ return function({ options, player, port, }) {
 		event.stopPropagation(); event.preventDefault();
 		actions[name](player);
 	}
-};
+}); };
 
 });

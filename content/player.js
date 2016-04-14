@@ -1,4 +1,4 @@
-'use strict'; define('content/player-proxy', [
+'use strict'; define('content/player', [
 	'common/event-emitter', 'content/templates', 'es6lib',
 ], function(
 	EventEmitter,
@@ -56,7 +56,7 @@ function sendMessage(type, args = [ ]) {
 	return window.postMessage({ target: target.other, type, args, }, '*');
 }
 
-const PlayerProxy = new Class({
+const Player = new Class({
 	extends: { public: EventEmitter, },
 
 	constructor: (Super, Private, Protected) => (function(main) {
@@ -79,7 +79,7 @@ const PlayerProxy = new Class({
 		methods.forEach(([ method, event, ]) => {
 			if (!method) { return; }
 			members[method] = function(...args) {
-				if (Instance !== this) { return new Error('"'+ method +'" called on dead PlayerProxy'); }
+				if (Instance !== this) { return new Error('"'+ method +'" called on dead Player'); }
 				const self = Private(this);
 				let value; if (self[method] && (value = self[method](...args))) { return value; }
 				if (self.queue) {
@@ -96,10 +96,10 @@ const PlayerProxy = new Class({
 	private: (Private, Protected, Public) => ({
 
 		create(self, _this) {
-			DOMContentLoaded.then(() => {
+			this.main.once('observerCreated', () => {
 				// inject unsafe script
 				document.body.appendChild(createElement('script', {
-					src: chrome.extension.getURL('content/unsafe.js'),
+					src: chrome.extension.getURL('web/player.js'),
 				})).remove();
 
 				const done = (message) => {
@@ -271,4 +271,4 @@ function getParent(element, selector) {
 	return element;
 }
 
-return (PlayerProxy.PlayerProxy = PlayerProxy); });
+return (Player.Player = Player); });

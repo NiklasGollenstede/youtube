@@ -73,10 +73,9 @@ const loadRatingFromServer = id => HttpRequest('https://www.youtube.com/watch?v=
 }));
 
 return function(main) {
-
-	main.options.displayRatings
-	&& main.once('observerCreated', () => {
-		const { observer, addStyle, port, } = main;
+	main.once('observerCreated', () => {
+		const { options, observer,  addStyle, port, } = main;
+		if (!options.displayRatings) { return; }
 		const style = addStyle(CSS({ }));
 
 		const loadAndDisplayRating = (element, id) => spawn(function*() {

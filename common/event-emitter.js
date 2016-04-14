@@ -25,12 +25,15 @@ const EventEmitter = new Class({
 		},
 		off(name, cb) {
 			const self = Private(this);
-			self.on && self.on[name] && self.on[name].delete(cb);
+			const on = self.on && self.on[name];
+			if (!on) { return this; }
+			on.delete(cb);
+			!on.size && delete self.on[name];
 			return this;
 		},
 		onceBefore(name, cancel, cb) {
 			const self = Private(this);
-			var canceled = false;
+			let canceled = false;
 			const good = value => { self.on[cancel].delete(bad); !canceled && cb(value); };
 			const bad = value => { self.on[name].delete(good); canceled = true; };
 			self.add(name, good, true);
@@ -44,24 +47,37 @@ const EventEmitter = new Class({
 			if (name === EventEmitter.destroyed) { throw new Error('Cannot emit EventEmitter.destroyed'); }
 			const self = Private(this);
 			const on = self.on && self.on[name];
-			on && on.forEach((once, cb) => {
+			if (!on) { return; }
+			on.forEach((once, cb) => {
 				now.then(() => cb(value)).catch(error => { console.error('"'+ name +'" event handler threw:', error); });
 				once && on.delete(cb);
 			});
+			!on.size && delete self.on[name];
 		},
 		emitSync(name, value) {
 			if (name === EventEmitter.destroyed) { throw new Error('Cannot emit EventEmitter.destroyed'); }
 			const self = Private(this);
 			const on = self.on && self.on[name];
 			const cbs = [ ];
-			on && on.forEach((once, cb) => {
+			if (!on) { return cbs; }
+			on.forEach((once, cb) => {
 				cbs.push(cb);
 				once && on.delete(cb);
 			});
+			!on.size && delete self.on[name];
 			return cbs.map(cb => { try { return cb(value); } catch (error) {
 				console.error('"'+ name +'" event handler threw:', error);
 				return null;
 			} });
+		},
+		clear(name) {
+			const self = Private(this);
+			const on = self.on && self.on[name];
+			if (!on) { return 0; }
+			const size = on.size;
+			on.clear();
+			delete self.on[name];
+			return size;
 		},
 		destroy() {
 			const self = Private(this);
@@ -77,8 +93,9 @@ const EventEmitter = new Class({
 	private: () => ({
 		add(key, value, once) {
 			if (!this.on) { return; }
-			if (this.on[key]) { return this.on[key].set(value, once); }
-			this.on[key] = new Map([ [ value, once, ], ]);
+			let on = this.on[key];
+			if (!on) { on = this.on[key] = new Map; }
+			on.set(value, once);
 		}
 	}),
 });

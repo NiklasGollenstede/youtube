@@ -1,8 +1,5 @@
 'use strict'; (() => {
 
-require('common/chrome').storage.sync.get('options')
-.then(({ options, }) => new Main(options.content));
-
 const {
 	dom: { CreationObserver, DOMContentLoaded, createElement, },
 	format: { QueryObject, },
@@ -10,47 +7,43 @@ const {
 	namespace: { IterableNameSpace, },
 } = require('es6lib');
 
-const EventEmitter = require('common/event-emitter');
-
+/**
+ * Event sequence: optionsChanged optionsLoaded (navigate|navigated|optionsChanged)* observerCreated navigated (navigate|navigated|optionsChanged)* <destroyed>
+ */
 
 const Main = new Class({
-	extends: { public: EventEmitter, },
+	extends: { public: require('common/event-emitter'), },
 
-	constructor: (Super, Private, Protected) => (function(options) {
+	constructor: (Super, Private, Protected) => (function() {
 		Super.call(this);
 		const self = Private(this);
-		console.log('content attatched', options);
 
-		this.options = options;
 		self.styles = createElement('span');
 		self.nodesCapture = new IterableNameSpace;
 		self.nodesBubble = new IterableNameSpace;
 
+		this.on = this.on.bind(this);
+		this.once = this.once.bind(this);
 		this.addStyle = this.addStyle.bind(this);
 		this.addStyleLink = this.addStyleLink.bind(this);
 		this.addDomListener = this.addDomListener.bind(this);
 		this.removeDomListener = this.removeDomListener.bind(this);
 
-		this.videoId = null;
-		this.listId = null;
-
-		this.port = new (require('content/port'))(this);
-		this.player = new (require('content/player-proxy'))(this);
-		this.layout = new (require('content/layout'))(this);
-		this.ratings = new (require('content/ratings'))(this);
-		this.passive = new (require('content/passive'))(this);
-		this.actions = new (require('content/actions'))(this);
-		this.control = new (require('content/control'))(this);
-		// this.skip = new (require('content/skip'))(this);
+		this.options = { };
 		this.observer = null;
-
 		self.update(this);
 
+		function error(error) { console.error('Failed to load module:', error); }
+		try { this.port = new (require('content/port'))(this); } catch(e) { error(e); }
+		try { this.player = new (require('content/player'))(this); } catch(e) { error(e); }
+		try { this.layout = new (require('content/layout'))(this); } catch(e) { error(e); }
+		try { this.ratings = new (require('content/ratings'))(this); } catch(e) { error(e); }
+		try { this.passive = new (require('content/passive'))(this); } catch(e) { error(e); }
+		try { this.actions = new (require('content/actions'))(this); } catch(e) { error(e); }
+		try { this.control = new (require('content/control'))(this); } catch(e) { error(e); }
+
 		this.port.on(Symbol.for('destroyed'), self.destroy.bind(self));
-		DOMContentLoaded.then(self.loaded.bind(self));
-		this.addDomListener(window, 'spfrequest', self.navigate.bind(self));
-		this.addDomListener(window, 'spfdone', self.navigated.bind(self));
-		chrome.storage.onChanged.addListener(self.onOptionsChanged = self.onOptionsChanged.bind(self));
+		require('common/chrome').storage.sync.get('options').then(self.optionsLoaded.bind(self));
 	}),
 
 	public: (Private, Protected, Public) => ({
@@ -91,6 +84,7 @@ const Main = new Class({
 			document.head.appendChild(this.styles);
 			self.observer = new CreationObserver(document);
 			_this.emitSync('observerCreated', null);
+			_this.clear('observerCreated');
 			_this.emitSync('navigated', null);
 		},
 
@@ -108,18 +102,33 @@ const Main = new Class({
 			_this.emitSync('navigated', null);
 		},
 
+		optionsLoaded({ options, }) {
+			const self = Public(this), _this = Protected(this);
+			copyProperties(self.options, options.content);
+			const arg = { old: { }, value: self.options, };
+			console.log('options loaded', self.options);
+			DOMContentLoaded.then(this.loaded.bind(this));
+			self.addDomListener(window, 'spfrequest', this.navigate.bind(this));
+			self.addDomListener(window, 'spfdone', this.navigated.bind(this));
+			chrome.storage.onChanged.addListener(this.optionsChanged = this.optionsChanged.bind(this));
+			_this.emitSync('optionsChanged', arg);
+			_this.emitSync('optionsLoaded', arg);
+			_this.clear('optionsLoaded');
+		},
+
+		optionsChanged({ options, }, sync) {
+			const self = Public(this), _this = Protected(this);
+			if (sync !== 'sync' || !options || !options.newValue) { return; }
+			copyProperties(self.options, options.newValue.content);
+			const arg = { old: options.oldValue, value: self.options, };
+			console.log('options changed', self.options);
+			_this.emitSync('optionsChanged', arg);
+		},
+
 		update(self = Public(this)) {
 			const info = location.pathname === '/watch' && new QueryObject(location.search);
 			self.videoId = info && info.v;
 			self.listId = info && info.list;
-		},
-
-		onOptionsChanged({ options, }, sync) {
-			const self = Public(this), _this = Protected(this);
-			if (sync !== 'sync' && !options) { return; }
-			copyProperties(self.options, options.newValue.content);
-			console.log('options changed', self.options);
-			_this.emitSync('optionsChanged', null);
 		},
 
 		destroy() {
@@ -142,9 +151,11 @@ const Main = new Class({
 				nodes.destroy();
 			}));
 
-			chrome.storage.onChanged.removeListener(this.onOptionsChanged);
+			chrome.storage.onChanged.removeListener(this.optionsChanged);
 		},
 	}),
 });
+
+new Main;
 
 })();
