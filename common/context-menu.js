@@ -6,16 +6,16 @@ class ContextMenu {
 	constructor({ x, y, items, }) {
 		const element = this.element = document.createElement('div');
 		element.className = 'popup-menu';
-		element.style.top = y +'px';
-		element.style.left = x +'px';
 		document.body.click();
 		document.body.classList.add('context-menu-showing');
 		document.body.appendChild(element);
 		document.body.addEventListener('click', this, true);
 		items.forEach(item => item && this.addItem(item));
+		element.style.top = (y + element.clientHeight > window.innerHeight ? y - element.clientHeight - 1 : y + 1) +'px';
+		element.style.left = (x + element.clientWidth > window.innerWidth ? x - element.clientWidth - 1 : x + 1) +'px';
 	}
 
-	addItem({ type, label, value, onClick, default: _default, }, parent = this.element) {
+	addItem({ type, label, value, action, default: _default, }, parent = this.element) {
 		const item = document.createElement('div');
 		item.classList.add('menu-item');
 		_default && item.classList.add('default');
@@ -33,7 +33,7 @@ class ContextMenu {
 				item.classList.add('menu-label');
 			}
 		}
-		onClick && item.addEventListener('click', event => !event.button && onClick(event, value) == this.remove());
+		action && item.addEventListener('click', event => !event.button && action(event, value) === this.remove());
 		return parent.appendChild(item);
 	}
 

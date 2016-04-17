@@ -1,0 +1,40 @@
+.popup-background {
+	position: absolute;
+	top: 0;
+	left: 0;
+	bottom: 0;
+	right: 0;
+}
+.popup-menu, .submenu {
+	position: absolute;
+	padding: 2px;
+	border: 1px solid transparent;
+	border-color: inherit;
+	white-space: nowrap;
+}
+.menu-item:not(:first-child) {
+	border-top: 1px solid transparent;
+	border-color: inherit;
+}
+.menu-item {
+	padding: 2px 10px 2px 10px;
+	position: relative;
+}
+.menu-item.default {
+	font-weight: bold;
+}
+.menu-submenu .submenu {
+	display: none;
+	float: left;
+	left: calc(100% - 5px);
+	top: -3px;
+}
+.menu-submenu:hover .submenu {
+	display: unset;
+}
+
+/* transitions */
+.menu-item {
+	transition-property: color, fill, background-color, border-color;
+	transition-duration: 0.16s;
+}

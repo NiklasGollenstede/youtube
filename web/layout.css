@@ -256,7 +256,8 @@
 }
 
 /* add/share button */
-.watchpage #watch8-secondary-actions>*
+.watchpage .action-panel-trigger-share,
+.watchpage .yt-uix-clickcard .addto-button
 {
     display: none !important;
 }

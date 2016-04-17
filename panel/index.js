@@ -123,31 +123,31 @@ document.addEventListener('contextmenu', function(event) {
 		const tab = getParent(target, '.tab');
 		const tabId = +tab.dataset.tabId;
 		items.push(
-			{ label: 'Play video', onClick: () => port.emit('tab_play', tabId), default: target.matches('#playlist *') && !target.matches('.remove'), },
-			{ label: 'Show tab', onClick: () => port.emit('tab_focus', tabId), default: target.matches('#windows *') && !target.matches('.remove'), },
-			{ label: 'Close tab', onClick: () => port.emit('tab_close', tabId), default: target.matches('.remove'), },
-			target.matches('#playlist *') && { label: 'Duplicate', onClick: () => port.emit('playlist_add', { index: positionInParent(tab), tabId, }), }
+			{ label: 'Play video', action: () => port.emit('tab_play', tabId), default: target.matches('#playlist *') && !target.matches('.remove'), },
+			{ label: 'Show tab', action: () => port.emit('tab_focus', tabId), default: target.matches('#windows *') && !target.matches('.remove'), },
+			{ label: 'Close tab', action: () => port.emit('tab_close', tabId), default: target.matches('.remove'), },
+			target.matches('#playlist *') && { label: 'Duplicate', action: () => port.emit('playlist_add', { index: positionInParent(tab), tabId, }), }
 		);
 	}
 	if (target.matches('#playlist, #playlist *')) {
 		items.push(
 			{ label: 'Sort by ...', type: 'menu', value: [
-				{ label: '... position', onClick: () => port.emit('playlist_sort', 'position'), },
-				{ label: '... views (global)', onClick: () => port.emit('playlist_sort', 'viewsGlobal'), },
-				{ label: 'Shuffle', onClick: () => port.emit('playlist_sort', 'random'), },
+				{ label: '... position', action: () => port.emit('playlist_sort', 'position'), },
+				{ label: '... views (global)', action: () => port.emit('playlist_sort', 'viewsGlobal'), },
+				{ label: 'Shuffle', action: () => port.emit('playlist_sort', 'random'), },
 			], }
 		);
 	}
 	if (target.matches('.window .header .title')) {
 		const box = windowList.querySelector('#'+ target.htmlFor);
 		items.push(
-			{ label: (box.checked ? 'Expand' : 'Collapse') +' tab list', onClick: () => box.checked = !box.checked, default: true, }
+			{ label: (box.checked ? 'Expand' : 'Collapse') +' tab list', action: () => box.checked = !box.checked, default: true, }
 		);
 	}
 	if (target.matches('#windows, #windows *')) {
 		const windowId = getParent(target, '.window').id.match(/^window-(.+)$/)[1];
 		items.push(
-			{ label: 'Close window', onClick: () => confirm(
+			{ label: 'Close window', action: () => confirm(
 				'Close all '+ windowList.querySelectorAll('#window-'+ windowId +' .tab').length +' tabs in this window?'
 			) && port.emit('window_close', +windowId), }
 		);

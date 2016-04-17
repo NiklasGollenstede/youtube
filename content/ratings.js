@@ -43,7 +43,7 @@ const CSS = ({ likesColor = '#0b2', dislikesColor = '#C00', } = { }) => (`
 `);
 
 function attatchRatingBar(element, { rating: { likes, dislikes, views, }, meta: { published, }, })  {
-	if (element.matches('img, .videowall-still-image')) {
+	if (element.matches('img, .videowall-still-image, .ytp-redesign-videowall-still-image')) {
 		element = element.parentNode;
 		if (element.matches('.yt-thumb-clip')) {
 			element = element.parentNode.parentNode;
@@ -81,7 +81,12 @@ return function(main) {
 		const loadAndDisplayRating = (element, id) => spawn(function*() {
 			element.dataset.rating = true;
 			const stored = (yield port.request('get', id, [ 'meta', 'rating', ]));
-			if (stored.meta && stored.rating) {
+			let now = Date.now(), age;
+			if (
+				stored.meta && stored.rating
+				&& (age = now - stored.rating.timestamp) < options.displayRatings.totalLifetime
+				&& age < (now - stored.meta.published) * (options.displayRatings.relativeLifetime / 100)
+			) {
 				return attatchRatingBar(element, stored);
 			}
 			const loaded = (yield loadRatingFromServer(id));
@@ -94,14 +99,14 @@ return function(main) {
 		})
 		.catch(error => console.error(error) === delete element.dataset.rating);
 
-		observer.all('img:not([data-rating="true"]), .videowall-still-image:not([data-rating="true"])', (element) => {
+		observer.all('img:not([data-rating="true"]), .videowall-still-image:not([data-rating="true"]), .ytp-redesign-videowall-still-image:not([data-rating="true"])', (element) => {
 			const videoId = getVideoIdFromImageSrc(element);
 			videoId && loadAndDisplayRating(element, videoId);
 		});
 
 		const obs = new MutationObserver(mutations => mutations.forEach(({ target: element, }) => {
 			obs.takeRecords();
-			if (element.dataset.rating || !element.matches || !element.matches('img, .videowall-still-image')) { return; }
+			if (element.dataset.rating || !element.matches || !element.matches('img, .videowall-still-image, .ytp-redesign-videowall-still-image')) { return; }
 			const videoId = getVideoIdFromImageSrc(element);
 			videoId && loadAndDisplayRating(element, videoId);
 		}));

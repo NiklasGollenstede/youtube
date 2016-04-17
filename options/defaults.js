@@ -43,15 +43,6 @@ return [
 				description: "externally loaded information (e.g. view counts) is cached per video",
 				type: "bool",
 				value: true,
-				children: [
-					{
-						name: "cacheLifetime",
-						title: "Cache lifetime",
-						description: "cached information expire after xxx ms (to get refreshed)",
-						type: "integer",
-						value: 604800000,
-					},
-				],
 			},
 		],
 	}, {
@@ -61,17 +52,28 @@ return [
 		type: "label",
 		children: [
 			{
-				name: "enforceHtml5",
-				title: "Enforce HTML5 Video player",
-				description: "Only necessary prior to Firefox 38. \nEnforce YouTube to serve videos in the HTML5 player by appending &html5=1 to all video urls",
-				type: "bool",
-				value: false,
-			}, {
 				name: "displayRatings",
 				title: "Display video ratings",
 				description: "Load video rating for every thumbnail",
 				type: "bool",
 				value: true,
+				children: [
+					{
+						name: "totalLifetime",
+						title: "Cache lifetime (total)",
+						description: "Maximum absolute lifetime of cached global video information",
+						type: "integer",
+						unit: "ms",
+						value: 7 * 24 * 60 * 60,
+					}, {
+						name: "relativeLifetime",
+						title: "Cache lifetime (relative)",
+						description: "Global video information will be refreshed if it is older than a percentage of the video age",
+						type: "integer",
+						unit: "%",
+						value: 20,
+					},
+				],
 			}, {
 				name: "animateThumbs",
 				title: "Animate thumbnails",
@@ -117,10 +119,11 @@ return [
 					}, {
 						name: "zoomFactor",
 						title: "Video zoom levels",
-						description: "factor (in %) that each zooming will scale th video",
+						description: "Factor that each zooming will scale th video",
 						type: "integer",
-						value: 10,
+						unit: "%",
 						restrict: { from: -50, to: 100, },
+						value: 10,
 					}, {
 						name: "annotations",
 						title: "Display annotations",
@@ -135,7 +138,7 @@ return [
 					}, {
 						name: "randomAutoplay",
 						title: "Random auto play",
-						description: "uncheck to disable random auto-play",
+						description: "Uncheck to disable random auto-play",
 						type: "hidden", // "bool",
 						value: false,
 					}, {
@@ -187,8 +190,9 @@ return [
 							}, {
 								name: "showOnMouseRight",
 								title: "Right edge motion",
-								description: "enables full screen when cursor is moved within X pixels of the right edge of the window",
+								description: "Enables full screen when cursor is moved close to the right edge of the window",
 								type: "integer",
+								unit: "pixel",
 								restrict: { from: 0, to: 100, },
 								value: 20,
 							}, {

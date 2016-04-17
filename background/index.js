@@ -127,7 +127,7 @@ class Panel {
 		const mapper = {
 			random: Math.random,
 			position: tab => tab.tab().then(info => (info.windowId << 16) + info.index),
-			viewsGlobal: tab => db.get(tab.videoId, [ 'rating', ]).then(({ rating, }) => rating.views),
+			viewsGlobal: tab => db.get(tab.videoId, [ 'rating', ]).then(({ rating, }) => -rating.views),
 		}[by];
 		const data = new WeakMap;
 		return Promise.all(playlist.map(tab => Promise.resolve(tab).then(mapper).then(value => data.set(tab, value))))

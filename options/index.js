@@ -112,6 +112,9 @@ function createInput(pref) {
 				label: 'hidden',
 			}[pref.type] || pref.type,
 		}),
+		pref.unit && createElement('span', {
+			textContent: pref.unit,
+		}),
 		pref.maxLength > 1 && createElement('input', {
 			type: 'button',
 			value: '-',
@@ -195,7 +198,7 @@ function displayPreferences(prefs, values, host = document.body, parent = null) 
 
 		const element = Object.assign(host.appendChild(createElement('div', {
 			input,
-			className: 'pref-container',
+			className: 'pref-container type-'+ pref.type,
 		}, [
 			createElement('h1', {
 				textContent: pref.title || pref.name,

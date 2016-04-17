@@ -15,8 +15,7 @@ return function(main) {
 	zoom = main.addStyle('');
 
 	// apply 'fullscreen' class to <html> as appropriate
-	main.once('optionsLoaded', ({ value: { player, }, }) => {
-		player.seamlessFullscreen && initFullscreen(main)});
+	main.once('optionsLoaded', ({ value: { player, }, }) => player.seamlessFullscreen && initFullscreen(main));
 
 	// apply 'watchpage' and 'playlist' class to <html> as appropriate
 	main.on('navigated', () => {
