@@ -159,9 +159,12 @@ const actions = {
 	},
 	videoDownloadCover(player) {
 		const url = `https://i.ytimg.com/vi/${ new QueryObject(location.search).v }/maxresdefault.jpg`;
+		const title = document.querySelector('#eow-title').textContent;
+		saveAs(url +'?title='+ encodeURIComponent(title), title +'.jpg');
+		return;
 		HttpRequest({ url, responseType: 'blob', })
 		.then(({ response, }) => {
-			saveAs(response, document.title.replace(/^\u25b6| *-? ?YouTube$/ig, '') +'.jpg'); // \u25b6 = play symbol
+			saveAs(response, title +'.jpg');
 		})
 		.catch(Logger('Faild to load maxresdefault.jpg'));
 	},
@@ -170,24 +173,32 @@ const actions = {
 	actions['openRelated'+ i] = () => document.querySelectorAll('li.video-list-item.related-list-item')[i - 1].querySelector('a').click();
 });
 
-return function(main) { main.once('optionsLoaded', () => {
-	const { options, player, port, } = main;
+return class Actions {
+	constructor(main) {
+		this.main = main;
+		main.once('optionsLoaded', this._optionsLoaded.bind(this));
+	}
 
-	updateKeyMap(options);
+	setAction(name, action) {
+		return (actions[name] = action);
+	}
 
-	window.addEventListener('keypress', onKeyPress, true);
-	port.once(Symbol.for('destroyed'), () => window.removeEventListener('keypress', onKeyPress, true));
+	_optionsLoaded() {
+		this.options = this.main.options;
+		this.player = this.main.player;
+		this.main.addDomListener(window, 'keypress', this._keyPress.bind(this), true);
+		updateKeyMap(this.options);
+	}
 
-	// apply hotkeys
-	function onKeyPress(event) {
+	_keyPress(event) {
 		if (event.target && (event.target.tagName == 'INPUT' || event.target.tagName == 'TEXTAREA')) { return; }
 		const key = (event.ctrlKey ? 'Ctrl+' : '') + (event.altKey ? 'Alt+' : '') + (event.shiftKey ? 'Shift+' : '') + event.code;
-		const name = options.keyMap[key];
+		const name = this.options.keyMap[key];
 		console.log('keypress', key, name);
 		if (!name || !actions[name]) { return; }
 		event.stopPropagation(); event.preventDefault();
-		actions[name](player);
+		actions[name](this.player);
 	}
-}); };
+};
 
 });

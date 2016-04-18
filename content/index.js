@@ -35,11 +35,11 @@ const Main = new Class({
 
 		function error(error) { console.error('Failed to load module:', error); }
 		try { this.port = new (require('content/port'))(this); } catch(e) { error(e); }
+		try { this.actions = new (require('content/actions'))(this); } catch(e) { error(e); }
 		try { this.player = new (require('content/player'))(this); } catch(e) { error(e); }
 		try { this.layout = new (require('content/layout'))(this); } catch(e) { error(e); }
 		try { this.ratings = new (require('content/ratings'))(this); } catch(e) { error(e); }
 		try { this.passive = new (require('content/passive'))(this); } catch(e) { error(e); }
-		try { this.actions = new (require('content/actions'))(this); } catch(e) { error(e); }
 		try { this.control = new (require('content/control'))(this); } catch(e) { error(e); }
 
 		this.port.on(Symbol.for('destroyed'), self.destroy.bind(self));
