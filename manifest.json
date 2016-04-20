@@ -71,7 +71,7 @@
 		"default_popup": "panel/index.html"
 	},
 	"options_ui": {
-		"page": "options/index.html",
+		"page": "options/open-in-tab-instead.html",
 		"chrome_style": true
 	},
 
@@ -80,7 +80,7 @@
 			"suggested_key": {
 				"default": "MediaPlayPause"
 			},
-			"description": "PlayPause the current video"
+			"description": "Play/Pause the current video"
 		},
 		"MediaNextTrack": {
 			"suggested_key": {

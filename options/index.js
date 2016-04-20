@@ -125,7 +125,7 @@ function createInput(pref) {
 		})))
 		: createElement('input', {
 			name: pref.name,
-			className: 'value-input input'+ pref.type,
+			className: 'value-input',
 			dataset: {
 				type: pref.type,
 			},
@@ -165,10 +165,12 @@ function setInputValue(input, value) {
 		case "boolInt":
 			field.checked = (value === pref.on);
 			break;
-		case "menulist":
-			Array.prototype.map.call(field, option => (option.selected = false) || option)
-			.find(option => option.value == value).selected = true;
-			break;
+		case "menulist": {
+			const options = Array.from(field);
+			options.forEach(option => option.selected = false);
+			const selected = options.find(option => option.value == value);
+			selected && (selected.selected = true);
+		} break;
 		case "label":
 			break;
 		default:

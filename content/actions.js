@@ -150,12 +150,13 @@ const actions = {
 	videoPopScreenshot() {
 		document.querySelector('.screenshot-preview').remove();
 	},
-	videoSave() { // works only with simple html-player
-		let url = document.querySelector('.html5-main-video').src;
+	videoSave({ player, }) { // works only with simple html-player
+		let url = player.video.src;
+		const title = document.querySelector('#eow-title').textContent;
 		if (url.startsWith('mediasource:')) {
 			url = `https://i.ytimg.com/vi/${ new QueryObject(location.search).v }/maxresdefault.jpg`;
 		}
-		clickElement(createElement('a', { href: url, download: url.match(/\/([^\/]*)$/)[1], target: '_blank'}));
+		saveAs(url +'?title='+ encodeURIComponent(title), title +'.jpg');
 	},
 	videoDownloadCover() {
 		const url = `https://i.ytimg.com/vi/${ new QueryObject(location.search).v }/maxresdefault.jpg`;

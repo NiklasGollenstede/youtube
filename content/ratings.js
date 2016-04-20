@@ -80,6 +80,9 @@ return function(main) {
 
 		const loadAndDisplayRating = (element, id) => spawn(function*() {
 			element.dataset.rating = true;
+			if (options.displayRatings.totalLifetime < 0) {
+				return attatchRatingBar(element, (yield loadRatingFromServer(id)));
+			}
 			const stored = (yield port.request('get', id, [ 'meta', 'rating', ]));
 			let now = Date.now(), age;
 			if (

@@ -317,7 +317,10 @@ chrome.runtime.onConnect.addListener(port => { switch (port.name) {
 	}
 } });
 
-chrome.runtime.onMessage.addListener((message, sender, reply) => reply({ alert, confirm, prompt, }[message.name].apply(window, message.args)));
+chrome.runtime.onMessage.addListener((message, sender, reply) => reply({
+	alert, confirm, prompt,
+	openOptionsTab() { Tabs.create({ url: chrome.extension.getURL('options/index.html'), }); },
+}[message.name].apply(window, message.args)));
 
 chrome.storage.onChanged.addListener(({ options, }, sync) => sync === 'sync' && options && console.log('options changed', options.newValue));
 

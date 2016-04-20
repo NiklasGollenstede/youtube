@@ -2,13 +2,10 @@
 	box-sizing: border-box;
 }
 body {
-	font-size: 14px;
-	margin: 0px;
-	padding: 0px;
-	cursor: default;
+	font-size: 12.5px;
 	overflow: hidden;
-	min-width: 500px;
-	min-height: 500px;
+	height: 500px;
+	width: 368px;
 }
 
 form#options, footer {
