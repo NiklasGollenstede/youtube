@@ -42,20 +42,24 @@ const commands = {
 class Panel {
 	constructor(port) {
 		console.log('panel', port);
-		if (panel) {
-			panel.ports.add(port);
-		} else {
-			panel = this;
-			panel.ports = new Set([ port, ]);
-		}
-
-		port.onMessage.addListener(({ type, value, }) => (panel)[type](value));
-		port.onDisconnect.addListener(() => {
-			panel.ports.delete(port);
-			!panel.ports.size && (panel = null);
-		});
-		this.init(port);
+		!panel && this.create();
+		panel.ports.add(port);
+		panel.init(port);
 		return panel;
+	}
+
+	create() {
+		this.ports = new Set;
+		this.onTabMoved = this.onTabMoved.bind(this);
+		chrome.tabs.onMoved.addListener(this.onTabMoved);
+		chrome.tabs.onAttached.addListener(this.onTabMoved);
+		return (panel = this);
+	}
+
+	destroy() {
+		panel = null;
+		chrome.tabs.onMoved.removeListener(this.onTabMoved);
+		chrome.tabs.onAttached.removeListener(this.onTabMoved);
 	}
 
 	emit(type, value) {
@@ -64,6 +68,11 @@ class Panel {
 	}
 
 	init(port) {
+		port.onMessage.addListener(({ type, value, }) => this[type](value));
+		port.onDisconnect.addListener(() => {
+			this.ports.delete(port);
+			!this.ports.size && this.destroy();
+		});
 		Promise.all(Array.from(tabs.values()).map(tab => tab.info()))
 		.then(tabs => port.postMessage({ type: 'init', value: {
 			windows: ((windows) => (tabs.forEach(tab => {
@@ -77,6 +86,11 @@ class Panel {
 				looping: playlist.loop,
 			},
 		}, }));
+	}
+
+	onTabMoved(id) {
+		const tab = tabs.get(id);
+		tab && tab.info().then(info => this.emit('tab_open', info));
 	}
 
 	tab_play(tabId) {
@@ -145,14 +159,11 @@ class Panel {
 	command_loop() { commands.loop(); }
 }
 
-// TODO: listen to tabs being moved
-
 class Tab {
 	constructor(port) {
 		console.log('tab', port);
 		this.port = port;
 		this.id = port.sender.tab.id;
-		this.windowId = port.sender.tab.windowId;
 		this.videoId = null;
 
 		port.onMessage.addListener(message => {
@@ -323,5 +334,3 @@ Tabs.query({ }).then(tabs => {
 		.catch(error => console.log('skipped tab', error)) // not allowed to execute, i.e. not YouTube
 	)).then(success => console.log('attached to', success.filter(x=>x).length, 'tabs'));
 });
-
-// TODO: try an onbeforeunload hook to destroy all tabs

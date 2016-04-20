@@ -65,18 +65,16 @@ window.addEventListener('DOMContentLoaded', () => {
 		},
 		tab_open(tab) {
 			console.log('tab_open', tab);
-			if (document.querySelector('.tab-'+ tab.tabId)) { return this.tab_update(tab); }
+			let element = windowList.querySelector('.tab-'+ tab.tabId);
+			if (element) {
+				Array.prototype.forEach.call(document.querySelectorAll('.tab-'+ tab.tabId), element => updateTab(element, tab));
+				removeTab(element);
+			} else {
+				element = createTab(tab);
+			}
 			const tabList = windowList.querySelector(`#window-${ tab.windowId } .tabs`) || windowList.appendChild(createWindow({ id: tab.windowId, title: tab.windowId, })).querySelector('.tabs');
 			const next = Array.prototype.find.call(tabList.children, ({ dataset: { index, }, }) => index > tab.index);
-			tabList.insertBefore(createTab(tab), next);
-		},
-		tab_update(tab) {
-			console.log('tab_update', tab);
-			if ('tabId' in tab) {
-				Array.prototype.forEach.call(document.querySelectorAll('.tab-'+ tab.tabId), element => updateTab(element, tab));
-			} else if ('videoId' in tab) {
-				Array.prototype.forEach.call(document.querySelectorAll('.video-'+ tab.videoId), element => updateTab(element, tab));
-			}
+			tabList.insertBefore(element, next);
 		},
 		tab_close(tabId) {
 			console.log('tab_close', tabId);
@@ -251,6 +249,7 @@ function removeTab(tab) {
 }
 
 function positionInParent(element) {
+	if (!element) { return -1; }
 	return Array.prototype.indexOf.call(element.parentNode.children, element);
 }
 
