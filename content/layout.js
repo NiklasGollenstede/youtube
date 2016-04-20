@@ -14,6 +14,7 @@ return class Layout {
 		this.scale = 1;
 		this.scaleX = this.scaleY = 0.5;
 		this.zoom = main.addStyle('');
+		this.setZoom();
 		this.main = main;
 		this.options = null;
 
@@ -146,6 +147,7 @@ return class Layout {
 	enableVideoAutoZoom() {
 		const canvas = this.canvas = document.createElement('canvas');
 		const ignore = 0.2;
+		const probes = [ 0.05, 0.5, 0.95, ];
 		this.main.actions.setAction('videoAutoZoom', () => {
 			const video = this.main.player.video;
 			const ctx = canvas.getContext('2d');
@@ -156,32 +158,45 @@ return class Layout {
 				ignore, 0, width, height,
 				0, 0, width, height
 			);
-			const margins = [ 0.05, 0.5, 0.95, ].map(probe => {
+
+			const tRow = ctx.getImageData(0, 2, width, 1).data;
+			const bRow = ctx.getImageData(0, height - 3, width, 1).data;
+			let c0 = 0, c1 = 0, c2 = 0, c3 = 0;
+			for (let x = 0, w4 = width * 4; x < w4; x += 4) {
+				c0 += tRow[x + 0] + bRow[x + 0];
+				c1 += tRow[x + 1] + bRow[x + 1];
+				c2 += tRow[x + 2] + bRow[x + 2];
+				c3 += tRow[x + 3] + bRow[x + 3];
+			}
+			c0 = c0 / width / 2 << 0; c1 = c1 / width / 2 << 0; c2 = c2 / width / 2 << 0; c3 = c3 / width / 2 << 0;
+			const cu0 = c0 + 5, cu1 = c1 + 5, cu2 = c2 + 5, cu3 = c3 + 5;
+			const cl0 = c0 - 5, cl1 = c1 - 5, cl2 = c2 - 5, cl3 = c3 - 5;
+
+			const margins = probes.map(probe => {
 				const data = ctx.getImageData(width * probe << 0, 0, 1, height).data;
 				console.log('data', ignore * video.videoWidth + width * probe << 0, data);
-				let upper = 8, uBound = data.length / 3 << 0;
-				let cu0 = data[upper + 0] + 5, cu1 = data[upper + 1] + 5, cu2 = data[upper + 2] + 5, cu3 = data[upper + 3] + 5;
-				let cl0 = data[upper + 0] - 5, cl1 = data[upper + 1] - 5, cl2 = data[upper + 2] - 5, cl3 = data[upper + 3] - 5;
+				const uBound = data.length / 3 << 0, lBound = data.length / 3 * 2 << 0;
+				let upper = 0, lower = data.length;
 				while (
-					(upper += 4) < uBound
+					upper < uBound
 					&& cu0 >= data[upper + 0] && cu1 >= data[upper + 1] && cu2 >= data[upper + 2] && cu3 >= data[upper + 3]
 					&& cl0 <= data[upper + 0] && cl1 <= data[upper + 1] && cl2 <= data[upper + 2] && cl3 <= data[upper + 3]
-				) { }
-				let lower = data.length - 12, lBound = data.length / 3 * 2 << 0;
+				) { upper += 4; }
 				while (
-					(lower -= 4) > lBound
-					&& cu0 >= data[lower + 0] && cu1 >= data[lower + 1] && cu2 >= data[lower + 2] && cu3 >= data[lower + 3]
-					&& cl0 <= data[lower + 0] && cl1 <= data[lower + 1] && cl2 <= data[lower + 2] && cl3 <= data[lower + 3]
-				) { }
+					lower > lBound
+					&& cu0 >= data[lower - 4] && cu1 >= data[lower - 3] && cu2 >= data[lower - 2] && cu3 >= data[lower - 1]
+					&& cl0 <= data[lower - 4] && cl1 <= data[lower - 3] && cl2 <= data[lower - 2] && cl3 <= data[lower - 1]
+				) { lower -= 4; }
 				return { top: upper / 4, bottom: (data.length - lower) / 4, };
 			});
-			const { top, bottom, } = margins.reduce((a, b) => ({ top: a.top > b.top ? a.top : b.top, bottom: a.bottom > b.bottom ? a.bottom : b.bottom, }))
 
+			let { top, bottom, } = margins.reduce((a, b) => ({ top: a.top > b.top ? a.top : b.top, bottom: a.bottom > b.bottom ? a.bottom : b.bottom, }));
+			top < 4 && (top = 0); bottom < 4 && (bottom = 0);
 			this.setZoom(1 / (1 - (top + bottom) / height), 0.5, (top - bottom) / 2 / height + 0.5);
 		});
 	}
 
-	setZoom(scale, x = 0.5, y = 0.5) {
+	setZoom(scale = 1, x = 0.5, y = 0.5) {
 		this.zoom.textContent = (`
 			#player-api .html5-video-container video
 			{
