@@ -11,36 +11,54 @@ const {
 
 const { storage: { sync: Storage }, runtime: { sendMessage, }, } = require('common/chrome');
 const { simplify, } = require('options/utils');
-const preferences = require('options/defaults');
+const preferences = copyProperties(require('options/defaults'), [ ]);
 
-function setButtonDisabled(element) {
-	const container = element.querySelector('.values-container');
-	const add = element.querySelector('.add-value-entry');
-	if (!add) { return; }
-	const min = +add.dataset.minLength, length = container.children.length;
-	add.disabled = length >= +add.dataset.maxLength;
-	Array.prototype.forEach.call(container.querySelectorAll('.remove-value-entry'), remove => remove.disabled = length <= min);
-}
+Storage.get('options').then(({ options, }) => {
+	displayPreferences(preferences, options, document.querySelector('#options'));
+});
 
 document.addEventListener('click', function({ target, button, }) {
 	if (button || !target.matches) { return; }
-	if (target.matches('.remove-value-entry')) {
-		const element = target.parentNode.parentNode.parentNode;
-		target.parentNode.remove();
-		setButtonDisabled(element);
-	} else
-	if (target.matches('.add-value-entry')) {
-		const element = target.parentNode;
-		const container = element.querySelector('.values-container');
-		container.appendChild(cloneInput(element.input, ''));
-		setButtonDisabled(element);
-	} else
-	if (target.matches('.value-input') && target.dataset.type === 'control') {
-		console.log('button clicked', target);
-	}
+	target.className.split(/\s+/).every(_class => { switch (_class) {
+		case 'remove-value-entry': {
+			const element = target.parentNode.parentNode.parentNode;
+			target.parentNode.remove();
+			setButtonDisabled(element);
+		} break;
+		case 'add-value-entry': {
+			const element = target.parentNode;
+			const container = element.querySelector('.values-container');
+			container.appendChild(cloneInput(element.input, ''));
+			setButtonDisabled(element);
+		} break;
+		case 'input-button': {
+			console.log('button clicked', target);
+		} break;
+		case 'submit-button': {
+			switch (target.id) {
+				case 'save': save(); break;
+				case 'reset': reset(); break;
+				case 'cancel': cancel(); break;
+			}
+		} break;
+		default: { return true; }
+	} });
 });
-document.addEventListener('submit', function(event) {
-	event.preventDefault(); event.stopPropagation();
+
+document.addEventListener('keypress', function(event) {
+	const { target, } = event;
+	if (!target.matches || !target.matches('.value-input') || target.dataset.type !== 'keybordKey') { return; }
+	event.stopPropagation(); event.preventDefault();
+	const key = (event.ctrlKey ? 'Ctrl+' : '') + (event.altKey ? 'Alt+' : '') + (event.shiftKey ? 'Shift+' : '') + event.code;
+	target.value = key;
+	validate(target);
+});
+document.addEventListener('change', function({ target, }) {
+	if (!target.matches || !target.matches('.value-input')) { return; }
+	validate(target);
+});
+
+function save() {
 	console.log('submitting ...');
 	const invalid = document.querySelector('.invalid');
 	if (invalid) {
@@ -58,23 +76,33 @@ document.addEventListener('submit', function(event) {
 		Storage.set({ options: simplify(preferences), })
 		.then(() => window.close());
 	}
-});
-document.addEventListener('keypress', function(event) {
-	const { target, } = event;
-	if (!target.matches || !target.matches('.value-input') || target.dataset.type !== 'keybordKey') { return; }
-	event.stopPropagation(); event.preventDefault();
-	const key = (event.ctrlKey ? 'Ctrl+' : '') + (event.altKey ? 'Alt+' : '') + (event.shiftKey ? 'Shift+' : '') + event.code;
-	target.value = key;
-	validate(target);
-});
-document.addEventListener('change', function({ target, }) {
-	if (!target.matches || !target.matches('.value-input')) { return; }
-	validate(target);
-});
+}
+
+function reset() {
+	sendMessage({ name: 'confirm', args: [ 'Are you shure that you want to reset all options to their default values?', ], })
+	.then(
+		reset => reset
+		&& Storage.set({ options: simplify(require('options/defaults')), })
+		.then(() => location.reload())
+	);
+}
+
+function cancel() {
+	window.close();
+}
+
+function setButtonDisabled(element) {
+	const container = element.querySelector('.values-container');
+	const add = element.querySelector('.add-value-entry');
+	if (!add) { return; }
+	const min = +add.dataset.minLength, length = container.children.length;
+	add.disabled = length >= +add.dataset.maxLength;
+	Array.prototype.forEach.call(container.querySelectorAll('.remove-value-entry'), remove => remove.disabled = length <= min);
+}
 
 function validate(target, value = target.value) {
-	if (target.type === 'checkbox') { return; }
 	const { pref, } = target.parentNode;
+	if (target.type === 'checkbox' || pref.type === 'label') { return; }
 	const message = pref.validate(value);
 	target.title = message;
 	target.classList[message ? 'add' : 'remove']('invalid');
@@ -97,7 +125,7 @@ function createInput(pref) {
 		})))
 		: createElement('input', {
 			name: pref.name,
-			className: 'value-input',
+			className: 'value-input input'+ pref.type,
 			dataset: {
 				type: pref.type,
 			},
@@ -232,12 +260,3 @@ function displayPreferences(prefs, values, host = document.body, parent = null) 
 	});
 	return host;
 }
-
-Storage.get('options').then(({ options, }) => displayPreferences(
-	preferences, options,
-	document.body.appendChild(createElement('form'))
-).appendChild(createElement('button', {
-	textContent: 'Save',
-	type: 'submit',
-})));
-

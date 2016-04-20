@@ -3,7 +3,7 @@
 const Tabs = require('common/chrome').tabs;
 
 // init options
-chrome.storage.sync.get('options', ({ options, }) => /*options ||*/ chrome.storage.sync.set({ options: require('options/utils').simplify(require('options/defaults')), }));
+chrome.storage.sync.get('options', ({ options, }) => options || chrome.storage.sync.set({ options: require('options/utils').simplify(require('options/defaults')), }));
 
 let db; require('db/meta-data').then(_db => (db = _db), error => console.error(error));
 

@@ -4,47 +4,11 @@
 	{ RegExpX, }
 ) {
 
-return [
+return Object.freeze([
 	{
 		name: "debug",
 		type: "hidden",
 		value: true,
-	}, {
-		name: "doNotUseContentStyle",
-		type: "hidden",
-		value: false,
-	}, {
-		name: "storage",
-		title: "Storage options",
-		description: "",
-		type: "label",
-		children: [
-			{
-				name: "export",
-				title: "Export all collected data",
-				description: "copies data to clipboard in JSON format",
-				label: "Export",
-				type: "control",
-			}, {
-				name: "import",
-				title: "Import data",
-				description: "imports JSON formated data form clipboard into the storage",
-				label: "Import",
-				type: "control",
-			}, {
-				name: "fromHistory",
-				title: "Import history",
-				description: "imports view counts and dates from your chronic",
-				label: "Import",
-				type: "control",
-			}, {
-				name: "useCache",
-				title: "Use Cache",
-				description: "externally loaded information (e.g. view counts) is cached per video",
-				type: "bool",
-				value: true,
-			},
-		],
 	}, {
 		name: "content",
 		title: "Page options",
@@ -119,7 +83,7 @@ return [
 					}, {
 						name: "zoomFactor",
 						title: "Video zoom levels",
-						description: "Factor that each zooming will scale th video",
+						description: "Factor that each zooming will scale the video",
 						type: "integer",
 						unit: "%",
 						restrict: { from: -50, to: 100, },
@@ -137,86 +101,77 @@ return [
 						value: true,
 					}, {
 						name: "randomAutoplay",
-						title: "Random auto play",
-						description: "Uncheck to disable random auto-play",
+						title: "YouTube auto play",
+						description: "Check to keep YouTubes build-in auto-play functionality enabled",
 						type: "hidden", // "bool",
 						value: false,
 					}, {
-						name: "pauseOnStart",
-						title: "Pause on start",
-						description: "Pauses the video at the start but keeps buffering",
-						type: "bool",
-						value: true,
-						children: [
-							{
-								name: "playOnNotHidden",
-								title: "Start video if tab is visible",
-								description: "Video will be paused unless it loads in the selected tab of a not minimized window",
-								type: "bool",
-								value: false,
-							}, {
-								name: "playOnFocus",
-								title: "Start video if tab is actively focused",
-								description: "Video will only play if it would revive keyboard input at the time it loads",
-								type: "bool",
-								value: true,
-							}, {
-								name: "preventBuffering",
-								title: "Dont buffer",
-								description: "Don't just pause the video but stop it from buffering",
-								type: "bool",
-								value: false,
-							},
+						name: "onStart",
+						type: "menulist",
+						title: "Video start setting",
+						description: "When the video starts:",
+						value: "focused",
+						options: [
+							{ value: "play", label: "keep playing (YouTube default)", },
+							{ value: "stop", label: "stop playback without buffering", },
+							{ value: "pause", label: "pause playback but keep buffering", },
+							{ value: "visible", label: "only pause if the tab is not visible", },
+							{ value: "focused", label: "only pause if the tab is not focused", },
 						],
 					}, {
 						name: "cinemaMode",
 						title: "Use Cinema Mode",
-						description: "makes seek bar a bit wider",
+						description: "Makes seek bar a bit wider",
 						type: "bool",
 						value: false,
 					}, {
 						name: "seamlessFullscreen",
 						title: "Enable seamless full screen",
-						description: "the video player will fill the entire browser window",
+						description: "Hides the sidebar to display the video player across the entire browser window",
 						type: "bool",
 						value: true,
 						children: [
 							{
 								name: "atStart",
 								title: "Load in full screen mode",
-								description: "full screen enabled on initial load",
+								description: "Full screen mode is enabled by default",
 								type: "bool",
 								value: false,
 							}, {
 								name: "showOnMouseRight",
 								title: "Right edge motion",
-								description: "Enables full screen when cursor is moved close to the right edge of the window",
+								description: "Enables full screen mode when cursor is moved close to the right edge of the window",
 								type: "integer",
 								unit: "pixel",
 								restrict: { from: 0, to: 100, },
-								value: 20,
+								value: 0,
 							}, {
 								name: "showOnScrollTop",
 								title: "Scroll to top",
-								description: "enables full screen when scrolling to the very top of the page",
+								description: "Enables full screen mode when scrolling to the very top of the page",
 								type: "bool",
 								value: true,
 							}, {
 								name: "hideOnScrollDown",
 								title: "Scroll down",
-								description: "disables full screen when scrolling downwards",
+								description: "Disables full screen when scrolling downwards",
 								type: "bool",
 								value: true,
 							},
 						],
+					}, {
+						name: "bypassAge",
+						title: "Bypass age restriction",
+						description: "Tries to load age restricted videos without signing in to YouTube",
+						type: "bool",
+						value: true,
 					},
 				],
 			}, {
 				name: "keys",
-				title: "Use keyboard shortcuts",
-				description: "Uncheck to disable all shortcuts",
-				type: "bool",
-				value: true,
+				title: "Keyboard shortcuts",
+				description: "To change a shortcut, focus the textbox and press any combination of the modifiers Alt, Command, Control and Shift plus another key. Note that some combinations are reserved by Chrome",
+				type: "label",
 				restrict: { match: (RegExpX`^ (?:Ctrl\+)? (?:Alt\+)? (?:Shift\+)? (?:
 					  Key[A-Z]
 					| F\d\d?
@@ -435,7 +390,39 @@ return [
 				],
 			},
 		],
+	}, {
+		name: "storage",
+		title: "Storage options",
+		description: "",
+		type: "hidden",
+		children: [
+			{
+				name: "export",
+				title: "Export all collected data",
+				description: "copies data to clipboard in JSON format",
+				label: "Export",
+				type: "control",
+			}, {
+				name: "import",
+				title: "Import data",
+				description: "imports JSON formatted data form clipboard into the storage",
+				label: "Import",
+				type: "control",
+			}, {
+				name: "fromHistory",
+				title: "Import history",
+				description: "imports view counts and dates from your chronic",
+				label: "Import",
+				type: "control",
+			}, {
+				name: "useCache",
+				title: "Use Cache",
+				description: "externally loaded information (e.g. view counts) is cached per video",
+				type: "bool",
+				value: true,
+			},
+		],
 	},
-];
+]);
 
 });

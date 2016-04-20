@@ -174,7 +174,6 @@ return class Layout {
 
 			const margins = probes.map(probe => {
 				const data = ctx.getImageData(width * probe << 0, 0, 1, height).data;
-				console.log('data', ignore * video.videoWidth + width * probe << 0, data);
 				const uBound = data.length / 3 << 0, lBound = data.length / 3 * 2 << 0;
 				let upper = 0, lower = data.length;
 				while (
@@ -197,6 +196,14 @@ return class Layout {
 	}
 
 	setZoom(scale = 1, x = 0.5, y = 0.5) {
+		if (scale !== 1) { // reset scale to 1 if sufficiently close to 1
+			const factor = 1 + this.options.player.zoomFactor / 100;
+			if (
+				(scale < factor && scale > 1 / factor)
+				|| (scale > factor && scale < 1 / factor)
+			) { scale = 1; }
+		}
+
 		this.zoom.textContent = (`
 			#player-api .html5-video-container video
 			{

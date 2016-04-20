@@ -1,4 +1,39 @@
+* {
+	box-sizing: border-box;
+}
+body {
+	font-size: 14px;
+	margin: 0px;
+	padding: 0px;
+	cursor: default;
+	overflow: hidden;
+	min-width: 500px;
+	min-height: 500px;
+}
+
+form#options, footer {
+	position: fixed;
+	left: 0;
+	right: 0;
+	padding: 5px 10px;
+}
+form#options {
+	top: 0;
+	bottom: 40px;
+	overflow-y: auto;
+}
+footer {
+	bottom: 0;
+	height: 40px;
+}
+footer>div {
+	float: right;
+}
+#save {
+	margin: 0 10px;
+}
+
 input.invalid {
-    color: red;
-    border-color: red;
+	color: red;
+	border-color: red;
 }

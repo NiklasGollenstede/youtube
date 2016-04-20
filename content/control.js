@@ -40,12 +40,12 @@ return function(main) {
 		}
 
 		// play, stop or pause
-		const play = !options.player.pauseOnStart
-		|| options.player.pauseOnStart.playOnNotHidden && !document.hidden
-		|| options.player.pauseOnStart.playOnFocus && document.hasFocus();
+		const play = options.player.onStart === 'play'
+		|| options.player.onStart === 'visible' && !document.hidden
+		|| options.player.onStart === 'focused' && document.hasFocus();
 		if (play) {
 			(yield player.play());
-		} else if (options.player.pauseOnStart.preventBuffering) {
+		} else if (options.player.onStart === 'stop') {
 			(yield player.stop());
 		} else {
 			(yield player.pause());

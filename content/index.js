@@ -156,6 +156,6 @@ const Main = new Class({
 	}),
 });
 
-new Main;
+window.main = new Main;
 
 })();

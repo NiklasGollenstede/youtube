@@ -109,7 +109,7 @@ const Player = new Class({
 
 					// wait for player
 					this.main.observer.all('#movie_player', this.initPlayer.bind(this));
-					this.main.observer.all('#watch7-player-age-gate-content', this.loadExternalPlayer.bind(this));
+					this.main.observer.all('#watch7-player-age-gate-content', this.loadExternalPlayer.bind(this, { reason: 'age', }));
 				};
 				window.addEventListener('message', done);
 			});
@@ -163,8 +163,8 @@ const Player = new Class({
 			!this.queue && (this.queue = [ ]);
 		},
 
-		loadExternalPlayer() {
-			// TODO: add option for opt-out
+		loadExternalPlayer({ reason, } = { }) {
+			if (reason === 'age' && !this.main.options.player.bypassAge) { return; }
 			this.removePlayer();
 			const { videoId, } = this.main;
 			document.querySelector('#player-unavailable').classList.add("hid");
@@ -253,7 +253,7 @@ const Player = new Class({
 		},
 
 		togglePlayPause(smooth) {
-			this.video.paused ? this.play(smooth) : this.pause(smooth);
+			return this.video.paused ? this.play(smooth) : this.pause(smooth);
 		},
 
 		silence() {
