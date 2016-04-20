@@ -135,7 +135,7 @@ const Main = new Class({
 			const self = Public(this);
 			console.log('Main.destroy');
 			Protected(this).destroy();
-			// TODO: destroy self.observer
+			this.observer.removeAll();
 			Object.keys(self).forEach(key => delete self[key]);
 
 			this.styles.remove();

@@ -14,13 +14,11 @@ const allKeys = [
 // db.modify(1, ({ viewCount, }) => ({ viewCount: viewCount + 1, }), [ 'viewCount', ])
 
 
-const db = window.indexedDB.open('videoInfo', 3);
+const db = window.indexedDB.open('videoInfo', 4);
 db.onupgradeneeded = ({ target: { result: db, }, }) => {
-	allKeys.forEach(store => { try {
-		db.createObjectStore(store, { });
-	} catch (error) {
-		console.log('ignoring', error); // TODO: only catch '[...]already exists[...]'
-	} });
+	const existing = db.objectStoreNames;
+	const includes = existing.includes ? 'includes' : 'contains';
+	allKeys.forEach(store => !existing[includes](store) && db.createObjectStore(store, { }));
 };
 
 return getResult(db).then(db => ({

@@ -1,6 +1,6 @@
 {
 	"author": "Niklas Gollenstede",
 	"dependencies": {
-		"es6lib": "NiklasGollenstede/es6lib"
+		"es6lib": "NiklasGollenstede/es6lib#e9c78a821866062348e89744104f6877c5c4a583"
 	}
 }
