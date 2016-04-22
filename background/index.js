@@ -10,6 +10,7 @@ Promise.all([
 		return options;
 	}),
 ]).then(([ db, options, ]) => {
+window.db = db; window.options = options;
 
 const Tab = new require('background/tab');
 
@@ -66,15 +67,42 @@ chrome.runtime.onConnect.addListener(port => { switch (port.name) {
 chrome.runtime.onMessage.addListener((message, sender, reply) => reply({
 	alert, confirm, prompt,
 	openOptionsTab() { Tabs.create({ url: chrome.extension.getURL('options/index.html'), }); },
+	control(type) { switch (type) {
+		case 'export': {
+			const data = db.transaction();
+			data.ids().then(ids => Promise.all(ids.map(id => data.get(id))))
+			.then(result => {
+				const data = JSON.stringify(result);
+				require('es6lib/dom').writeToClipboard({ 'application/json': data, 'text/plain': data, });
+				alert('The JSON data has been put into your clipboard:');
+			}).catch(error => alert('Export failed: "'+ error.message +'"') === console.error(error));
+		} break;
+		case 'import': {
+			Promise.resolve().then(() => {
+				const infos = JSON.parse(prompt('Please paste your JSON data below', ''));
+				console.log('import', infos);
+				if (!Array.isArray(infos)) { throw new Error('The import data must be an Array'); }
+				const corrupt = infos.findIndex(info => !info || !(/^[A-z0-9_-]{11}$/).test(info.id));
+				if(corrupt !== -1) {throw new Error('The object at index '+ corrupt +' must have an "id" property set to a valid YouTube video id: "'+ JSON.stringify(infos[corrupt]) +'"'); }
+				const data = db.transaction(true);
+				return Promise.all(infos.map(info => data.set(info)));
+			}).catch(error => alert('Import failed: "'+ error.message +'"') === console.error(error));
+		} break;
+		case 'clear': {
+			if (prompt('If you really mean to delete all your user data type "yes" below') !== 'yes') { return; }
+			db.clear().then(() => alert('Done. It\'s all gone ...'))
+			.catch(error => alert('Clearing failed: "'+ error.message +'"') === console.error(error));
+		} break;
+	}}
 }[message.name].apply(window, message.args)));
 
-chrome.storage.onChanged.addListener(({ options, }, sync) => sync === 'sync' && options && console.log('options changed', options.newValue));
+chrome.storage.onChanged.addListener(({ options: o, }, sync) => sync === 'sync' && o && Object.assign(options, o) && console.log('options changed', o.newValue));
 
 Tabs.query({ }).then(tabs => {
 	console.log(tabs);
 	const { js, css, } = chrome.runtime.getManifest().content_scripts[0];
 	Promise.all(tabs.map(({ id, url, }) =>
-		url && Tabs.executeScript(id, { file: './content/cleanup.js', })
+		url && !Tab.instances.has(id) && Tabs.executeScript(id, { file: './content/cleanup.js', })
 		.then(() => {
 			css.forEach(file => chrome.tabs.insertCSS(id, { file: './'+ file, }));
 			js.forEach(file => chrome.tabs.executeScript(id, { file: './'+ file, }));

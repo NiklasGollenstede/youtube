@@ -152,9 +152,15 @@ const Main = new Class({
 			}));
 
 			chrome.storage.onChanged.removeListener(this.optionsChanged);
+
+			window.main = null;
 		},
 	}),
 });
+
+if (window.main) {
+	throw new Error('Main module already exists');
+}
 
 window.main = new Main;
 

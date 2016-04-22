@@ -12,6 +12,7 @@
 
 	"permissions": [
 		"storage",
+		"clipboardWrite",
 		"https://www.youtube.com/*"
 	],
 	"optional_permissions": [ ],

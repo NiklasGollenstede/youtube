@@ -21,38 +21,71 @@ db.onupgradeneeded = ({ target: { result: db, }, }) => {
 	allKeys.forEach(store => !existing[includes](store) && db.createObjectStore(store, { }));
 };
 
-return getResult(db).then(db => ({
-	get(id, keys = allKeys) {
+class Transaction {
+	constructor(db, write, keys, tmp) {
+		this.keys = keys || allKeys;
+		this._ = db.transaction(this.keys, write ? 'readwrite' : 'readonly');
+		this.done = !tmp && getResult(this);
+	}
+	ids() {
+		return getResult(this._.objectStore('meta').getAllKeys());
+	}
+	clear(keys = this.keys) {
+		return Promise.all(keys.map(key => getResult(this._.objectStore(key).clear())));
+	}
+	get(id, keys = this.keys) {
 		return new Promise((resolve, reject) => {
-			const transaction = db.transaction(keys);
-			get(transaction, id, keys, resolve, reject);
-		});
-	},
+			get(this._, id, keys, resolve, reject);
+		}).catch(this._.onerror);
+	}
 	set(id, data = id) {
 		return new Promise((resolve, reject) => {
-			const transaction = db.transaction(Object.keys(data), 'readwrite');
-			try {
-				(id === data) && (id = data.id);
-				set(transaction, id, data, resolve, reject);
-			} catch (error) { reject(error); transaction.abort(); }
-		});
-	},
-	modify(id, modifier, keys = allKeys) {
+			(id === data) && (id = data.id);
+			set(this._, id, data, resolve, reject);
+		}).catch(this._.onerror);
+	}
+	modify(id, modifier, keys = this.keys) {
 		return new Promise((resolve, reject) => {
-			const transaction = db.transaction(keys, 'readwrite');
-			get(transaction, id, keys, data => {
+			get(this._, id, keys, data => {
 				try {
 					data = modifier(data);
-					set(transaction, id, data, resolve, reject);
-				} catch (error) { reject(error); transaction.abort(); }
+					set(this._, id, data, resolve, reject);
+				} catch (error) { reject(error); this._.onerror(error); }
 			}, reject);
-		});
-	},
+		}).catch(this._.onerror);
+	}
 	increment(id, key, by = 1) {
 		return this.modify(id, data => ({ [key]: data[key] + by, }), [ key, ]);
-	},
+	}
 	assign(id, key, props) {
 		return this.modify(id, data => ({ [key]: typeof data[key] !== 'object' ? props : Object.assign(data[key], props), }), [ key, ]);
+	}
+}
+
+return getResult(db).then(db => ({
+	transaction(write, keys) {
+		return new Transaction(db, write, keys);
+	},
+	ids() {
+		return new Transaction(db, false, [ 'meta', ], true).ids();
+	},
+	clear(keys = this.keys) {
+		return new Transaction(db, true, keys, true).clear(keys);
+	},
+	get(id, keys = allKeys) {
+		return new Transaction(db, false, keys, true).get(id, keys);
+	},
+	set(id, data = id) {
+		return new Transaction(db, true, Object.keys(data), true).set(id, data);
+	},
+	modify(id, modifier, keys = allKeys) {
+		return new Transaction(db, true, keys, true).modify(id, modifier, keys);
+	},
+	increment(id, key, by = 1) {
+		return new Transaction(db, true, [ key, ], true).increment(id, key, by);
+	},
+	assign(id, key, props) {
+		return new Transaction(db, true, [ key, ], true).assign(id, key, props);
 	},
 }));
 
@@ -79,7 +112,11 @@ function set(transaction, id, data, resolve, reject) {
 function getResult(request) {
 	return new Promise((resolve, reject) => {
 		request.onsuccess = ({ target: { result, }, }) => resolve(result);
-		request.onerror = error => error.stopPropagation() === reject(error);
+		request.onerror = error => {
+			reject(error);
+			error.stopPropagation && error.stopPropagation();
+			request.abort && request.abort();
+		};
 	});
 }
 

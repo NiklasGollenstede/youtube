@@ -31,8 +31,10 @@ document.addEventListener('click', function({ target, button, }) {
 			container.appendChild(cloneInput(element.input, ''));
 			setButtonDisabled(element);
 		} break;
-		case 'input-button': {
+		case 'value-input': {
+			if (target.dataset.type !== 'control') { return; }
 			console.log('button clicked', target);
+			sendMessage({ name: 'control', args: [ target.parentNode.pref.name, ], });
 		} break;
 		case 'submit-button': {
 			switch (target.id) {
