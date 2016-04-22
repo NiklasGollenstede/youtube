@@ -11,35 +11,25 @@
 	{ decodeHtml, }
 ) {
 
-const CSS = ({ likesColor = '#0b2', dislikesColor = '#C00', } = { }) => (`
+const CSS = ({ likesColor = '#0b2', dislikesColor = '#C00', barHeight = 2, } = { }) => (`
 .video-time /* make room for ratings bar */
-{
-    margin-bottom: 2px;
-}
+{ margin-bottom: ${ barHeight }px !important; }
 .yt-uix-simple-thumb-related>img /* without this, the ratings bar will be hidden far below the sidebar images */
-{
-    margin-bottom: -27px !important;
-}
+{ margin-bottom: -27px !important; }
 .channels-browse-content-grid .channels-content-item
-{
-    height: 167px;
-}
+{ height: 167px; }
 .inserted-ratings
-{
-    position: relative;
-}
+{ position: relative; }
 .videowall-endscreen .inserted-ratings
-{
-    top: -2px;
-}
+{ top: -${ barHeight }px !important; }
+.inserted-ratings>*
+{ height: ${ barHeight }px !important; }
 .inserted-ratings .video-extras-sparkbar-likes
-{
-    background-color: ${ likesColor } !important;
-}
+{ background-color: ${ likesColor } !important; }
 .inserted-ratings .video-extras-sparkbar-dislikes
-{
-    background-color: ${ dislikesColor } !important;
-}
+{ background-color: ${ dislikesColor } !important; }
+.ytp-redesign-videowall-still-info
+{ display: block; height: 100%; }
 `);
 
 function attatchRatingBar(element, { rating: { likes, dislikes, views, }, meta: { published, }, })  {
@@ -76,9 +66,10 @@ return function(main) {
 	main.once('observerCreated', () => {
 		const { options, observer,  addStyle, port, } = main;
 		if (!options.displayRatings) { return; }
-		const style = addStyle(CSS({ }));
+		const style = addStyle(CSS(options.displayRatings));
 
 		const loadAndDisplayRating = (element, id) => spawn(function*() {
+			if (element.dataset.rating) { return; }
 			element.dataset.rating = true;
 			if (options.displayRatings.totalLifetime < 0) {
 				return attatchRatingBar(element, (yield loadRatingFromServer(id)));
@@ -119,7 +110,6 @@ return function(main) {
 			obs.disconnect();
 			Array.prototype.forEach.call(document.querySelectorAll('[data-rating="true"]'), element => delete element.dataset.rating);
 			Array.prototype.forEach.call(document.querySelectorAll('.inserted-ratings'), element => element.remove());
-			style.remove();
 		});
 	});
 };

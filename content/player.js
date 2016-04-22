@@ -68,6 +68,7 @@ const Player = new Class({
 		self.queue = [ ];
 		this.video = self.video = this.root = self.root = null;
 		self.removePlayer = self.removePlayer.bind(self);
+		self.visibilityChange = self.visibilityChange.bind(self);
 		main.once(Symbol.for('destroyed'), () => self.destroy());
 		methods.forEach(([ method, event, ]) => event && self.setPromise(event, this));
 		self.create(this, _this);
@@ -143,6 +144,12 @@ const Player = new Class({
 			}));
 		},
 
+		visibilityChange(event) {
+			if (document.hidden || !this.root) { return; }
+			this.root.dataset.visible = true;
+			this.main.removeDomListener(document, 'visibilitychange', this.visibilityChange, false);
+		},
+
 		initPlayer(element) {
 			const self = Public(this), _this = Protected(this);
 			sendMessage('initPlayer', [ element.ownerDocument !== document, ]);
@@ -153,6 +160,11 @@ const Player = new Class({
 			this.queue = null;
 			_this.emit('playerElementAdded', element);
 			RemoveObserver.on(this.root, this.removePlayer);
+			if (!element.dataset.visible) {
+				if (!(element.dataset.visible = !document.hidden)) {
+					this.main.addDomListener(document, 'visibilitychange', this.visibilityChange, false);
+				}
+			}
 		},
 
 		removePlayer() {
@@ -204,8 +216,9 @@ const Player = new Class({
 
 		pause(smooth) {
 			const { video, main, } = this;
-			if (!smooth) { video.pause(); return true; }
+			if (!video) { return false; }
 			if (video.paused) { return true; }
+			if (!smooth) { video.pause(); return true; }
 			const old = video.volume, pos = video.currentTime;
 			let i = 1;
 			main.port.emit('ping_start');
@@ -229,7 +242,13 @@ const Player = new Class({
 
 		play(smooth) {
 			const { video, main, } = this;
-			if (video.readyState !== 4) { return false; }
+			if (!video) { return false; }
+			if (video.readyState !== 4) {
+				if (video.dataset.visible != 'true') {
+					this.main.port.emit('focus_temporary');
+				}
+				return false;
+			}
 			if (!video.paused) { return true; }
 			if (!smooth) { video.play(); return true; }
 			const old = video.volume;

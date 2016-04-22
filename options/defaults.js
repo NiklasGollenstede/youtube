@@ -38,6 +38,25 @@ return Object.freeze([
 						restrict: { from: 1, to: 1e5, },
 						unit: "%",
 						value: 20,
+					}, {
+						name: "likesColor",
+						title: "Like color",
+						type: "color",
+						restrict: { match: (/^([A-z]{3,}|#[0-9a-fA-F]{3}([0-9a-fA-F]{3})?)$/), },
+						value: "#00BB22",
+					}, {
+						name: "dislikesColor",
+						title: "Dislike color",
+						type: "color",
+						restrict: { match: (/^([A-z]{3,}|#[0-9a-fA-F]{3}([0-9a-fA-F]{3})?)$/), },
+						value: "#CC0000",
+					}, {
+						name: "barHeight",
+						title: "Rating bar height",
+						type: "integer",
+						restrict: { from: 0, to: 5, },
+						unit: "px",
+						value: 2,
 					},
 				],
 			}, {

@@ -7,6 +7,7 @@ return {
 	get runtime() { return wrap(chrome.runtime); },
 	get storage() { return wrap(chrome.storage); },
 	get tabs() { return wrap(chrome.tabs); },
+	get windows() { return wrap(chrome.windows); },
 };
 
 function wrap(api) {

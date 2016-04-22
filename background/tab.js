@@ -1,7 +1,7 @@
 'use strict'; define('background/tab', [
 	'common/chrome',
 ], function(
-	{ tabs: Tabs, }
+	{ tabs: Tabs, windows: Windows, }
 ) {
 
 class Tab {
@@ -22,8 +22,8 @@ class Tab {
 			const { name, id } = message;
 			if (id) {
 				this.data[name](...message.args).then(
-					value => this.postMessage({ name, value, id: id, }),
-					error => this.postMessage({ name, error, id: id, })
+					value => this.postMessage({ name, value, id, }),
+					error => this.postMessage({ name, error, id, })
 				);
 			} else {
 				this[name](message.value);
@@ -145,6 +145,13 @@ class Tab {
 		if (this.pingCount > 0) { return; }
 		clearInterval(this.pingId);
 		this.pingId = -1;
+	}
+	focus_temporary() {
+		console.log('focus_temporary', this);
+		this.tab().then(({ index, windowId, }) => {
+			Windows.create({ tabId: this.id, state: 'minimized', })
+			.then(() => Tabs.move(this.id, { index, windowId, }));
+		});
 	}
 }
 Tab.instances = new Map;
