@@ -5,7 +5,7 @@
 ) {
 
 class Tab {
-	constructor({ port, playlist, panel, data, }) {
+	constructor({ port, playlist, panel, commands, data, }) {
 		console.log('tab', port);
 		this.id = port.sender.tab.id;
 		if (Tab.instances.has(this.id)) { throw new Error('Tab with id '+ this.id +' already exists'); }
@@ -13,6 +13,7 @@ class Tab {
 		this.port = port;
 		this.playlist = playlist;
 		this.panel = panel;
+		this.commands = commands;
 		this.data = data;
 		this.videoId = null;
 

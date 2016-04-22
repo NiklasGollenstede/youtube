@@ -57,7 +57,7 @@ chrome.runtime.onConnect.addListener(port => { switch (port.name) {
 		panel.add(port);
 	} break;
 	case 'tab': {
-		new Tab({ port, playlist, panel, data: db, });
+		new Tab({ port, playlist, commands, panel, data: db, });
 	} break;
 	default: {
 		console.error('connection with unknown name:', port.name);
@@ -74,7 +74,7 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => reply({
 			.then(result => {
 				const data = JSON.stringify(result);
 				require('es6lib/dom').writeToClipboard({ 'application/json': data, 'text/plain': data, });
-				alert('The JSON data has been put into your clipboard:');
+				alert('The JSON data has been put into your clipboard');
 			}).catch(error => alert('Export failed: "'+ error.message +'"') === console.error(error));
 		} break;
 		case 'import': {
