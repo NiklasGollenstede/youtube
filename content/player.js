@@ -12,7 +12,7 @@
 	}
 ) { /* global WheelEvent */
 
-const fadeIn_factor = 0.7, fadeIn_margin = 0.05;
+const fadeIn_factor = 1.4, fadeIn_margin = 0.05;
 
 let Instance = null;
 
@@ -218,56 +218,55 @@ const Player = new Class({
 			const { video, main, } = this;
 			if (!video) { return false; }
 			if (video.paused) { return true; }
-			if (!smooth) { video.pause(); return true; }
-			const old = video.volume, pos = video.currentTime;
-			let i = 1;
-			main.port.emit('ping_start');
-			main.port.on('ping', iterate);
-			iterate();
-			return true;
-
-			function iterate() {
-				i *= fadeIn_factor;
-				if (i <= fadeIn_margin) {
+			if (!smooth) {
+				video.pause();
+			} else {
+				const pos = video.currentTime;
+				this.fadeVolume(1 / fadeIn_factor, () => {
 					video.pause();
-					video.volume = old;
 					video.currentTime = pos;
-					main.port.off('ping', iterate);
-					main.port.emit('ping_stop');
-				} else {
-					video.volume = old * i;
-				}
+				});
 			}
+			return true;
 		},
 
 		play(smooth) {
 			const { video, main, } = this;
 			if (!video) { return false; }
+			if (!video.paused) { return true; }
 			if (video.readyState !== 4) {
-				if (video.dataset.visible != 'true') {
-					this.main.port.emit('focus_temporary');
-				}
+				video.dataset.visible != 'true' && this.main.port.emit('focus_temporary');
 				return false;
 			}
-			if (!video.paused) { return true; }
-			if (!smooth) { video.play(); return true; }
-			const old = video.volume;
-			let i = fadeIn_margin;
-			main.port.emit('ping_start');
-			main.port.on('ping', iterate);
 			video.play();
-			iterate();
+			smooth && this.fadeVolume(fadeIn_factor);
 			return true;
+		},
 
-			function iterate() {
-				i /= fadeIn_factor;
-				if (i > 1) {
-					video.volume = old;
-					main.port.off('ping', iterate);
-					main.port.emit('ping_stop');
-				} else {
-					video.volume = old * i;
-				}
+		fadeVolume(factor, done = x => x) {
+			if (!this.fadeProps) {
+				const { video, main, } = this;
+				const old = video.volume;
+				const fadeProps = this.fadeProps = { factor, done, };
+				let i = factor > 1 ? fadeIn_margin : 1;
+				const iterate = () => {
+					i *= fadeProps.factor;
+					if (i > 1 || i <= fadeIn_margin) {
+						main.port.off('ping', iterate);
+						main.port.emit('ping_stop');
+						video.volume = old;
+						this.fadeProps = null;
+						fadeProps.done.call();
+					} else {
+						video.volume = old * i;
+					}
+				};
+				main.port.emit('ping_start');
+				main.port.on('ping', iterate);
+				iterate();
+			} else {
+				this.fadeProps.factor = factor;
+				this.fadeProps.done = done;
 			}
 		},
 
