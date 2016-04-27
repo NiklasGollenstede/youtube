@@ -7,14 +7,14 @@ const allKeys = [
 	'meta', // { title: string, published: natural, duration: float, }
 	'private', // { ...TBD, }
 	'rating', // { views: natural, likes: natural, dislikes: natural, timestamp: natural, }
-	'viewCount', // float
+	'viewed', // float (seconds)
 ];
 // e.g.:
 // db.set(1, { meta: { title: 'Awesome title', published: Date.now(), duration: 213.4, }, private: { rating: 0.6, }, rating: { views: 301, likes: 5, dislikes: 1, }, viewCount: 1.7, })
 // db.modify(1, ({ viewCount, }) => ({ viewCount: viewCount + 1, }), [ 'viewCount', ])
 
 
-const db = window.indexedDB.open('videoInfo', 4);
+const db = window.indexedDB.open('videoInfo', 5);
 db.onupgradeneeded = ({ target: { result: db, }, }) => {
 	const existing = db.objectStoreNames;
 	const includes = existing.includes ? 'includes' : 'contains';
@@ -55,7 +55,7 @@ class Transaction {
 		}).catch(this._.onerror);
 	}
 	increment(id, key, by = 1) {
-		return this.modify(id, data => ({ [key]: data[key] + by, }), [ key, ]);
+		return this.modify(id, data => ({ [key]: (data[key] || 0) + by, }), [ key, ]);
 	}
 	assign(id, key, props) {
 		return this.modify(id, data => ({ [key]: typeof data[key] !== 'object' ? props : Object.assign(data[key], props), }), [ key, ]);

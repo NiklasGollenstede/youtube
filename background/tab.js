@@ -47,7 +47,7 @@ class Tab {
 		try { this.playing && this.commands.play(); } catch (e) { error(e); }
 		try { this.port.disconnect(); } catch (e) { error(e); }
 		try { clearInterval(this.pingId); } catch (e) { error(e); }
-		this.playing = false;
+		try { this.stopedPlaying(); } catch (e) { error(e); }
 		this.destructed = true;
 		function error(e) { console.error(e); }
 	}
@@ -96,8 +96,25 @@ class Tab {
 		this.emit('ping');
 	}
 
+	stopedPlaying(time) {
+		if (!this.playing) { return; }
+		if (time !== undefined) {
+			this.data.increment(this.videoId, 'viewed', time - this.playing.from);
+		} else {
+			this.data.increment(this.videoId, 'viewed', (Date.now() - this.playing.at) / 1000);
+		}
+		this.playing = false;
+	}
+	startedPlaying(time) {
+		this.playing && this.stopedPlaying(time);
+		const now = Date.now();
+		this.playing = { from: time, at: now, };
+		this.data.assign(this.videoId, 'private', { lastPlayed: now, });
+	}
+
 	player_created(vId) {
 		console.log('player_created', vId);
+		this.stopedPlaying();
 		this.videoId = vId;
 		if (!Tab.actives.has(this.id)) { Tab.actives.set(+this.id, this); }
 		const added = this.playlist.add(this);
@@ -106,34 +123,36 @@ class Tab {
 			added !== -1 && this.panel.emit('playlist_add', { index: added, tabId: this.id, });
 		});
 	}
-	player_playing(vId) {
-		console.log('player_playing', vId);
-		this.playing = true;
+	player_playing(time) {
+		console.log('player_playing', this.videoId, time);
+		this.startedPlaying(time);
 		Tab.pauseAllBut(this);
 		this.panel.emit('state_change', { playing: true, });
 		const added = this.playlist.seek(this);
 		added !== -1 && this.panel.emit('playlist_add', { index: added, tabId: this.id, });
+		!this.panel.hasPanel() && this.tab().then(({ windowId, }) => Windows.get(windowId))
+		.then(({ focused, }) => !focused && Tabs.update(this.id, { active: true, }));
 	}
-	player_paused(vId) {
-		console.log('player_paused', vId);
+	player_paused(time) {
+		console.log('player_paused', this.videoId, time);
 		if (!this.playing) { return; }
-		this.playing = false;
+		this.stopedPlaying(time);
 		this.panel.is && this.panel.emit('state_change', { playing: this.playlist.is(tab => tab.playing), });
 	}
-	player_ended(vId) {
-		console.log('player_ended', vId);
-		this.playing = false;
+	player_ended(time) {
+		console.log('player_ended', this.videoId, time);
+		this.stopedPlaying(time);
 		this.playlist.get() === this && this.commands.next();
 		this.panel.is && this.panel.emit('state_change', { playing: this.playlist.is(tab => tab.playing), });
 	}
 	player_removed() {
 		console.log('player_removed', this.videoId);
+		this.stopedPlaying();
 		this.videoId = null;
 		Tab.actives.delete(this.id);
 		this.playlist.delete(this);
 		this.panel.emit('tab_close', this.id);
 		this.playing && this.commands.play();
-		this.playing = false;
 	}
 	ping_start() {
 		this.pingCount++;
@@ -148,9 +167,10 @@ class Tab {
 	}
 	focus_temporary() {
 		console.log('focus_temporary', this);
-		this.tab().then(({ index, windowId, }) => {
+		this.tab().then(({ index, windowId, active, }) => {
 			Windows.create({ tabId: this.id, state: 'minimized', })
-			.then(() => Tabs.move(this.id, { index, windowId, }));
+			.then(() => Tabs.move(this.id, { index, windowId, }))
+			.then(() => Tabs.update(this.id, { active, }));
 		});
 	}
 }

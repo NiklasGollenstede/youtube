@@ -90,7 +90,7 @@ function unsafeOnPlaybackStateChange(state) {
 		5: 'videoCued',
 	}[state];
 
-	sendMessage(type);
+	sendMessage(type, player.getCurrentTime());
 }
 
 function unsafeOnPlaybackQualityChange(quality) {

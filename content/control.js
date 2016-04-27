@@ -15,8 +15,8 @@ return function(main) {
 
 	let reportState = false;
 
-	[ 'playing', 'videoCued', 'paused', 'ended', ]
-	.forEach(event => player.on(event, () => reportState && port.emit('player_'+ event, main.videoId)));
+	[ 'playing', 'paused', 'ended', ]
+	.forEach(event => player.on(event, time => reportState && port.emit('player_'+ event, time)));
 
 	port.on('play', () => console.log('control play') === player.play(true));
 	port.on('pause', () => console.log('control pause') === player.pause(true));
@@ -28,6 +28,7 @@ return function(main) {
 			return port.emit('player_removed');
 		}
 
+		(yield player.loaded);
 		console.log('player loaded', player, options);
 
 		const unMute = player.silence();
@@ -54,7 +55,7 @@ return function(main) {
 		unMute();
 
 		const duration = hhMmSsToSeconds(player.root.querySelector('.ytp-time-duration').textContent);
-		const title = document.querySelector('#eow-title').textContent;
+		const title = document.querySelector('#eow-title').textContent.trim();
 		(yield port.request('assign', main.videoId, 'meta', { title, duration, }));
 
 		console.log('control done', title, duration, main.videoId);
@@ -69,7 +70,7 @@ return function(main) {
 		reportState = false;
 	});
 
-	player.on('ended', checkbox => (checkbox = player.root.querySelector("#autoplay-checkbox")) && checkbox.checked && checkbox.click());
+	player.on('ended', checkbox => (checkbox = document.querySelector('#autoplay-checkbox')) && checkbox.checked && checkbox.click());
 };
 
 });
