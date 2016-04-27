@@ -129,10 +129,14 @@ document.addEventListener('contextmenu', function(event) {
 	}
 	if (target.matches('#playlist, #playlist *')) {
 		items.push(
-			{ label: 'Sort by ...', type: 'menu', value: [
-				{ label: '... position', action: () => port.emit('playlist_sort', 'position'), },
-				{ label: '... views (global)', action: () => port.emit('playlist_sort', 'viewsGlobal'), },
-				{ label: 'Shuffle', action: () => port.emit('playlist_sort', 'random'), },
+			{ label: 'Sort by', type: 'menu', children: [
+				{ label: 'position', action: () => port.emit('playlist_sort', { by: 'position', }), },
+				{ label: 'views', type: 'menu', children: [
+					{ label: 'global', action: () => port.emit('playlist_sort', { by: 'viewsGlobal', }), },
+					{ label: 'yours in total duration', action: () => port.emit('playlist_sort', { by: 'viewsTotal', }), },
+					{ label: 'yours in times viewed', action: () => port.emit('playlist_sort', { by: 'viewsRelative', }), },
+				], },
+				{ label: 'Shuffle', action: () => port.emit('playlist_sort', { by: 'random', }), },
 			], }
 		);
 	}
@@ -199,6 +203,7 @@ function enableDragIn(element) {
 			}
 			const reference = item.reference || (item.reference = Math.floor(Math.random() * 0xffFFffFF).toString(16));
 			port.emit('playlist_add', { index: newIndex, tabId: +item.dataset.tabId, reference, });
+			item.matches('.active') && port.emit('playlist_seek', newIndex);
 		},
 	}));
 }

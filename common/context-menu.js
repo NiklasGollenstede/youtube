@@ -15,7 +15,7 @@ class ContextMenu {
 		element.style.left = (x + element.clientWidth > window.innerWidth ? x - element.clientWidth - 1 : x + 1) +'px';
 	}
 
-	addItem({ type, label, value, action, default: _default, }, parent = this.element) {
+	addItem({ type, label, children, value, action, default: _default, }, parent = this.element) {
 		const item = document.createElement('div');
 		item.classList.add('menu-item');
 		_default && item.classList.add('default');
@@ -26,7 +26,7 @@ class ContextMenu {
 				item.classList.add('menu-submenu');
 				const submenu = item.appendChild(document.createElement('div'));
 				submenu.className = 'submenu';
-				value.forEach(child => child && this.addItem(child, submenu));
+				children.forEach(child => child && this.addItem(child, submenu));
 			} break;
 			case 'label':
 			default: {

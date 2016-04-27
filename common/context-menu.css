@@ -12,6 +12,7 @@
 	border-color: inherit;
 	white-space: nowrap;
 }
+
 .menu-item:not(:first-child) {
 	border-top: 1px solid transparent;
 	border-color: inherit;
@@ -23,13 +24,26 @@
 .menu-item.default {
 	font-weight: bold;
 }
+
+.menu-submenu {
+	position: relative;
+}
+.menu-submenu>:first-child {
+	margin-right: 8px;
+}
+.menu-submenu>:first-child::after {
+	content: '>';
+	position: absolute;
+	right: 6px;
+	opacity: 0.4;
+}
 .menu-submenu .submenu {
 	display: none;
 	float: left;
 	left: calc(100% - 5px);
 	top: -3px;
 }
-.menu-submenu:hover .submenu {
+.menu-submenu:hover>.submenu {
 	display: unset;
 }
 
