@@ -2,20 +2,27 @@
 ], function(
 ) {
 
+const noop = () => { };
+
 class PlayList extends Array {
 
 	/**
 	 * Creates a PlayList, which is an Array with a current position (index).
-	 * @param  {Array}  options.values Optional initial values.
-	 * @param  {[type]} options.index  Optional initial position.
-	 * @param  {[type]} options.loop   If true, .next() and .pref() will wrap around instead of seeking past the end/ before the beginning.
-	 * @param  {[type]} options.onSeek Optional function that will be called whenever this.index changes.
+	 * @param  {Array}     options.values    Optional initial values.
+	 * @param  {integer}   options.index     Optional initial position.
+	 * @param  {bool}      options.loop      Optional initial value of this.loop. While this.loop is true, .next() and .pref() will wrap around instead of seeking past the end / before the beginning.
+	 * @param  {function}  options.onSeek    Optional function that will be called with (currentIndex) whenever this.index changes.
+	 * @param  {function}  options.onAdd     Optional function that will be called with (atIndex, newValue) whenever a value is added to this.
+	 * @param  {function}  options.onDelete  Optional function that will be called with (fromIndex, oldValue) whenever a value is removed from this.
 	 */
-	constructor({ values, index, loop, onSeek, } = { }) {
+	constructor({ values, index, loop, onSeek, onAdd, onDelete, } = { }) {
 		super(...(values || [ ]));
-		this._index = index != null ? index : -1;
+		this.onSeek = noop;
+		this.index = index;
 		this.loop = !!loop;
-		this.onSeek = onSeek || (x => x);
+		this.onSeek = onSeek || noop;
+		this.onAdd = onAdd || noop;
+		this.onDelete = onDelete || noop;
 	}
 
 	/**
@@ -23,7 +30,8 @@ class PlayList extends Array {
 	 */
 	set index(value) {
 		if (typeof value !== 'number') { value = -1; }
-		else if (value < 0) { value = -1; }
+		else { value <<= 0; }
+		if (value < 0) { value = -1; }
 		else if (value >= this.length) { value = Infinity; }
 		const old = this._index;
 		this._index = value;
@@ -81,20 +89,8 @@ class PlayList extends Array {
 	}
 
 	/**
-	 * Insrets a value into this at a secified position.
-	 * @param  {natural}  index  The index value will have in this after the insert.
-	 * @param  {any}      value  Value to insert.
-	 * @return {integer}         The new index of value in this.
-	 */
-	insertAt(index, value) {
-		this.splice(index, 0, value);
-		index <= this.index && this.index++;
-		return index;
-	}
-
-	/**
 	 * Set this.index to point at the first instance of value in this.
-	 * Inserts value after curremt index if not present.
+	 * Inserts value after current index if not present.
 	 * @param  {any}    value  Value to seek/insert.
 	 * @return {integer}       The new index of value in this or -1 if value was not inserted.
 	 */
@@ -116,45 +112,28 @@ class PlayList extends Array {
 
 	/**
 	 * Removes all instances of a value from this.
-	 * @param  {any}    value  Value to remove.
-	 * @return {int}           Number of elements removed.
+	 * @param  {any}        value  Value to remove.
+	 * @return {natural}           Number of elements removed.
 	 */
 	delete(value) {
 		let deleted = 0;
-		const filtered = this.filter((item, index) => {
-			if (item === value) {
-				this.index > index && --this.index;
+		for (let i = 0; i < this.length; ++i) {
+			if (this[i] === value) {
+				this.splice(i, 1);
 				++deleted;
-			} else {
-				return true;
 			}
-		});
-		this.length = filtered.length;
-		for (let i = 0; i < filtered.length; ++i) {
-			this[i] = filtered[i];
 		}
 		return deleted;
 	}
 
 	/**
-	 * Removes the value at a specific position.
-	 * @param  {natural}  index  Position of the value to remove.
-	 * @return {any}             The removed value.
-	 */
-	deleteAt(index) {
-		if (index < this.index) { this.index--; }
-		else if (index === this.index && index === this.length - 1) { this.index = this.loop ? 0 : Infinity; }
-		return this.splice(index, 1)[0];
-	}
-
-	/**
-	 * Tests whether the value at the current index satisfies a condition.
-	 * @param  {function}  test Condition to satisfy.
-	 * @return {bool}      True iff this.index points at a value in this and that value satisfied the test.
+	 * Tests whether the value at the current index exist and optionally satisfies a condition.
+	 * @param  {function}  test  Optional condition to satisfy.
+	 * @return {bool}      True  iff this.index points at a value in this and that value satisfied the test (if a test is specified).
 	 */
 	is(test) {
 		const current = this.get();
-		return !!(current && test(current));
+		return !!(current && (!test || test(current)));
 	}
 
 	/**
@@ -165,11 +144,57 @@ class PlayList extends Array {
 	sort() {
 		const current = this.get();
 		const sorted = super.sort(...arguments);
-		for (let i = 0; i < sorted.length; ++i) {
-			this[i] = sorted[i];
-		}
+		this.splice(0, Infinity, ...sorted);
 		this.index = super.lastIndexOf(current);
 		return this;
+	}
+
+	push() {
+		const length = this.length;
+		super.push(...arguments);
+		for (let i = 0; i < arguments.length; ++i) {
+			this.onAdd(length + i, arguments[i]);
+		}
+		return this.length;
+	}
+
+	pop() {
+		const value = super.pop();
+		this.onDelete(this.length, value);
+		this.index === this.length && this.next();
+		return value;
+	}
+
+	reverse() {
+		super.reverse();
+		this.index = this.length - 1 - this.index;
+	}
+
+	shift() {
+		const value = super.shift();
+		this.onDelete(0, value);
+		this.index -= 1;
+		return value;
+	}
+
+	unshift() {
+		super.push(...arguments);
+		for (let i = 0; i < arguments.length; ++i) {
+			this.onAdd(i, arguments[i]);
+		}
+		return this.length;
+	}
+
+	splice(at, remove, ...items) {
+		const removed = super.splice(...arguments);
+		for (let i = 0; i < removed.length; ++i) {
+			this.onDelete(at + i, removed[i]);
+		}
+		for (let i = 0; i < items.length; ++i) {
+			this.onAdd(at + i, items[i]);
+		}
+		this.index > at && (this.index <= at.remove ? this.next() : (this.index += items.length - remove));
+		return removed;
 	}
 }
 
