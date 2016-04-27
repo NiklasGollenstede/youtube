@@ -47,6 +47,9 @@ const methods = [
 
 	[ 'silence',            null,               ],
 	[ null,                 'buffering',        ],
+
+	[ null,                 'loaded',           ],
+	[ null,                 'unloaded',         ],
 ];
 
 function isTrusted({ data, origin, isTrusted, }) {
@@ -158,7 +161,9 @@ const Player = new Class({
 			this.video = self.video = element.querySelector('video');
 			this.queue && this.queue.forEach(([ method, args, ]) => sendMessage(method, args));
 			this.queue = null;
-			_this.emit('playerElementAdded', element);
+			_this.emit('loaded', element);
+			this.promises.loaded.resolve(element);
+			this.setPromise('unloaded', self);
 			RemoveObserver.on(this.root, this.removePlayer);
 			if (!element.dataset.visible) {
 				if (!(element.dataset.visible = !document.hidden)) {
@@ -169,17 +174,23 @@ const Player = new Class({
 
 		removePlayer() {
 			if (!this.root) { return; }
+			const self = Public(this), _this = Protected(this);
 			window.removeEventListener('message', this);
+			_this.emit('unloaded', this.root);
+			this.promises.unloaded.resolve(this.root);
+			this.setPromise('loaded', self);
 			RemoveObserver.off(this.root, this.removePlayer);
-			this.root = this.video = null;
+			this.main.removeDomListener(document, 'visibilitychange', this.visibilityChange, false);
 			!this.queue && (this.queue = [ ]);
+			this.root = self.root = null;
+			this.video = self.video = null;
 		},
 
 		loadExternalPlayer({ reason, } = { }) {
 			if (reason === 'age' && !this.main.options.player.bypassAge) { return; }
 			this.removePlayer();
 			const { videoId, } = this.main;
-			document.querySelector('#player-unavailable').classList.add("hid");
+			document.querySelector('#player-unavailable').classList.add('hid');
 			const container = document.querySelector('#player-api');
 			container.classList.remove('off-screen-target');
 			container.innerHTML = Templates.youtubeIframe(videoId);
@@ -277,9 +288,10 @@ const Player = new Class({
 		silence() {
 			const video = this.video;
 			if (!video) { return () => void 0; }
+			if (video.unMute) { return video.unMute; }
 			const old = video.volume;
 			video.volume = 0;
-			return () => video.volume = old;
+			return (video.unMute = () => video.volume = old);
 		},
 	}),
 });

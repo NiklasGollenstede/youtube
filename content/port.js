@@ -39,10 +39,10 @@ const Port = new Class({
 		postMessage(message) {
 			try {
 				this.port.postMessage(message);
-			} catch (error) { if ((/disconnected/).test(error.message)) {
+			} catch (error) {
 				console.error('Error in emit, destroying Port instance', error);
 				Protected(this).destroy();
-			} else { throw error; } }
+			}
 		},
 		onMessage(message) {
 			const { id, } = message;

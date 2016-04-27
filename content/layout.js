@@ -46,8 +46,7 @@ return class Layout {
 		document.documentElement.classList.add('watchpage');
 		document.documentElement.classList[listId ? 'add' : 'remove']('playlist');
 
-		if (player.root) { withPlayerElement(player.root); } else { player.once('playerElementAdded', withPlayerElement); }
-		function withPlayerElement(element) {
+		player.loaded.then(element => {
 			// use cinema mode to make progress-bar a bit larger
 			options.player.cinemaMode && (element.querySelector('.ytp-size-button') || noop).click();
 
@@ -55,7 +54,7 @@ return class Layout {
 			options.player.alwaysVolume && (element.querySelector('.ytp-volume-panel') || noop).classList.add('ytp-volume-control-hover');
 
 			// disable annotations (and all other checkboxes in the player settings)
-			if (!options.player.annotations) { hide(); setTimeout(hide, 5e4); setTimeout(hide, 12e4); }
+			if (!options.player.annotations) { hide(); /*setTimeout(hide, 5e3); setTimeout(hide, 12e3);*/ }
 			function hide() {
 				element.querySelector('.ytp-settings-button').click();
 				Array.prototype.forEach.call(element.querySelectorAll('#ytp-main-menu-id .ytp-menuitem[aria-checked="true"]'), button => button.click());
@@ -65,7 +64,7 @@ return class Layout {
 			// remove title overlay of external player
 			const title = element.querySelector('.ytp-chrome-top');
 			title && title.remove() === element.querySelector('.ytp-gradient-top').remove();
-		}
+		});
 	}
 
 	enableAnimatedThumbs() {
@@ -136,8 +135,9 @@ return class Layout {
 			const factor = 1 + this.options.player.zoomFactor / 100;
 			const divisor = 1 / factor;
 			const rect = document.querySelector('#player-api').getBoundingClientRect();
+			const scale = event.deltaY < 0 ? (this.scale * factor) : (this.scale / factor);
 			this.setZoom(
-				event.deltaY < 0 ? (this.scale * factor) : (this.scale / factor),
+				(scale < factor && scale > 1 / factor) || (scale > factor && scale < 1 / factor) ? 1 : scale,
 				((event.clientX - rect.left) / rect.width) * (1 - divisor) + this.scaleX * divisor,
 				((event.clientY - rect.top) / rect.height) * (1 - divisor) + this.scaleY * divisor
 			);
@@ -189,21 +189,13 @@ return class Layout {
 				return { top: upper / 4, bottom: (data.length - lower) / 4, };
 			});
 
-			let { top, bottom, } = margins.reduce((a, b) => ({ top: a.top > b.top ? a.top : b.top, bottom: a.bottom > b.bottom ? a.bottom : b.bottom, }));
+			let { top, bottom, } = margins.reduce((a, b) => ({ top: a.top < b.top ? a.top : b.top, bottom: a.bottom < b.bottom ? a.bottom : b.bottom, }));
 			top < 4 && (top = 0); bottom < 4 && (bottom = 0);
 			this.setZoom(1 / (1 - (top + bottom) / height), 0.5, (top - bottom) / 2 / height + 0.5);
 		});
 	}
 
 	setZoom(scale = 1, x = 0.5, y = 0.5) {
-		if (scale !== 1) { // reset scale to 1 if sufficiently close to 1
-			const factor = 1 + this.options.player.zoomFactor / 100;
-			if (
-				(scale < factor && scale > 1 / factor)
-				|| (scale > factor && scale < 1 / factor)
-			) { scale = 1; }
-		}
-
 		this.zoom.textContent = (`
 			#player-api .html5-video-container video
 			{

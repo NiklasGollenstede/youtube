@@ -49,7 +49,7 @@ const actions = {
 		});
 	},
 	videoToggleFullscreen() {
-		document.querySelector('.ytp-button-fullscreen-enter, .ytp-button-fullscreen-exit').click();
+		document.querySelector('.ytp-fullscreen-button').click();
 	},
 	videoPromptPosiotion({ player, }) {
 		let seconds = hhMmSsToSeconds(prompt('Seek to (hh:mm:SS.ss): '));
