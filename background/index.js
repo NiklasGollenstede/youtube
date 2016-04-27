@@ -12,16 +12,19 @@ Promise.all([
 ]).then(([ db, options, ]) => {
 window.db = db; window.options = options;
 
-const Tab = new require('background/tab');
+const Tab = window.Tab = new require('background/tab');
 
-const playlist = new (require('background/playlist'))({
+const playlist = window.playlist = new (require('background/playlist'))({
 	onSeek(index) {
 		console.log('onSeek', index);
-		panel && panel.emit('playlist_seek', index);
+		panel.emit('playlist_seek', index);
+	},
+	onAdd(index, value) {
+		panel.lastSortCriterium = false;
 	},
 });
 
-const commands = {
+const commands = window.commands = {
 	play() {
 		playlist.is(tab => tab.play());
 	},
@@ -44,7 +47,7 @@ const commands = {
 	},
 };
 
-const panel = new (require('background/panel'))({ tabs: Tab.actives, playlist, commands, data: db, });
+const panel = window.panel = new (require('background/panel'))({ tabs: Tab.actives, playlist, commands, data: db, });
 
 chrome.commands.onCommand.addListener(command => ({
 	MediaPlayPause: commands.toggle,
