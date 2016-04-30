@@ -246,13 +246,47 @@
     position: relative;
     bottom: 40px !important;
 }
-.watchpage .ytp-storyboard /* shift seek preview strip to left */
-{
-    transform: translateX(calc(50% - 455px));
-}
 .ytp-storyboard-framepreview /* bad looking and misplaced preview while seeking */
 {
     display: none;
+}
+/* shift seek preview and seek preview strip to left */
+.watchpage .ytp-tooltip.ytp-bottom.ytp-preview
+{
+    top: unset !important;
+    bottom: 60px !important;
+}
+@media (min-width: 1700px) {
+    .watchpage .ytp-storyboard,
+    .watchpage .ytp-tooltip.ytp-bottom.ytp-preview
+    { transform: translateX(calc(50vw - 817px)); }
+    .watchpage.fullscreen .ytp-storyboard,
+    .watchpage.fullscreen .ytp-tooltip.ytp-bottom.ytp-preview
+    { transform: translateX(calc(50vw - 637px)); }
+}
+@media (min-width: 1300px) and (max-width: 1699px) {
+    .watchpage .ytp-storyboard,
+    .watchpage .ytp-tooltip.ytp-bottom.ytp-preview
+    { transform: translateX(calc(50vw - 607px)); }
+    .watchpage.fullscreen .ytp-storyboard,
+    .watchpage.fullscreen .ytp-tooltip.ytp-bottom.ytp-preview
+    { transform: translateX(calc(50vw - 427px)); }
+}
+@media (min-width: 660px) and (max-width: 1299px) {
+    .watchpage .ytp-storyboard,
+    .watchpage .ytp-tooltip.ytp-bottom.ytp-preview
+    { transform: translateX(calc(50vw - 497px)); }
+    .watchpage.fullscreen .ytp-storyboard,
+    .watchpage.fullscreen .ytp-tooltip.ytp-bottom.ytp-preview
+    { transform: translateX(calc(50vw - 317px)); }
+}
+@media (min-width: 0px) and (max-width: 659px) {
+    .watchpage .ytp-storyboard,
+    .watchpage .ytp-tooltip.ytp-bottom.ytp-preview
+    { transform: translateX(calc(50vw - 317px)); }
+    .watchpage.fullscreen .ytp-storyboard,
+    .watchpage.fullscreen .ytp-tooltip.ytp-bottom.ytp-preview
+    { transform: translateX(calc(50vw - 207px)); }
 }
 
 /* add/share button */

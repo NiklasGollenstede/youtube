@@ -55,7 +55,7 @@ class Transaction {
 		}).catch(this._.onerror);
 	}
 	increment(id, key, by = 1) {
-		return this.modify(id, data => ({ [key]: (data[key] || 0) + by, }), [ key, ]);
+		return this.modify(id, data => ({ [key]: (data[key] || 0) + (by || 0), }), [ key, ]);
 	}
 	assign(id, key, props) {
 		return this.modify(id, data => ({ [key]: typeof data[key] !== 'object' ? props : Object.assign(data[key], props), }), [ key, ]);

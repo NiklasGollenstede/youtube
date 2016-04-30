@@ -60,7 +60,7 @@ return function(main) {
 
 		console.log('control done', title, duration, main.videoId);
 		port.emit('player_created', main.videoId);
-		play && port.emit('player_playing', main.videoId);
+		play && port.emit('player_playing', player.video.currentTime || 0);
 		reportState = true;
 
 	}, error => console.error(error)));

@@ -30,9 +30,9 @@ class PlayList extends Array {
 	 */
 	set index(value) {
 		if (typeof value !== 'number') { value = -1; }
-		else { value <<= 0; }
-		if (value < 0) { value = -1; }
+		else if (value < 0) { value = -1; }
 		else if (value >= this.length) { value = Infinity; }
+		else { value <<= 0; }
 		const old = this._index;
 		this._index = value;
 		old !== value && this.onSeek(value, old);
