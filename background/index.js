@@ -1,6 +1,11 @@
 'use strict';
 const { tabs: Tabs, storage: Storage, } = require('common/chrome');
 
+if (!Storage.sync) {
+	console.log('chrome.storage.sync is unavailable, fall back to chrome.storage.local');
+	Storage.sync = Storage.local;
+}
+
 Promise.all([
 	require('db/meta-data'),
 	Storage.sync.get('options').then(({ options, }) => {
@@ -99,7 +104,7 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => reply({
 	}}
 }[message.name].apply(window, message.args)));
 
-chrome.storage.onChanged.addListener(({ options: o, }, sync) => sync === 'sync' && o && Object.assign(options, o) && console.log('options changed', o.newValue));
+chrome.storage.onChanged.addListener(({ options: o, }, sync) => (Storage.sync === Storage.local || sync === 'sync') && o && Object.assign(options, o) && console.log('options changed', o.newValue));
 
 Tabs.query({ }).then(tabs => {
 	console.log(tabs);

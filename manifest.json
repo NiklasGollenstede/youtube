@@ -10,6 +10,13 @@
 		"64": "icon.png"
 	},
 
+	"minimum_chrome_version": "49.0.0",
+	"applications": {
+		"gecko": {
+			"id": "addon@example.com"
+		}
+	},
+
 	"permissions": [
 		"storage",
 		"clipboardWrite",
@@ -17,8 +24,7 @@
 	],
 	"optional_permissions": [ ],
 	"background": {
-		"page": "background/index.html",
-		"persistent": true
+		"page": "background/index.html"
 	},
 	"content_scripts": [
 		{
@@ -97,6 +103,5 @@
 		}
 	},
 
-	"incognito": "spanning",
-	"minimum_chrome_version": "49.0.0"
+	"incognito": "split"
 }

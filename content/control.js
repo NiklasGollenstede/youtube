@@ -56,7 +56,7 @@ return function(main) {
 
 		const duration = hhMmSsToSeconds(player.root.querySelector('.ytp-time-duration').textContent);
 		const title = document.querySelector('#eow-title').textContent.trim();
-		(yield port.request('assign', main.videoId, 'meta', { title, duration, }));
+		(yield port.request('db', 'assign', main.videoId, 'meta', { title, duration, }));
 
 		console.log('control done', title, duration, main.videoId);
 		port.emit('player_created', main.videoId);

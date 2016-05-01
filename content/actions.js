@@ -1,7 +1,6 @@
 'use strict'; define('content/actions', [
-	'common/chrome', 'content/utils', 'content/templates', 'es6lib',
+	'content/utils', 'content/templates', 'es6lib',
 ], function(
-	{ storage, },
 	{ getVideoIdFromImageSrc, },
 	Templates,
 	{
@@ -163,11 +162,11 @@ const actions = {
 		const title = document.querySelector('#eow-title').textContent;
 		saveAs(url +'?title='+ encodeURIComponent(title), title +'.jpg');
 		return;
-		HttpRequest({ url, responseType: 'blob', })
+		/*HttpRequest({ url, responseType: 'blob', })
 		.then(({ response, }) => {
 			saveAs(response, title +'.jpg');
 		})
-		.catch(Logger('Faild to load maxresdefault.jpg'));
+		.catch(Logger('Faild to load maxresdefault.jpg'));*/
 	},
 };
 [1,2,3,4,5,6,7,8,9,10].forEach(i => {

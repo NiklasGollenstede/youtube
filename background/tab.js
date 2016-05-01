@@ -1,7 +1,7 @@
 'use strict'; define('background/tab', [
 	'common/chrome',
 ], function(
-	{ tabs: Tabs, windows: Windows, }
+	{ tabs: Tabs, windows: Windows, storage: Storage, }
 ) {
 
 class Tab {
@@ -21,7 +21,8 @@ class Tab {
 			if (this.destructed) { return; }
 			const { name, id } = message;
 			if (id) {
-				this.data[name](...message.args).then(
+				({ db: this.data, 'storage.sync': Storage.sync, })
+				[name][message.method](...message.args).then(
 					value => this.postMessage({ name, value, id, }),
 					error => this.postMessage({ name, error, id, })
 				);

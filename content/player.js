@@ -53,7 +53,8 @@ const methods = [
 ];
 
 function isTrusted({ data, origin, isTrusted, }) {
-	return isTrusted && origin === 'https://www.youtube.com' && typeof data === 'object' && data.target === target.self;
+	return /*isTrusted &&*/ origin === 'https://www.youtube.com' && typeof data === 'object' && data.target === target.self;
+	// XXX: for some reason isTrusted is flase in Firefox (47)
 }
 function sendMessage(type, args = [ ]) {
 	return window.postMessage({ target: target.other, type, args, }, '*');

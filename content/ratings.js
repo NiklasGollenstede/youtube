@@ -74,7 +74,7 @@ return function(main) {
 			if (options.displayRatings.totalLifetime < 0) {
 				return attatchRatingBar(element, (yield loadRatingFromServer(id)));
 			}
-			const stored = (yield port.request('get', id, [ 'meta', 'rating', ]));
+			const stored = (yield port.request('db', 'get', id, [ 'meta', 'rating', ]));
 			let now = Date.now(), age;
 			if (
 				stored.meta && stored.rating
@@ -85,7 +85,7 @@ return function(main) {
 			}
 			const loaded = (yield loadRatingFromServer(id));
 			attatchRatingBar(element, loaded);
-			return port.request('set', typeof stored.meta !== 'object' ? loaded : {
+			return port.request('db', 'set', typeof stored.meta !== 'object' ? loaded : {
 				id,
 				rating: loaded.rating,
 				meta: Object.assign(stored.meta, loaded.meta),

@@ -26,11 +26,11 @@ const Port = new Class({
 			const self = Private(this);
 			self.postMessage({ name, value, });
 		},
-		request(name, ...args) {
+		request(name, method, ...args) {
 			const self = Private(this);
 			return new Promise((resolve, reject) => {
 				self.requests.set(self.nextId, [ resolve, reject, ]);
-				self.postMessage({ name, id: self.nextId++, args, });
+				self.postMessage({ name, method, id: self.nextId++, args, });
 			});
 		},
 	}),

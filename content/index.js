@@ -43,7 +43,8 @@ const Main = new Class({
 		try { this.control = new (require('content/control'))(this); } catch(e) { error(e); }
 
 		this.port.on(Symbol.for('destroyed'), self.destroy.bind(self));
-		require('common/chrome').storage.sync.get('options').then(self.optionsLoaded.bind(self));
+		(chrome.storage ? require('common/chrome').storage.sync.get('options') : this.port.request('storage.sync', 'get', 'options'))
+		.then(self.optionsLoaded.bind(self));
 	}),
 
 	public: (Private, Protected, Public) => ({
@@ -110,7 +111,7 @@ const Main = new Class({
 			DOMContentLoaded.then(this.loaded.bind(this));
 			self.addDomListener(window, 'spfrequest', this.navigate.bind(this));
 			self.addDomListener(window, 'spfdone', this.navigated.bind(this));
-			chrome.storage.onChanged.addListener(this.optionsChanged = this.optionsChanged.bind(this));
+			chrome.storage && chrome.storage.onChanged.addListener(this.optionsChanged = this.optionsChanged.bind(this));
 			_this.emitSync('optionsChanged', arg);
 			_this.emitSync('optionsLoaded', arg);
 			_this.clear('optionsLoaded');
@@ -151,7 +152,7 @@ const Main = new Class({
 				nodes.destroy();
 			}));
 
-			chrome.storage.onChanged.removeListener(this.optionsChanged);
+			chrome.storage && chrome.storage.onChanged.removeListener(this.optionsChanged);
 
 			window.main = null;
 		},
@@ -161,7 +162,6 @@ const Main = new Class({
 if (window.main) {
 	throw new Error('Main module already exists');
 }
-
-window.main = new Main;
+const main = window.main = new Main;
 
 })();

@@ -13,6 +13,7 @@ const allKeys = [
 // db.set(1, { meta: { title: 'Awesome title', published: Date.now(), duration: 213.4, }, private: { rating: 0.6, }, rating: { views: 301, likes: 5, dislikes: 1, }, viewCount: 1.7, })
 // db.modify(1, ({ viewCount, }) => ({ viewCount: viewCount + 1, }), [ 'viewCount', ])
 
+const promise = (() => { try {
 
 const db = window.indexedDB.open('videoInfo', 5);
 db.onupgradeneeded = ({ target: { result: db, }, }) => {
@@ -21,8 +22,8 @@ db.onupgradeneeded = ({ target: { result: db, }, }) => {
 	allKeys.forEach(store => !existing[includes](store) && db.createObjectStore(store, { }));
 };
 
-class Transaction {
-	constructor(db, write, keys, tmp) {
+return getResult(db).then(db => class Transaction {
+	constructor(write, keys, tmp) {
 		this.keys = keys || allKeys;
 		this._ = db.transaction(this.keys, write ? 'readwrite' : 'readonly');
 		this.done = !tmp && getResult(this);
@@ -60,32 +61,90 @@ class Transaction {
 	assign(id, key, props) {
 		return this.modify(id, data => ({ [key]: typeof data[key] !== 'object' ? props : Object.assign(data[key], props), }), [ key, ]);
 	}
-}
+});
 
-return getResult(db).then(db => ({
+} catch(error) {
+	if (!(error && error instanceof DOMException && error.name === 'SecurityError')) { throw error; }
+	console.log('indexedDB is unavailable, fall back to chrome.storage.local');
+
+	const storage = require('common/chrome').storage.local;
+	return Promise.resolve(class Storage {
+		constructor(write, keys, tmp) {
+			this.keys = keys || allKeys;
+			this.write = write;
+			this.done = !tmp && Promise.resolve();
+		}
+		ids() {
+			return storage.get().then(data => {
+				const ids = new Set;
+				Object.keys(data).forEach(key => {
+					const match = (/^([A-z0-9_-]{11})\$\w+$/).exec(key);
+					match && ids.add(match[1]);
+				});
+				return ids;
+			});
+		}
+		clear(keys = this.keys) {
+			if (!this.write) { return Promise.reject('Transaction is readonly'); }
+			return storage.get().then(_data => {
+				Object.keys(_data).forEach(key => {
+					const match = (/^[A-z0-9_-]{11}\$(\w+)$/).exec(key);
+					match && keys.includes(match[1]) && delete _data[key];
+				});
+				return storage.clear().then(() => storage.set(_data));
+			});
+		}
+		get(id, keys = this.keys) {
+			keys = keys.map(key => id +'$'+ key);
+			return storage.get(keys).then(_data => {
+				const data = { id, };
+				Object.keys(_data).forEach(key => data[key.replace(/^.*?\$/, '')] = _data[key]);
+				return data;
+			});
+		}
+		set(id, data = id) {
+			if (!this.write) { return Promise.reject('Transaction is readonly'); }
+			(id === data) && (id = data.id);
+			const _data = { };
+			Object.keys(data).forEach(key => key !== 'id' && (_data[id +'$'+ key] = data[key]));
+			return storage.set(_data);
+		}
+		modify(id, modifier, keys = this.keys) {
+			return this.get(id, keys).then(modifier).then(this.set.bind(this, id));
+		}
+		increment(id, key, by = 1) {
+			return this.modify(id, data => ({ [key]: (data[key] || 0) + (by || 0), }), [ key, ]);
+		}
+		assign(id, key, props) {
+			return this.modify(id, data => ({ [key]: typeof data[key] !== 'object' ? props : Object.assign(data[key], props), }), [ key, ]);
+		}
+	});
+} })();
+
+return promise.then(Transaction => ({
 	transaction(write, keys) {
-		return new Transaction(db, write, keys);
+		return new Transaction(write, keys);
 	},
 	ids() {
-		return new Transaction(db, false, [ 'meta', ], true).ids();
+		return new Transaction(false, [ 'meta', ], true).ids();
 	},
 	clear(keys = this.keys) {
-		return new Transaction(db, true, keys, true).clear(keys);
+		return new Transaction(true, keys, true).clear(keys);
 	},
 	get(id, keys = allKeys) {
-		return new Transaction(db, false, keys, true).get(id, keys);
+		return new Transaction(false, keys, true).get(id, keys);
 	},
 	set(id, data = id) {
-		return new Transaction(db, true, Object.keys(data), true).set(id, data);
+		return new Transaction(true, Object.keys(data), true).set(id, data);
 	},
 	modify(id, modifier, keys = allKeys) {
-		return new Transaction(db, true, keys, true).modify(id, modifier, keys);
+		return new Transaction(true, keys, true).modify(id, modifier, keys);
 	},
 	increment(id, key, by = 1) {
-		return new Transaction(db, true, [ key, ], true).increment(id, key, by);
+		return new Transaction(true, [ key, ], true).increment(id, key, by);
 	},
 	assign(id, key, props) {
-		return new Transaction(db, true, [ key, ], true).assign(id, key, props);
+		return new Transaction(true, [ key, ], true).assign(id, key, props);
 	},
 }));
 
