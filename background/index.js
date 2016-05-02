@@ -72,21 +72,20 @@ chrome.runtime.onConnect.addListener(port => { switch (port.name) {
 	}
 } });
 
-chrome.runtime.onMessage.addListener((message, sender, reply) => reply({
+chrome.runtime.onMessage.addListener((message, sender, reply) => (Promise.resolve({
 	alert, confirm, prompt,
 	openOptionsTab() { Tabs.create({ url: chrome.extension.getURL('options/index.html'), }); },
 	control(type) { switch (type) {
 		case 'export': {
 			const data = db.transaction();
-			data.ids().then(ids => Promise.all(ids.map(id => data.get(id))))
+			return data.ids().then(ids => Promise.all(ids.map(id => data.get(id))))
 			.then(result => {
 				const data = JSON.stringify(result);
-				require('es6lib/dom').writeToClipboard({ 'application/json': data, 'text/plain': data, });
-				alert('The JSON data has been put into your clipboard');
-			}).catch(error => alert('Export failed: "'+ error.message +'"') === console.error(error));
+				return require('es6lib/dom').writeToClipboard({ 'application/json': data, 'text/plain': data, });
+			}).then(() => alert('The JSON data has been put into your clipboard'));
 		} break;
 		case 'import': {
-			Promise.resolve().then(() => {
+			return Promise.resolve().then(() => {
 				const infos = JSON.parse(prompt('Please paste your JSON data below', ''));
 				console.log('import', infos);
 				if (!Array.isArray(infos)) { throw new Error('The import data must be an Array'); }
@@ -94,15 +93,21 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => reply({
 				if(corrupt !== -1) {throw new Error('The object at index '+ corrupt +' must have an "id" property set to a valid YouTube video id: "'+ JSON.stringify(infos[corrupt]) +'"'); }
 				const data = db.transaction(true);
 				return Promise.all(infos.map(info => data.set(info)));
-			}).catch(error => alert('Import failed: "'+ error.message +'"') === console.error(error));
+			});
 		} break;
 		case 'clear': {
-			if (prompt('If you really mean to delete all your user data type "yes" below') !== 'yes') { return; }
-			db.clear().then(() => alert('Done. It\'s all gone ...'))
-			.catch(error => alert('Clearing failed: "'+ error.message +'"') === console.error(error));
+			if (prompt('If you really mean to delete all your user data type "yes" below') !== 'yes') { return alert('Canceled. Nothing was deleted'); }
+			return db.clear().then(() => alert('Done. It\'s all gone ...'));
 		} break;
-	}}
-}[message.name].apply(window, message.args)));
+	} },
+	storage(area, method, query) {
+		console.log('storage', area, method, query);
+		return query ? Storage[area][method](query) : Storage[area][method]();
+	},
+}[message.name].apply(window, message.args)).then(
+	value => reply({ value, }),
+	error => reply({ error: error && { message: error.message || error, stack: error.stack, }, })
+), true));
 
 chrome.storage.onChanged.addListener(({ options: o, }, sync) => (Storage.sync === Storage.local || sync === 'sync') && o && Object.assign(options, o) && console.log('options changed', o.newValue));
 

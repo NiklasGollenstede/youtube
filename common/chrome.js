@@ -1,11 +1,12 @@
 'use strict'; define('common/chrome', function() {
 
 const cache = new WeakMap;
+let storageShim;
 
 return {
 	wrapApi: wrap,
 	get runtime() { return wrap(chrome.runtime); },
-	get storage() { return wrap(chrome.storage); },
+	get storage() { return chrome.storage ? wrap(chrome.storage) : (storageShim || (storageShim = new StorageShim)); },
 	get tabs() { return wrap(chrome.tabs); },
 	get windows() { return wrap(chrome.windows); },
 };
@@ -39,6 +40,29 @@ function promisify(method, thisArg) {
 				return error ? reject(error) : resolve(...arguments);
 			});
 		});
+	};
+}
+
+function StorageShim() {
+	console.log('chrome.storage is unavailable (in this context), fall back to sending messages to the background script');
+	const sendMessage = promisify(chrome.runtime.sendMessage, chrome.runtime);
+	const proxy = (area, method) => (query) => sendMessage({ name: 'storage', args: [ area, method, query, ], })
+	.then(({ error, value, }) => { console.log('storageShim', error, value); if (error) { throw error; } return value; });
+	return {
+		local: {
+			get: proxy('local', 'get'),
+			set: proxy('local', 'set'),
+			remove: proxy('local', 'remove'),
+			getBytesInUse: proxy('local', 'getBytesInUse'),
+			clear: proxy('local', 'clear'),
+		},
+		sync: {
+			get: proxy('sync', 'get'),
+			set: proxy('sync', 'set'),
+			remove: proxy('sync', 'remove'),
+			getBytesInUse: proxy('sync', 'getBytesInUse'),
+			clear: proxy('sync', 'clear'),
+		},
 	};
 }
 

@@ -99,6 +99,9 @@ body {
 	padding: 5px;
 	overflow: hidden;
 }
+#play.active, #pause.active {
+	display: none;
+}
 
 #playlist .tabs {
 	display: block;

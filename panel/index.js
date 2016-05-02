@@ -85,6 +85,15 @@ window.addEventListener('DOMContentLoaded', () => {
 	[ 'prev', 'play', 'pause', 'next', 'loop', ]
 	.forEach(command => document.querySelector('#'+ command).addEventListener('click', ({ button, }) => !button && port.emit('command_'+ command)));
 
+	document.querySelector('#more').addEventListener('click', ({ button, }) => {
+		if (button) { return; }
+		const { left: x, bottom: y, } = document.querySelector('#more').getBoundingClientRect();
+		const items = [
+			{ label: 'Settings', action: () => chrome.runtime.sendMessage({ name: 'openOptionsTab', args: [ '', ], }, () => window.close()), },
+		];
+		new ContextMenu({ x, y, items, });
+	});
+
 	hideScrollBars();
 });
 

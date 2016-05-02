@@ -81,17 +81,18 @@ return getResult(db).then(db => class Transaction {
 					const match = (/^([A-z0-9_-]{11})\$\w+$/).exec(key);
 					match && ids.add(match[1]);
 				});
-				return ids;
+				return Array.from(ids);
 			});
 		}
 		clear(keys = this.keys) {
 			if (!this.write) { return Promise.reject('Transaction is readonly'); }
 			return storage.get().then(_data => {
+				const entries = [ ];
 				Object.keys(_data).forEach(key => {
 					const match = (/^[A-z0-9_-]{11}\$(\w+)$/).exec(key);
-					match && keys.includes(match[1]) && delete _data[key];
+					match && keys.includes(match[1]) && entries.push(key);
 				});
-				return storage.clear().then(() => storage.set(_data));
+				return storage.remove(entries);
 			});
 		}
 		get(id, keys = this.keys) {

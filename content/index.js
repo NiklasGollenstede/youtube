@@ -43,7 +43,7 @@ const Main = new Class({
 		try { this.control = new (require('content/control'))(this); } catch(e) { error(e); }
 
 		this.port.on(Symbol.for('destroyed'), self.destroy.bind(self));
-		(chrome.storage ? require('common/chrome').storage.sync.get('options') : this.port.request('storage.sync', 'get', 'options'))
+		require('common/chrome').storage.sync.get('options')
 		.then(self.optionsLoaded.bind(self));
 	}),
 

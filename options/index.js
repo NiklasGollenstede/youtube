@@ -9,7 +9,8 @@ const {
 	network: { HttpRequest, },
 } = require('es6lib');
 
-const { storage: { sync: Storage }, runtime: { sendMessage, }, } = require('common/chrome');
+const { runtime: { sendMessage, }, } = require('common/chrome');
+const Storage = chrome.storage.sync ? require('common/chrome').storage.sync : require('common/chrome').storage.local;
 const { simplify, } = require('options/utils');
 const preferences = copyProperties(require('options/defaults'), [ ]);
 
@@ -34,7 +35,9 @@ document.addEventListener('click', function({ target, button, }) {
 		case 'value-input': {
 			if (target.dataset.type !== 'control') { return; }
 			console.log('button clicked', target);
-			sendMessage({ name: 'control', args: [ target.parentNode.pref.name, ], });
+			const { name, } = target.parentNode.pref;
+			sendMessage({ name: 'control', args: [ name, ], }).then(({ error, value, }) => { console.log('recieved', error, value); if (error) { throw error; } })
+			.catch(error => { console.error(error); return sendMessage({ name: 'alert', args: [ name +' failed: "'+ error.message +'"', ], }); });
 		} break;
 		case 'submit-button': {
 			switch (target.id) {
@@ -82,11 +85,10 @@ function save() {
 
 function reset() {
 	sendMessage({ name: 'confirm', args: [ 'Are you shure that you want to reset all options to their default values?', ], })
-	.then(
-		reset => reset
-		&& Storage.set({ options: simplify(require('options/defaults')), })
-		.then(() => location.reload())
-	);
+	.then(({ error, value, }) => {
+		if (error) { throw error; }
+		return value && Storage.set({ options: simplify(require('options/defaults')), }).then(() => location.reload());
+	}).catch(error => { console.error(error); return sendMessage({ name: 'alert', args: [ 'Reset failed: "'+ error.message +'"', ], }); });
 }
 
 function cancel() {
