@@ -13,14 +13,14 @@
 	"minimum_chrome_version": "49.0.0",
 	"applications": {
 		"gecko": {
-			"id": "addon@example.com"
+			"id": "YouTube@Overhaul"
 		}
 	},
 
 	"permissions": [
 		"storage",
 		"clipboardWrite",
-		"https://www.youtube.com/*"
+		"https://www.youtube.com/*", "tabs"
 	],
 	"optional_permissions": [ ],
 	"background": {

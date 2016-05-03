@@ -6,6 +6,7 @@ const {
 	object: { Class, setConst, copyProperties, },
 	namespace: { IterableNameSpace, },
 } = require('es6lib');
+const { storage: Storage, applications: { gecko, chromium, }, } = require('common/chrome');
 
 /**
  * Event sequence: optionsChanged optionsLoaded (navigate|navigated|optionsChanged)* observerCreated navigated (navigate|navigated|optionsChanged)* <destroyed>
@@ -43,8 +44,7 @@ const Main = new Class({
 		try { this.control = new (require('content/control'))(this); } catch(e) { error(e); }
 
 		this.port.on(Symbol.for('destroyed'), self.destroy.bind(self));
-		require('common/chrome').storage.sync.get('options')
-		.then(self.optionsLoaded.bind(self));
+		Storage.sync.get('options').then(self.optionsLoaded.bind(self));
 	}),
 
 	public: (Private, Protected, Public) => ({
@@ -111,15 +111,15 @@ const Main = new Class({
 			DOMContentLoaded.then(this.loaded.bind(this));
 			self.addDomListener(window, 'spfrequest', this.navigate.bind(this));
 			self.addDomListener(window, 'spfdone', this.navigated.bind(this));
-			chrome.storage && chrome.storage.onChanged.addListener(this.optionsChanged = this.optionsChanged.bind(this));
+			Storage.onChanged.addListener(this.optionsChanged = this.optionsChanged.bind(this));
 			_this.emitSync('optionsChanged', arg);
 			_this.emitSync('optionsLoaded', arg);
 			_this.clear('optionsLoaded');
 		},
 
 		optionsChanged({ options, }, sync) {
+			if (!options || !options.newValue) { return; }
 			const self = Public(this), _this = Protected(this);
-			if (sync !== 'sync' || !options || !options.newValue) { return; }
 			copyProperties(self.options, options.newValue.content);
 			const arg = { old: options.oldValue, value: self.options, };
 			console.log('options changed', self.options);
@@ -152,7 +152,7 @@ const Main = new Class({
 				nodes.destroy();
 			}));
 
-			chrome.storage && chrome.storage.onChanged.removeListener(this.optionsChanged);
+			Storage.onChanged.removeListener(this.optionsChanged);
 
 			window.main = null;
 		},
@@ -160,7 +160,9 @@ const Main = new Class({
 });
 
 if (window.main) {
-	throw new Error('Main module already exists');
+	console.error('Main module already exists', window.main);
+	if (gecko) { window.main.port.destroy(); }
+	else { return; }
 }
 const main = window.main = new Main;
 

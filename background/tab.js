@@ -1,7 +1,7 @@
 'use strict'; define('background/tab', [
 	'common/chrome',
 ], function(
-	{ tabs: Tabs, windows: Windows, storage: Storage, }
+	{ tabs: Tabs, windows: Windows, storage: Storage, applications: { gecko, chromium, }, }
 ) {
 
 class Tab {
@@ -46,6 +46,7 @@ class Tab {
 		try { this.playlist.delete(this); } catch (e) { error(e); }
 		try { this.panel.emit('tab_close', this.id); } catch (e) { error(e); }
 		try { this.playing && this.commands.play(); } catch (e) { error(e); }
+		// TODO: if this.playing && !this.active then focus the next playing tab
 		try { this.port.disconnect(); } catch (e) { error(e); }
 		try { clearInterval(this.pingId); } catch (e) { error(e); }
 		try { this.stopedPlaying(); } catch (e) { error(e); }
@@ -131,7 +132,7 @@ class Tab {
 		this.panel.emit('state_change', { playing: true, });
 		const added = this.playlist.seek(this);
 		added !== -1 && this.panel.emit('playlist_add', { index: added, tabId: this.id, });
-		!this.panel.hasPanel() && this.tab().then(({ windowId, }) => Windows.get(windowId))
+		(!chromium || !this.panel.hasPanel()) && this.tab().then(({ windowId, }) => Windows.get(windowId))
 		.then(({ focused, }) => !focused && Tabs.update(this.id, { active: true, }));
 	}
 	player_paused(time) {
@@ -167,6 +168,7 @@ class Tab {
 		this.pingId = -1;
 	}
 	focus_temporary() {
+		if (!chromium) { return; }
 		console.log('focus_temporary', this);
 		this.tab().then(({ index, windowId, active, }) => {
 			Windows.create({ tabId: this.id, state: 'minimized', })

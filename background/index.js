@@ -1,5 +1,5 @@
 'use strict';
-const { tabs: Tabs, storage: Storage, } = require('common/chrome');
+const { tabs: Tabs, storage: Storage, applications: { gecko, chromium, }, } = require('common/chrome');
 
 if (!Storage.sync) {
 	console.log('chrome.storage.sync is unavailable, fall back to chrome.storage.local');
@@ -109,16 +109,32 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => (Promise.resolv
 	error => reply({ error: error && { message: error.message || error, stack: error.stack, }, })
 ), true));
 
-chrome.storage.onChanged.addListener(({ options: o, }, sync) => (Storage.sync === Storage.local || sync === 'sync') && o && Object.assign(options, o) && console.log('options changed', o.newValue));
+gecko && Storage.onChanged.addListener((change, area) => {
+	const keep = Object.keys(change).filter(key => !(/^[A-z0-9_-]{11}\$\w+$/).test(key));
+	if (!keep.length) { return; }
+	const _change = { };
+	keep.forEach(key => _change[key] = { newValue: change[key].newValue, });
+	// BUG: FF47 oldValues are (often) dead already
+	const message = { name: 'storage.onChanged', change: _change, area, };
+	Tab.instances.forEach(tab => chrome.tabs.sendMessage(tab.id, message));
+});
+
+Storage.onChanged.addListener((change, area) => {
+	if (change.options && (area === 'sync' || Storage.sync === Storage.local)) {
+		Object.assign(options, change.options.newValue);
+		console.log('options changed', options);
+	}
+});
 
 Tabs.query({ }).then(tabs => {
 	console.log(tabs);
 	const { js, css, } = chrome.runtime.getManifest().content_scripts[0];
 	Promise.all(tabs.map(({ id, url, }) =>
-		url && !Tab.instances.has(id) && Tabs.executeScript(id, { file: './content/cleanup.js', })
+		url && !Tab.instances.has(id) && (/^https:\/\/www.youtube.com\/.*$/).test(url)
+		&& Tabs.executeScript(id, { file: '/content/cleanup.js', })
 		.then(() => {
-			css.forEach(file => chrome.tabs.insertCSS(id, { file: './'+ file, }));
-			js.forEach(file => chrome.tabs.executeScript(id, { file: './'+ file, }));
+			css.forEach(file => chrome.tabs.insertCSS(id, { file, }));
+			js.forEach(file => chrome.tabs.executeScript(id, { file, }));
 			return true;
 		})
 		.catch(error => console.log('skipped tab', error)) // not allowed to execute, i.e. not YouTube

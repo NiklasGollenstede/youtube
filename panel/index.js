@@ -28,7 +28,7 @@ window.addEventListener('DOMContentLoaded', () => {
 			enableDragIn(tabList);
 			this.playlist_seek(active);
 			this.state_change(state);
-			tabList.children[active] && tabList.children[active].scrollIntoViewIfNeeded();
+			tabList.children[active] && (tabList.children[active].scrollIntoViewIfNeeded ? tabList.children[active].scrollIntoViewIfNeeded() : tabList.children[active].scrollIntoView());
 		},
 		state_change(state) {
 			console.log('state_change', state);
@@ -89,6 +89,7 @@ window.addEventListener('DOMContentLoaded', () => {
 		if (button) { return; }
 		const { left: x, bottom: y, } = document.querySelector('#more').getBoundingClientRect();
 		const items = [
+			chrome.runtime.reload && { label: 'Restart', action: () => chrome.runtime.reload(), },
 			{ label: 'Settings', action: () => chrome.runtime.sendMessage({ name: 'openOptionsTab', args: [ '', ], }, () => window.close()), },
 		];
 		new ContextMenu({ x, y, items, });
@@ -270,7 +271,7 @@ function positionInParent(element) {
 function hideScrollBars() {
 	const element = document.body.appendChild(document.createElement('div'));
 	element.classList.add('scroll-inner');
-	const width = element.offsetWidth - element.clientWidth;
+	const width = (element.offsetWidth - element.clientWidth) || 17; // TODO: in FF47 this doesn't work within panels
 	document.styleSheets[0].insertRule(`.scroll-inner { margin-right: -${ width }px; }`, 0);
 	element.remove();
 }

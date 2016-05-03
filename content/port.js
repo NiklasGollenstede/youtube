@@ -12,8 +12,7 @@ const Port = new Class({
 
 	constructor: (Super, Private, Protected) => (function() {
 		Super.call(this);
-		const self = Private(this);
-		const _this = self._this = Protected(this);
+		const self = Private(this), _this = self._this = Protected(this);
 		self.requests = new Map;
 		self.nextId = 1;
 		self.port = chrome.runtime.connect({ name: 'tab', });
@@ -33,6 +32,10 @@ const Port = new Class({
 				self.postMessage({ name, method, id: self.nextId++, args, });
 			});
 		},
+		destroy() {
+			const self = Private(this);
+			self.port.disconnect();
+		}
 	}),
 
 	private: (Private, Protected, Public) => ({
