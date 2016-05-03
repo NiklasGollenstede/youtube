@@ -11,18 +11,20 @@ const noop = document.createElement('p');
 
 return class Layout {
 	constructor(main) {
-		this.scale = 1;
-		this.scaleX = this.scaleY = 0.5;
-		this.zoom = main.addStyle('');
-		this.setZoom();
 		this.main = main;
 		this.options = null;
+
+		this.scale = 1;
+		this.scaleX = this.scaleY = 0.5;
+		this.zoom = createElement('style');
+		main.player.on('loaded', (element) => element.ownerDocument.head.appendChild(this.zoom));
 
 		main.once('optionsLoaded', this.optionsLoaded.bind(this));
 
 		main.on('navigated', this.navigated.bind(this));
 
 		main.once(Symbol.for('destroyed'), () => {
+			this.zoom.remove();
 			document.documentElement.classList.remove('watchpage');
 			document.documentElement.classList.remove('playlist');
 		});
@@ -129,7 +131,7 @@ return class Layout {
 		this.main.addDomListener(window, 'wheel', event => {
 			if (
 				!event.ctrlKey || !event.deltaY
-				|| !event.target.matches('#player-api, #player-api *')
+				|| !event.target.matches('#player-api, #player-api *, #external_player')
 			) { return; }
 			event.preventDefault();
 			const factor = 1 + this.options.player.zoomFactor / 100;
@@ -149,6 +151,7 @@ return class Layout {
 		const ignore = 0.2;
 		const probes = [ 0.05, 0.5, 0.95, ];
 		this.main.actions.setAction('videoAutoZoom', () => {
+			const tol = 20;
 			const video = this.main.player.video;
 			const ctx = canvas.getContext('2d');
 			const width = canvas.width = video.videoWidth * (1 - ignore * 2) << 0;
@@ -169,8 +172,8 @@ return class Layout {
 				c3 += tRow[x + 3] + bRow[x + 3];
 			}
 			c0 = c0 / width / 2 << 0; c1 = c1 / width / 2 << 0; c2 = c2 / width / 2 << 0; c3 = c3 / width / 2 << 0;
-			const cu0 = c0 + 5, cu1 = c1 + 5, cu2 = c2 + 5, cu3 = c3 + 5;
-			const cl0 = c0 - 5, cl1 = c1 - 5, cl2 = c2 - 5, cl3 = c3 - 5;
+			const cu0 = c0 + tol, cu1 = c1 + tol, cu2 = c2 + tol, cu3 = c3 + tol;
+			const cl0 = c0 - tol, cl1 = c1 - tol, cl2 = c2 - tol, cl3 = c3 - tol;
 
 			const margins = probes.map(probe => {
 				const data = ctx.getImageData(width * probe << 0, 0, 1, height).data;
@@ -196,11 +199,12 @@ return class Layout {
 	}
 
 	setZoom(scale = 1, x = 0.5, y = 0.5) {
+		this.scale = scale; this.scaleX = x; this.scaleY = y;
 		this.zoom.textContent = (`
-			#player-api .html5-video-container video
+			.html5-video-player video
 			{
-				transform: scale(${ (this.scale = scale).toFixed(6) }) !important;
-				transform-origin: ${ ((this.scaleX = x) * 100).toFixed(6) }% ${ ((this.scaleY = y) * 100).toFixed(6) }% !important;
+				transform: scale(${ this.scale.toFixed(6) }) !important;
+				transform-origin: ${ (this.scaleX * 100).toFixed(6) }% ${ (this.scaleY * 100).toFixed(6) }% !important;
 			}
 		`);
 	}

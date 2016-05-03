@@ -215,7 +215,7 @@ const Player = new Class({
 				// catch link clicks
 				cd.addEventListener('mousedown', ({ target, button, }) => !button && target.matches && target.matches('a *, a') && (location.href = getParent(target, 'a').href));
 				// forward mouse wheel events (bug in Firefox?)
-				// cd.addEventListener('wheel', event => iframe.dispatchEvent(new WheelEvent('wheel', event)));
+				cd.addEventListener('wheel', event => { iframe.dispatchEvent(new WheelEvent('wheel', event)); event.stopPropagation(); event.ctrlKey && event.preventDefault(); });
 			});
 
 			// load related videos
