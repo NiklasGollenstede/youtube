@@ -54,7 +54,7 @@ const loadRatingFromServer = id => HttpRequest('https://www.youtube.com/watch?v=
 		timestamp: +Date.now(),
 		likes: getInt(response, (/<[^\/>]*?class="[^"]*?like-button-renderer-like-button[^"]*?"[^\/>]*?><span [^\/>]*?>([\d\.\,]+)<\//)),
 		dislikes: getInt(response, (/<[^\/>]*?class="[^"]*?like-button-renderer-dislike-button[^"]*?"[^\/>]*?><span [^\/>]*?>([\d\.\,]+)<\//)),
-		views: getInt(response, (/<[^\/>]*?class="[^"]*?watch-view-count[^"]*?"[^\/>]*?>([\d\.\,]+)<\//)),
+		views: getInt(response, (/<meta[^\/>]*?itemprop="interactionCount"[^\/>]*?content="([\d\.\,]+)">/)),
 	},
 	meta: {
 		title: getString(response, (/<meta[^\/>]*?name="title"[^\/>]*?content="([^"]*?)">/)),
