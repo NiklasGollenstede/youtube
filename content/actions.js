@@ -1,6 +1,7 @@
 'use strict'; define('content/actions', [
-	'content/utils', 'content/templates', 'es6lib',
+	'common/chrome', 'content/utils', 'content/templates', 'es6lib',
 ], function(
+	{ applications: { gecko, chromium, }, },
 	{ getVideoIdFromImageSrc, },
 	Templates,
 	{
@@ -120,6 +121,10 @@ const actions = {
 				width: video.videoWidth,
 				height: video.videoHeight,
 				style: { maxWidth: '100%', },
+				ondblclick() {
+					gecko && (document.fullscreenElement ? document.exitFullscreen() : canvas.requestFullscreen());
+					chromium && (document.webkitFullscreenElement ? document.webkitExitFullscreen() : canvas.webkitRequestFullscreen());
+				},
 			}),
 			createElement('span', {
 				className: 'video-time yt-uix-tooltip',
