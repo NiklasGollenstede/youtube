@@ -85,11 +85,10 @@ return function(main) {
 			}
 			const loaded = (yield loadRatingFromServer(id));
 			attatchRatingBar(element, loaded);
-			return port.request('db', 'set', typeof stored.meta !== 'object' ? loaded : {
-				id,
-				rating: loaded.rating,
-				meta: Object.assign(stored.meta, loaded.meta),
-			});
+			return Promise.all([
+				port.request('db', 'set', id, { rating: loaded.rating, }),
+				port.request('db', 'assign', id, 'meta', loaded.meta),
+			]);
 		})
 		.catch(error => console.error(error) === delete element.dataset.rating);
 

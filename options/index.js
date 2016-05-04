@@ -9,10 +9,15 @@ const {
 	network: { HttpRequest, },
 } = require('es6lib');
 
-const { runtime: { sendMessage, }, } = require('common/chrome');
+const { runtime: { sendMessage, }, applications: { gecko, chromium, }, } = require('common/chrome');
 const Storage = chrome.storage.sync ? require('common/chrome').storage.sync : require('common/chrome').storage.local;
 const { simplify, } = require('options/utils');
 const preferences = copyProperties(require('options/defaults'), [ ]);
+
+const handleResponse = promise => promise.then(({ error, value, }) => { if (error) { throw error; } return value; });
+const alert = gecko ? window.alert : message => handleResponse(sendMessage({ name: 'alert', args: [ message, ], }));
+const confirm = gecko ? window.confirm : message => handleResponse(sendMessage({ name: 'confirm', args: [ message, ], }));
+const prompt = gecko ? window.prompt : (message, value) => handleResponse(sendMessage({ name: 'prompt', args: [ message, value, ], }));
 
 Storage.get('options').then(({ options, }) => {
 	displayPreferences(preferences, options, document.querySelector('#options'));
@@ -36,15 +41,12 @@ document.addEventListener('click', function({ target, button, }) {
 			if (target.dataset.type !== 'control') { return; }
 			console.log('button clicked', target);
 			const { name, } = target.parentNode.pref;
-			sendMessage({ name: 'control', args: [ name, ], }).then(({ error, value, }) => { console.log('recieved', error, value); if (error) { throw error; } })
-			.catch(error => { console.error(error); return sendMessage({ name: 'alert', args: [ name +' failed: "'+ error.message +'"', ], }); });
+			handleResponse(sendMessage({ name: 'control', args: [ name, ], }))
+			.catch(error => { console.error(error); return alert(name +' failed: '+ error.message); });
 		} break;
 		case 'submit-button': {
-			switch (target.id) {
-				case 'save': save(); break;
-				case 'reset': reset(); break;
-				case 'cancel': cancel(); break;
-			}
+			({ save, reset, cancel, })[target.id]()
+			.catch(error => { console.error(error); return alert(target.id +' failed: '+ error.message); });
 		} break;
 		default: { return true; }
 	} });
@@ -63,37 +65,32 @@ document.addEventListener('change', function({ target, }) {
 	validate(target);
 });
 
-function save() {
+const save = async(function*() {
 	console.log('submitting ...');
 	const invalid = document.querySelector('.invalid');
 	if (invalid) {
-		invalid.scrollIntoViewIfNeeded();
-		sendMessage({ name: 'alert', args: [ 'Saving failed because at least one field holds an invalid value: "'+ invalid.title +'"', ], })
-		.then(value => console.log('... failed'));
+		invalid.scrollIntoViewIfNeeded ? invalid.scrollIntoViewIfNeeded() : invalid.scrollIntoView();
+		throw new Error('At least one field holds an invalid value: "'+ invalid.title +'"');
 	} else {
 		Array.prototype.forEach.call(document.querySelectorAll('.pref-container'), element => {
 			element.pref.value = Array.isArray(element.pref.value)
 			? Array.prototype.map.call(element.querySelectorAll('.value-container'), getInputValue)
 			: getInputValue(element.querySelector('.value-container'));
 		});
-		console.log('saving', preferences);
-		console.log('as', simplify(preferences));
-		Storage.set({ options: simplify(preferences), })
-		.then(() => window.close());
+		(yield Storage.set({ options: simplify(preferences), }));
+		(yield window.close());
 	}
-}
+});
 
-function reset() {
-	sendMessage({ name: 'confirm', args: [ 'Are you shure that you want to reset all options to their default values?', ], })
-	.then(({ error, value, }) => {
-		if (error) { throw error; }
-		return value && Storage.set({ options: simplify(require('options/defaults')), }).then(() => location.reload());
-	}).catch(error => { console.error(error); return sendMessage({ name: 'alert', args: [ 'Reset failed: "'+ error.message +'"', ], }); });
-}
+const reset = async(function*() {
+	if (!(yield confirm('Are you shure that you want to reset all options to their default values?'))) { return; }
+	(yield Storage.set({ options: simplify(require('options/defaults')), }));
+	location.reload();
+});
 
-function cancel() {
-	window.close();
-}
+const cancel = async(function*() {
+	(yield window.close());
+});
 
 function setButtonDisabled(element) {
 	const container = element.querySelector('.values-container');

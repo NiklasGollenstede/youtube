@@ -11,6 +11,7 @@ return {
 		gecko: urlPrefix.startsWith('moz'),
 		chromium: urlPrefix.startsWith('chrome'),
 	},
+	extension: chrome.extension,
 	get runtime() { return wrap(chrome.runtime); },
 	get storage() { return chrome.storage ? wrap(chrome.storage) : (storageShim || (storageShim = new StorageShim)); },
 	get tabs() { return wrap(chrome.tabs); },

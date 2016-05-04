@@ -1,5 +1,9 @@
 'use strict';
-const { tabs: Tabs, storage: Storage, applications: { gecko, chromium, }, } = require('common/chrome');
+
+const {
+	concurrent: { async, },
+} = require('es6lib');
+const { tabs: Tabs, storage: Storage, extension: Extension, applications: { gecko, chromium, }, } = require('common/chrome');
 
 if (!Storage.sync) {
 	console.log('chrome.storage.sync is unavailable, fall back to chrome.storage.local');
@@ -72,34 +76,42 @@ chrome.runtime.onConnect.addListener(port => { switch (port.name) {
 	}
 } });
 
+const getWindow = (windowId) => chromium ? window : Extension.getViews({ type: 'tab', windowId, })[0];
+
 chrome.runtime.onMessage.addListener((message, sender, reply) => (Promise.resolve({
 	alert, confirm, prompt,
 	openOptionsTab() { Tabs.create({ url: chrome.extension.getURL('options/index.html'), }); },
-	control(type) { switch (type) {
+	control: async(function*(type) { switch (type) {
 		case 'export': {
-			const data = db.transaction();
-			return data.ids().then(ids => Promise.all(ids.map(id => data.get(id))))
-			.then(result => {
-				const data = JSON.stringify(result);
-				return require('es6lib/dom').writeToClipboard({ 'application/json': data, 'text/plain': data, });
-			}).then(() => alert('The JSON data has been put into your clipboard'));
+			const data = gecko ? db : db.transaction();
+			const ids = (yield data.ids());
+			const json = JSON.stringify((yield Promise.all(ids.map(id => data.get(id)))), null, '\t');
+			if (chromium) {
+				(yield require('es6lib/dom').writeToClipboard({ 'application/json': json, 'text/plain': json, }));
+				alert('The JSON data has been put into your clipboard');
+			} else {
+				getWindow(sender.tab.windowId).prompt('Please copy the JSON from the field below', json);
+			}
 		} break;
 		case 'import': {
-			return Promise.resolve().then(() => {
-				const infos = JSON.parse(prompt('Please paste your JSON data below', ''));
-				console.log('import', infos);
-				if (!Array.isArray(infos)) { throw new Error('The import data must be an Array'); }
-				const corrupt = infos.findIndex(info => !info || !(/^[A-z0-9_-]{11}$/).test(info.id));
-				if(corrupt !== -1) {throw new Error('The object at index '+ corrupt +' must have an "id" property set to a valid YouTube video id: "'+ JSON.stringify(infos[corrupt]) +'"'); }
-				const data = db.transaction(true);
-				return Promise.all(infos.map(info => data.set(info)));
-			});
+			const infos = JSON.parse(getWindow(sender.tab.windowId).prompt('Please paste your JSON data below', ''));
+			console.log('import', infos);
+			if (!Array.isArray(infos)) { throw new Error('The import data must be an Array'); }
+			const corrupt = infos.findIndex(info => !info || !(/^[A-z0-9_-]{11}$/).test(info.id));
+			if(corrupt !== -1) { throw new Error('The object at index '+ corrupt +' must have an "id" property set to a valid YouTube video id: "'+ JSON.stringify(infos[corrupt]) +'"'); }
+			const data = db.transaction(true);
+			(yield Promise.all(infos.map(info => data.set(info))));
 		} break;
 		case 'clear': {
-			if (prompt('If you really mean to delete all your user data type "yes" below') !== 'yes') { return alert('Canceled. Nothing was deleted'); }
-			return db.clear().then(() => alert('Done. It\'s all gone ...'));
+			const window = getWindow(sender.tab.windowId);
+			if (window.prompt('If you really mean to delete all your user data type "yes" below') !== 'yes') { return window.alert('Canceled. Nothing was deleted'); }
+			(yield db.clear());
+			window.alert('Done. It\'s all gone ...');
 		} break;
-	} },
+		default: {
+			throw new Error('Unhandled command "'+ type +'"');
+		}
+	} }),
 	storage(area, method, query) {
 		console.log('storage', area, method, query);
 		return query ? Storage[area][method](query) : Storage[area][method]();
