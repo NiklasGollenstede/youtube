@@ -61,11 +61,11 @@ class Tab {
 	info() {
 		const videoId = this.videoId, tabId = this.id;
 		return Promise.all([
-			this.tab(),
-			this.data.get(videoId, [ 'meta', ]),
+			this.tab().catch(error => console.error(error)),
+			this.data.get(videoId, [ 'meta', ]).catch(error => console.error(error)),
 		]).then(([
-			{ id, windowId, index, },
-			{ meta: { title, duration, }, },
+			{ windowId = 'other', index = -1, } = { },
+			{ meta: { title = '<unknown>', duration = 0, } = { }, } = { },
 		]) => ({
 			tabId, windowId, videoId, index, title, duration,
 		}));

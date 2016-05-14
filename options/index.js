@@ -9,19 +9,23 @@ const {
 	network: { HttpRequest, },
 } = require('es6lib');
 
-const { runtime: { sendMessage, }, applications: { gecko, chromium, }, } = require('common/chrome');
-const Storage = chrome.storage.sync ? require('common/chrome').storage.sync : require('common/chrome').storage.local;
-const { simplify, } = require('options/utils');
-const preferences = copyProperties(require('options/defaults'), [ ]);
+const { runtime: { sendMessage, }, applications: { gecko, chromium, }, storage: Storage, } = require('common/chrome');
 
 const handleResponse = promise => promise.then(({ error, value, }) => { if (error) { throw error; } return value; });
 const alert = gecko ? window.alert : message => handleResponse(sendMessage({ name: 'alert', args: [ message, ], }));
 const confirm = gecko ? window.confirm : message => handleResponse(sendMessage({ name: 'confirm', args: [ message, ], }));
 const prompt = gecko ? window.prompt : (message, value) => handleResponse(sendMessage({ name: 'prompt', args: [ message, value, ], }));
 
-Storage.get('options').then(({ options, }) => {
-	displayPreferences(preferences, options, document.querySelector('#options'));
-});
+require('common/options')({
+	defaults: require('options/defaults'),
+	prefix: 'options',
+	storage: Storage.sync,
+	addChangeListener: listener => Storage.onChanged
+	.addListener(changes => Object.keys(changes).forEach(key => key.startsWith('options') && listener(key, changes[key].newValue))),
+}).then(options => {
+window.options = options;
+
+displayPreferences(options, document.querySelector('#options'));
 
 document.addEventListener('click', function({ target, button, }) {
 	if (button || !target.matches) { return; }
@@ -34,7 +38,7 @@ document.addEventListener('click', function({ target, button, }) {
 		case 'add-value-entry': {
 			const element = target.parentNode;
 			const container = element.querySelector('.values-container');
-			container.appendChild(cloneInput(element.input, ''));
+			container.appendChild(cloneInput(element.input));
 			setButtonDisabled(element);
 		} break;
 		case 'value-input': {
@@ -43,10 +47,6 @@ document.addEventListener('click', function({ target, button, }) {
 			const { name, } = target.parentNode.pref;
 			handleResponse(sendMessage({ name: 'control', args: [ name, ], }))
 			.catch(error => { console.error(error); return alert(name +' failed: '+ error.message); });
-		} break;
-		case 'submit-button': {
-			({ save, reset, cancel, })[target.id]()
-			.catch(error => { console.error(error); return alert(target.id +' failed: '+ error.message); });
 		} break;
 		default: { return true; }
 	} });
@@ -58,38 +58,11 @@ document.addEventListener('keypress', function(event) {
 	event.stopPropagation(); event.preventDefault();
 	const key = (event.ctrlKey ? 'Ctrl+' : '') + (event.altKey ? 'Alt+' : '') + (event.shiftKey ? 'Shift+' : '') + event.code;
 	target.value = key;
-	validate(target);
+	saveInput(target);
 });
 document.addEventListener('change', function({ target, }) {
 	if (!target.matches || !target.matches('.value-input')) { return; }
-	validate(target);
-});
-
-const save = async(function*() {
-	console.log('submitting ...');
-	const invalid = document.querySelector('.invalid');
-	if (invalid) {
-		invalid.scrollIntoViewIfNeeded ? invalid.scrollIntoViewIfNeeded() : invalid.scrollIntoView();
-		throw new Error('At least one field holds an invalid value: "'+ invalid.title +'"');
-	} else {
-		Array.prototype.forEach.call(document.querySelectorAll('.pref-container'), element => {
-			element.pref.value = Array.isArray(element.pref.value)
-			? Array.prototype.map.call(element.querySelectorAll('.value-container'), getInputValue)
-			: getInputValue(element.querySelector('.value-container'));
-		});
-		(yield Storage.set({ options: simplify(preferences), }));
-		(yield window.close());
-	}
-});
-
-const reset = async(function*() {
-	if (!(yield confirm('Are you shure that you want to reset all options to their default values?'))) { return; }
-	(yield Storage.set({ options: simplify(require('options/defaults')), }));
-	location.reload();
-});
-
-const cancel = async(function*() {
-	(yield window.close());
+	saveInput(target);
 });
 
 function setButtonDisabled(element) {
@@ -101,12 +74,25 @@ function setButtonDisabled(element) {
 	Array.prototype.forEach.call(container.querySelectorAll('.remove-value-entry'), remove => remove.disabled = length <= min);
 }
 
-function validate(target, value = target.value) {
-	const { pref, } = target.parentNode;
-	if (target.type === 'checkbox' || pref.type === 'label') { return; }
-	const message = pref.validate(value);
-	target.title = message;
-	target.classList[message ? 'add' : 'remove']('invalid');
+function saveInput(target) {
+	const element = getParent(target, '.pref-container');
+	const { pref, } = element;
+	const values = Array.prototype.map.call(element.querySelector('.values-container').children, getInputValue);
+	try {
+		pref.values = values;
+		target.classList.remove('invalid');
+		element.classList.remove('invalid');
+	} catch (error) {
+		target.title = error && error.message || error;
+		target.classList.add('invalid');
+		element.classList.add('invalid');
+		throw error;
+	}
+}
+
+function getParent(element, selector) {
+	while (element && (!element.matches || !element.matches(selector))) { element = element.parentNode; }
+	return element;
 }
 
 function createInput(pref) {
@@ -157,9 +143,6 @@ function createInput(pref) {
 function setInputValue(input, value) {
 	const { pref, firstChild: field, } = input;
 	switch (pref.type) {
-		case "control":
-			field.value = pref.label;
-			break;
 		case "bool":
 			field.checked = value;
 			break;
@@ -178,7 +161,6 @@ function setInputValue(input, value) {
 			field.value = value;
 			break;
 	}
-	validate(field, value);
 	return input;
 }
 
@@ -200,33 +182,20 @@ function getInputValue(input) {
 	}
 }
 
-function cloneInput(input, value) {
+function cloneInput(input) {
 	const clone = input.cloneNode(true);
 	clone.pref = input.pref;
-	setInputValue(clone, value);
 	return clone;
 }
-function createValidator({ restrict, parent, }) {
-	if (!restrict) { return () => ''; }
-	if (restrict === 'inherit') { return parent.validate; }
-	return function(value) {
-		if ('from' in restrict && value < restrict.from) { return 'This value must be at least '+ restrict.from; }
-		if ('to' in restrict && value > restrict.to) { return 'This value can be at most '+ restrict.to; }
-		if ('match' in restrict && !restrict.match.test(value)) { return restrict.message ? restrict.message : ('This value must match '+ restrict.match); }
-		return '';
-	};
-}
 
-function displayPreferences(prefs, values, host = document.body, parent = null) {
+function displayPreferences(prefs, host = document.body, parent = null) {
 
 	prefs.forEach(pref => {
-		pref.parent = parent;
-		pref.validate = createValidator(pref);
 		if (pref.type === 'hidden') { return; }
 
 		const input = createInput(pref);
-		const valueEntries = Array.isArray(values[pref.name]) ? values[pref.name] : [ values[pref.name], ];
 
+		let valuesContainer;
 		const element = Object.assign(host.appendChild(createElement('div', {
 			input,
 			className: 'pref-container type-'+ pref.type,
@@ -237,9 +206,9 @@ function displayPreferences(prefs, values, host = document.body, parent = null) 
 			pref.description && createElement('h3', {
 				textContent: pref.description,
 			}),
-			createElement('div', {
+			valuesContainer = createElement('div', {
 				className: 'values-container',
-			}, valueEntries.map(entry => cloneInput(input, entry))),
+			}),
 			pref.maxLength > 1 && createElement('input', {
 				type: 'button',
 				value: '+',
@@ -249,17 +218,24 @@ function displayPreferences(prefs, values, host = document.body, parent = null) 
 					minLength: pref.minLength || 0,
 				},
 			}),
-			pref.children && displayPreferences(
+			pref.children.length && displayPreferences(
 				pref.children,
-				values[pref.name],
 				createElement('fieldset', {
-					className: 'pref-children'+ (values[pref.name] || pref.type === 'label' ? '' : 'disabled'),
+					className: 'pref-children'+ (pref.type === 'label' || pref.values.is ? '' : 'disabled'),
 				}),
 				pref
 			),
 		])), { pref, });
 
+		pref.whenChange((_, { current: values, }) => {
+			while (valuesContainer.children.length < values.length) { valuesContainer.appendChild(cloneInput(input)); }
+			while (valuesContainer.children.length > values.length) { valuesContainer.lastChild.remove(); }
+			values.forEach((value, index) => setInputValue(valuesContainer.children[index], value));
+		});
+
 		setButtonDisabled(element);
 	});
 	return host;
 }
+
+});

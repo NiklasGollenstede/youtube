@@ -4,11 +4,11 @@
 	{ RegExpX, }
 ) {
 
-return Object.freeze([
+return Object.freeze([ // TODO: deepFreeze
 	{
 		name: "debug",
 		type: "hidden",
-		value: true,
+		default: true,
 	}, {
 		name: "content",
 		title: "Page options",
@@ -18,9 +18,9 @@ return Object.freeze([
 			{
 				name: "displayRatings",
 				title: "Display video ratings",
-				description: "Displays a video rating bar for every thumbnail and shows the view count and video age when the cursor hovers over the image. This needs to load a snippet of information from YOuTube servers for every thumbnail and caches these to reduce the network load",
+				description: "Displays a video rating bar for every thumbnail and shows the view count and video age when the cursor hovers over the image. This needs to load a snippet of information from YouTube servers for every thumbnail and caches these to reduce the network load",
 				type: "bool",
-				value: true,
+				default: true,
 				children: [
 					{
 						name: "totalLifetime",
@@ -29,7 +29,7 @@ return Object.freeze([
 						type: "integer",
 						restrict: { from: -1, to: 365 * 24 * 60 * 60, },
 						unit: "ms",
-						value: 7 * 24 * 60 * 60,
+						default: 7 * 24 * 60 * 60,
 					}, {
 						name: "relativeLifetime",
 						title: "Cache lifetime (relative)",
@@ -37,26 +37,26 @@ return Object.freeze([
 						type: "integer",
 						restrict: { from: 1, to: 1e5, },
 						unit: "%",
-						value: 20,
+						default: 20,
 					}, {
 						name: "likesColor",
 						title: "Like color",
 						type: "color",
 						restrict: { match: (/^([A-z]{3,}|#[0-9a-fA-F]{3}([0-9a-fA-F]{3})?)$/), },
-						value: "#00BB22",
+						default: "#00BB22",
 					}, {
 						name: "dislikesColor",
 						title: "Dislike color",
 						type: "color",
 						restrict: { match: (/^([A-z]{3,}|#[0-9a-fA-F]{3}([0-9a-fA-F]{3})?)$/), },
-						value: "#CC0000",
+						default: "#CC0000",
 					}, {
 						name: "barHeight",
 						title: "Rating bar height",
 						type: "integer",
 						restrict: { from: 0, to: 5, },
 						unit: "px",
-						value: 2,
+						default: 2,
 					},
 				],
 			}, {
@@ -64,13 +64,13 @@ return Object.freeze([
 				title: "Animate thumbnails",
 				description: "Let thumbnails loop through video preview images when hovered",
 				type: "bool",
-				value: true,
+				default: true,
 			}, {
 				name: "autoExpandLists",
 				title: "Automatically expand lists",
 				description: "Automatically click the \"Show/Load more\"-button when scrolling to the end of a list",
 				type: "bool",
-				value: true,
+				default: true,
 			}, {
 				name: "player",
 				title: "Player preferences",
@@ -82,7 +82,7 @@ return Object.freeze([
 						title: "Playback Quality",
 						description: "",
 						type: "menulist",
-						value: [ "hd1080", "hd720", "auto" ],
+						default: [ "hd1080", "hd720", "auto" ],
 						maxLength: 10,
 						options: [
 							{ value: "auto",	label: "auto" },
@@ -102,30 +102,30 @@ return Object.freeze([
 						type: "integer",
 						unit: "%",
 						restrict: { from: -50, to: 100, },
-						value: 10,
+						default: 10,
 					}, {
 						name: "annotations",
 						title: "Display annotations",
 						type: "bool",
-						value: false,
+						default: false,
 					}, {
 						name: "alwaysVolume",
 						title: "Always display volume",
 						description: "The volume bar won't disappear",
 						type: "bool",
-						value: true,
+						default: true,
 					}, {
 						name: "randomAutoplay",
 						title: "YouTube auto play",
 						description: "Check to keep YouTubes build-in auto-play functionality enabled",
 						type: "hidden", // "bool",
-						value: false,
+						default: false,
 					}, {
 						name: "onStart",
 						title: "Video start setting",
 						description: "When the video starts:",
 						type: "menulist",
-						value: "focused",
+						default: "focused",
 						options: [
 							{ value: "play", label: "keep playing (YouTube default)", },
 							{ value: "stop", label: "stop playback without buffering", },
@@ -138,20 +138,20 @@ return Object.freeze([
 						title: "Use Cinema Mode",
 						description: "Makes seek bar a bit wider",
 						type: "bool",
-						value: false,
+						default: false,
 					}, {
 						name: "seamlessFullscreen",
 						title: "Enable seamless full screen",
 						description: "Hides the sidebar to display the video player across the entire browser window",
 						type: "bool",
-						value: true,
+						default: true,
 						children: [
 							{
 								name: "atStart",
 								title: "Load in full screen mode",
 								description: "Full screen mode is enabled by default",
 								type: "bool",
-								value: false,
+								default: false,
 							}, {
 								name: "showOnMouseRight",
 								title: "Right edge motion",
@@ -159,19 +159,19 @@ return Object.freeze([
 								type: "integer",
 								unit: "pixel",
 								restrict: { from: 0, to: 100, },
-								value: 0,
+								default: 0,
 							}, {
 								name: "showOnScrollTop",
 								title: "Scroll to top",
 								description: "Enables full screen mode when scrolling to the very top of the page",
 								type: "bool",
-								value: true,
+								default: true,
 							}, {
 								name: "hideOnScrollDown",
 								title: "Scroll down",
 								description: "Disables full screen when scrolling downwards",
 								type: "bool",
-								value: true,
+								default: true,
 							},
 						],
 					}, {
@@ -179,7 +179,7 @@ return Object.freeze([
 						title: "Bypass age restriction",
 						description: "Tries to load age restricted videos without the need to sign in to YouTube",
 						type: "bool",
-						value: true,
+						default: true,
 					},
 				],
 			}, {
@@ -226,7 +226,7 @@ return Object.freeze([
 						title: "Open related Videos",
 						description: "Choose the modifier key to press alongside any of the number keys (top row) to load the corresponding video from the related videos list",
 						type: "menulist",
-						value: [ "" ],
+						default: [ "" ],
 						options: [
 							{ value: "\0",   label: "[disabled]", },
 							{ value: "",     label: "[none]", },
@@ -239,7 +239,7 @@ return Object.freeze([
 						title: "Increase video quality",
 						description: "",
 						type: "keybordKey",
-						value: [ "Ctrl+ArrowUp", "Shift+BracketRight", "Numpad8", ],
+						default: [ "Ctrl+ArrowUp", "Shift+BracketRight", "Numpad8", ],
 						restrict: "inherit",
 						maxLength: 5,
 					}, {
@@ -247,7 +247,7 @@ return Object.freeze([
 						title: "Decrease video quality",
 						description: "",
 						type: "keybordKey",
-						value: [ "Ctrl+ArrowDown", "Shift+Slash", "Numpad2", ],
+						default: [ "Ctrl+ArrowDown", "Shift+Slash", "Numpad2", ],
 						restrict: "inherit",
 						maxLength: 5,
 					}, {
@@ -255,7 +255,7 @@ return Object.freeze([
 						title: "Increase video speed",
 						description: "",
 						type: "keybordKey",
-						value: [ "BracketRight", "Numpad6", ],
+						default: [ "BracketRight", "Numpad6", ],
 						restrict: "inherit",
 						maxLength: 5,
 					}, {
@@ -263,7 +263,7 @@ return Object.freeze([
 						title: "Decrease video speed",
 						description: "",
 						type: "keybordKey",
-						value: [ "Slash", "Numpad4", ],
+						default: [ "Slash", "Numpad4", ],
 						restrict: "inherit",
 						maxLength: 5,
 					}, {
@@ -271,7 +271,7 @@ return Object.freeze([
 						title: "Play/pause",
 						description: "Toggles Play/Pause in the current tab. (For the global playlist play/pause see \"Keyboard shortcuts\" at the bottom of the \"chrome://extensions\" page)",
 						type: "keybordKey",
-						value: [ "Space", ],
+						default: [ "Space", ],
 						restrict: "inherit",
 						maxLength: 5,
 					}, {
@@ -279,7 +279,7 @@ return Object.freeze([
 						title: "Full screen",
 						description: "Toggle YouTubes default full screen mode on/off",
 						type: "keybordKey",
-						value: [ "KeyF", ],
+						default: [ "KeyF", ],
 						restrict: "inherit",
 						maxLength: 5,
 					}, {
@@ -287,7 +287,7 @@ return Object.freeze([
 						title: "Seek video to",
 						description: "Prompt for video position in hh:mm:SS.ss",
 						type: "keybordKey",
-						value: [ "KeyT", ],
+						default: [ "KeyT", ],
 						restrict: "inherit",
 						maxLength: 5,
 					}, {
@@ -295,7 +295,7 @@ return Object.freeze([
 						title: "Set volume to",
 						description: "Prompt for video volume in %",
 						type: "keybordKey",
-						value: [ "KeyV", ],
+						default: [ "KeyV", ],
 						restrict: "inherit",
 						maxLength: 5,
 					}, {
@@ -303,7 +303,7 @@ return Object.freeze([
 						title: "Local playlist next",
 						description: "Play the next video in the YouTube playlist in the current tab. (For the global playlist Next command see \"Keyboard shortcuts\" at the bottom of the \"chrome://extensions\" page)",
 						type: "keybordKey",
-						value: [ "KeyN", ],
+						default: [ "KeyN", ],
 						restrict: "inherit",
 						maxLength: 5,
 					}, {
@@ -311,7 +311,7 @@ return Object.freeze([
 						title: "Local playlist previous",
 						description: "Play the previous video in the YouTube playlist in the current tab. (For the global playlist Previous command see \"Keyboard shortcuts\" at the bottom of the \"chrome://extensions\" page)",
 						type: "keybordKey",
-						value: [ "KeyP", ],
+						default: [ "KeyP", ],
 						restrict: "inherit",
 						maxLength: 5,
 					}, {
@@ -319,7 +319,7 @@ return Object.freeze([
 						title: "Toggle local playlist shuffle",
 						description: "",
 						type: "keybordKey",
-						value: [ "KeyS", ],
+						default: [ "KeyS", ],
 						restrict: "inherit",
 						maxLength: 5,
 					}, {
@@ -327,7 +327,7 @@ return Object.freeze([
 						title: "Toggle local playlist loop",
 						description: "",
 						type: "keybordKey",
-						value: [ "KeyR", ],
+						default: [ "KeyR", ],
 						restrict: "inherit",
 						maxLength: 5,
 					}, {
@@ -335,7 +335,7 @@ return Object.freeze([
 						title: "Clear local playlist",
 						description: "",
 						type: "keybordKey",
-						value: [ "KeyE", ],
+						default: [ "KeyE", ],
 						restrict: "inherit",
 						maxLength: 5,
 					}, {
@@ -343,7 +343,7 @@ return Object.freeze([
 						title: "Stop video",
 						description: "Stop the YouTube player (stops buffering and discards all buffering progress)",
 						type: "keybordKey",
-						value: [ "KeyQ", ],
+						default: [ "KeyQ", ],
 						restrict: "inherit",
 						maxLength: 5,
 					}, {
@@ -351,7 +351,7 @@ return Object.freeze([
 						title: "Mute video",
 						description: "",
 						type: "keybordKey",
-						value: [ "KeyM", ],
+						default: [ "KeyM", ],
 						restrict: "inherit",
 						maxLength: 5,
 					}, {
@@ -359,7 +359,7 @@ return Object.freeze([
 						title: "Display/hide the \"Stats for nerds\"",
 						description: "",
 						type: "keybordKey",
-						value: [ "KeyI", ],
+						default: [ "KeyI", ],
 						restrict: "inherit",
 						maxLength: 5,
 					}, {
@@ -367,7 +367,7 @@ return Object.freeze([
 						title: "Take screenshot",
 						description: "Take a screenshot of the video at its current position in its native resolution and add it to the screenshot list in the sidebar",
 						type: "keybordKey",
-						value: [ "KeyC", ],
+						default: [ "KeyC", ],
 						restrict: "inherit",
 						maxLength: 5,
 					}, {
@@ -375,7 +375,7 @@ return Object.freeze([
 						title: "Remove screenshot",
 						description: "Remove the topmost, oldest screenshot from the sidebar",
 						type: "keybordKey",
-						value: [ "KeyX", "Delete", ],
+						default: [ "KeyX", "Delete", ],
 						restrict: "inherit",
 						maxLength: 5,
 					}, {
@@ -383,7 +383,7 @@ return Object.freeze([
 						title: "Save video",
 						description: "Tries to save the current video, which will only work if the browser doesn't support DASH-playback and YouTube uses the 360p/720p-.mp4-fallback",
 						type: "keybordKey",
-						value: [ "Ctrl+KeyS", ],
+						default: [ "Ctrl+KeyS", ],
 						restrict: "inherit",
 						maxLength: 5,
 					}, {
@@ -391,7 +391,7 @@ return Object.freeze([
 						title: "Download video cover",
 						description: "Save the \"maxresdefault\" preview image of the video",
 						type: "keybordKey",
-						value: [ "Ctrl+Alt+KeyS", "Numpad5", ],
+						default: [ "Ctrl+Alt+KeyS", "Numpad5", ],
 						restrict: "inherit",
 						maxLength: 5,
 					}, {
@@ -399,7 +399,7 @@ return Object.freeze([
 						title: "Auto video zoom",
 						description: "Adjusts the video zoom so that black bars at the top and/or bottom are hidden. Useful to view 21:9 videos with black bars in full screen on 21:9 displays",
 						type: "keybordKey",
-						value: [ "KeyZ", "KeyA", ],
+						default: [ "KeyZ", "KeyA", ],
 						restrict: "inherit",
 						maxLength: 5,
 					},
@@ -416,22 +416,28 @@ return Object.freeze([
 				name: "export",
 				title: "Export all collected data",
 				description: "Copies the all cache data and user data to clipboard (as JSON)",
-				label: "Export",
+				default: "Export",
 				type: "control",
 			}, {
 				name: "import",
 				title: "Import data",
 				description: "Imports JSON formatted data form clipboard into the cache data / user data storage",
-				label: "Import",
+				default: "Import",
 				type: "control",
 			}, {
 				name: "clear",
 				title: "Clear all collected data",
 				description: "Irrevocably deletes all cache data and user data, keeps the settings/options selected on this page",
-				label: "Purge",
+				default: "Purge",
 				type: "control",
 			},
 		],
+	}, {
+		name: "reset",
+		title: "Reset Options",
+		description: "Reset all options displayed on this page to their default values",
+		default: "Reset",
+		type: "control",
 	},
 ]);
 

@@ -9,7 +9,7 @@ const {
 const { storage: Storage, applications: { gecko, chromium, }, } = require('common/chrome');
 
 /**
- * Event sequence: optionsChanged optionsLoaded (navigate|navigated|optionsChanged)* observerCreated navigated (navigate|navigated|optionsChanged)* <destroyed>
+ * Event sequence: optionsLoaded (navigate|navigated)* observerCreated navigated (navigate|navigated)* <destroyed>
  */
 
 const Main = new Class({
@@ -30,7 +30,7 @@ const Main = new Class({
 		this.addDomListener = this.addDomListener.bind(this);
 		this.removeDomListener = this.removeDomListener.bind(this);
 
-		this.options = { };
+		this.options = null;
 		this.observer = null;
 		self.update(this);
 
@@ -44,7 +44,7 @@ const Main = new Class({
 		try { this.control = new (require('content/control'))(this); } catch(e) { error(e); }
 
 		this.port.on(Symbol.for('destroyed'), self.destroy.bind(self));
-		Storage.sync.get('options').then(self.optionsLoaded.bind(self));
+		new (require('content/options'))(this).then(self.optionsLoaded.bind(self));
 	}),
 
 	public: (Private, Protected, Public) => ({
@@ -103,27 +103,15 @@ const Main = new Class({
 			_this.emitSync('navigated', null);
 		},
 
-		optionsLoaded({ options, }) {
+		optionsLoaded(options) {
 			const self = Public(this), _this = Protected(this);
-			copyProperties(self.options, options.content);
-			const arg = { old: { }, value: self.options, };
+			self.options = options;
 			console.log('options loaded', self.options);
 			DOMContentLoaded.then(this.loaded.bind(this));
 			self.addDomListener(window, 'spfrequest', this.navigate.bind(this));
 			self.addDomListener(window, 'spfdone', this.navigated.bind(this));
-			Storage.onChanged.addListener(this.optionsChanged = this.optionsChanged.bind(this));
-			_this.emitSync('optionsChanged', arg);
-			_this.emitSync('optionsLoaded', arg);
+			_this.emitSync('optionsLoaded', options);
 			_this.clear('optionsLoaded');
-		},
-
-		optionsChanged({ options, }, sync) {
-			if (!options || !options.newValue) { return; }
-			const self = Public(this), _this = Protected(this);
-			copyProperties(self.options, options.newValue.content);
-			const arg = { old: options.oldValue, value: self.options, };
-			console.log('options changed', self.options);
-			_this.emitSync('optionsChanged', arg);
 		},
 
 		update(self = Public(this)) {
@@ -151,8 +139,6 @@ const Main = new Class({
 				});
 				nodes.destroy();
 			}));
-
-			Storage.onChanged.removeListener(this.optionsChanged);
 
 			window.main = null;
 		},

@@ -2,7 +2,7 @@
 	"manifest_version": 2,
 	"name": "YouTube Overhaul",
 	"short_name": "YouTube Overhaul",
-	"version": "0.2.0",
+	"version": "0.3.0",
 	"author": "Niklas Gollenstede",
 
 	"description": "",
@@ -13,7 +13,8 @@
 	"minimum_chrome_version": "49.0.0",
 	"applications": {
 		"gecko": {
-			"id": "@youtubeoverhaul"
+			"id": "@youtubeoverhaul",
+			"strict_min_version": "47.0"
 		}
 	},
 
@@ -42,6 +43,7 @@
 				"node_modules/es6lib/index.js",
 				"common/chrome.js",
 				"common/event-emitter.js",
+				"common/options.js",
 				"content/utils.js",
 				"content/port.js",
 				"content/templates.js",
@@ -51,6 +53,7 @@
 				"content/actions.js",
 				"content/layout.js",
 				"content/control.js",
+				"content/options.js",
 				"content/index.js"
 			],
 			"css": [
@@ -64,12 +67,6 @@
 		"web/sniffer.js",
 		"web/layout.css"
 	],
-	"externally_connectable": {
-		"matches": [
-			"https://www.youtube.com/*",
-			"https://i.ytimg.com/"
-		]
-	},
 	"browser_action": {
 		"default_icon": {
 			"64": "icon.png"

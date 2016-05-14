@@ -247,7 +247,12 @@ const Player = new Class({
 			if (!video) { return false; }
 			if (!video.paused) { return true; }
 			if (video.readyState !== 4) {
-				video.dataset.visible != 'true' && this.main.port.emit('focus_temporary');
+				if (video.dataset.visible != 'true') {
+					this.main.port.emit('focus_temporary');
+				} else {
+					const timer = setTimeout(() => this.main.port.emit('focus_temporary'), 2000);
+					Public(this).once('playing', () => clearTimeout(timer));
+				}
 				return false;
 			}
 			video.play();

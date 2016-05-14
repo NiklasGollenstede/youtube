@@ -16,7 +16,7 @@ form#options, footer {
 }
 form#options {
 	top: 0;
-	bottom: 40px;
+	bottom: 0;
 	overflow-y: auto;
 }
 footer {

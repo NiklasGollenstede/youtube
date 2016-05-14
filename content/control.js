@@ -11,7 +11,7 @@
 let loaded = false;
 
 return function(main) {
-	const { options, player, port, } = main;
+	const { player, port, } = main;
 
 	let reportState = false;
 
@@ -29,24 +29,25 @@ return function(main) {
 		}
 
 		(yield player.loaded);
-		console.log('player loaded', player, options);
+		console.log('player loaded', player);
 
 		const unMute = player.silence();
 
 		// set quality
 		const { available, current, } = (yield player.getQuality());
-		const quality = (options.player.defaultQualities || [ ]).find(level => available.includes(level));
+		const quality = (main.options.player.children.defaultQualities.values.current).find(level => available.includes(level));
 		if (quality && quality !== "auto" && quality !== current) {
 			(yield player.setQuality(quality));
 		}
 
 		// play, stop or pause
-		const play = options.player.onStart === 'play'
-		|| options.player.onStart === 'visible' && !document.hidden
-		|| options.player.onStart === 'focused' && document.hasFocus();
+		const should = main.options.player.children.onStart.value;
+		const play = should === 'play'
+		|| should === 'visible' && !document.hidden
+		|| should === 'focused' && document.hasFocus();
 		if (play) {
 			(yield player.play());
-		} else if (options.player.onStart === 'stop') {
+		} else if (should === 'stop') {
 			(yield player.stop());
 		} else {
 			(yield player.pause());

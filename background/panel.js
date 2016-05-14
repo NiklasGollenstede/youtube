@@ -127,7 +127,7 @@ class Panel {
 			viewsRelative: tab => this.data.get(tab.videoId, [ 'viewed', 'meta', ]).then(({ viewed, meta, }) => -(viewed || 0) / (meta && meta.duration || Infinity)),
 		}[by];
 		const data = new WeakMap;
-		return Promise.all(this.playlist.map(tab => Promise.resolve(tab).then(mapper).then(value => data.set(tab, value))))
+		return Promise.all(this.playlist.map(tab => Promise.resolve(tab).then(mapper).catch(error => console.error(error)).then(value => data.set(tab, +value || 0))))
 		.then((values, index) => {
 			console.log('sorting by', data);
 			this.playlist.sort((a, b) => (data.get(a) - data.get(b)) * direction);

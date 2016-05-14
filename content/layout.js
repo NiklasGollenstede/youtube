@@ -14,10 +14,17 @@ return class Layout {
 		this.main = main;
 		this.options = null;
 
+		this.fullscreenStyle = null;
+
 		this.scale = 1;
 		this.scaleX = this.scaleY = 0.5;
 		this.zoom = createElement('style');
 		main.player.on('loaded', (element) => element.ownerDocument.head.appendChild(this.zoom));
+
+		this.animatedThumbsOnMouseover = this.animatedThumbsOnMouseover.bind(this);
+		this.fullscreenOnWheel = this.fullscreenOnWheel.bind(this);
+		this.seamlessFullscreenOnMousemove = this.seamlessFullscreenOnMousemove.bind(this);
+		this.videoZoomOnWheel = this.videoZoomOnWheel.bind(this);
 
 		main.once('optionsLoaded', this.optionsLoaded.bind(this));
 
@@ -30,11 +37,30 @@ return class Layout {
 		});
 	}
 
-	optionsLoaded({ value: options, }) {
+	optionsLoaded(options) {
 		this.options = options;
-		options.player.seamlessFullscreen && this.enableFullscreen();
-		options.animateThumbs && this.enableAnimatedThumbs();
-		this.options.player.zoomFactor && this.enableVideoZoom();
+		options.animateThumbs.when({
+			true: () => this.main.addDomListener(window, 'mouseover', this.animatedThumbsOnMouseover),
+			false: () => this.main.addDomListener(window, 'mouseover', this.animatedThumbsOnMouseover),
+		});
+		options.player.children.seamlessFullscreen.when({
+			true: () => {
+				!this.fullscreenStyle && (this.fullscreenStyle = this.main.addStyleLink(chrome.extension.getURL('web/layout.css')));
+				this.main.addDomListener(window, 'wheel', this.fullscreenOnWheel);
+			},
+			false: () => {
+				this.fullscreenStyle && this.fullscreenStyle.remove; this.fullscreenStyle = null;
+				this.main.addDomListener(window, 'wheel', this.fullscreenOnWheel);
+			},
+		});
+		options.player.children.seamlessFullscreen.children.showOnMouseRight.when({
+			true: () => this.main.addDomListener(window, 'mousemove', this.seamlessFullscreenOnMousemove),
+			false: () => this.main.addDomListener(window, 'mousemove', this.seamlessFullscreenOnMousemove),
+		});
+		options.player.children.zoomFactor.when({
+			true: () => this.main.addDomListener(window, 'wheel', this.videoZoomOnWheel),
+			false: () => this.main.addDomListener(window, 'wheel', this.videoZoomOnWheel),
+		});
 		this.enableVideoAutoZoom();
 	}
 
@@ -44,9 +70,10 @@ return class Layout {
 			return document.documentElement.classList.remove('watchpage');
 		}
 
-		// add watchpage & playlist css hints
+		// add watchpage, playlist and fullscreen css hints
 		document.documentElement.classList.add('watchpage');
 		document.documentElement.classList[listId ? 'add' : 'remove']('playlist');
+		document.documentElement.classList[options.player.children.seamlessFullscreen.children.atStart.value ? 'add' : 'remove']('fullscreen');
 
 		player.loaded.then(element => {
 			// use cinema mode to make progress-bar a bit larger
@@ -69,81 +96,69 @@ return class Layout {
 		});
 	}
 
-	enableAnimatedThumbs() {
-		this.main.addDomListener(window, 'mouseover', ({ target: image, }) => {
-			if (image.nodeName !== 'IMG') { return; }
-			const videoId = getVideoIdFromImageSrc(image);
-			if (!videoId) { return; }
-			let original = image.src;
-			let index = 0;
+	animatedThumbsOnMouseover({ target: image, }) {
+		if (image.nodeName !== 'IMG') { return; }
+		const videoId = getVideoIdFromImageSrc(image);
+		if (!videoId) { return; }
+		let original = image.src;
+		let index = 0;
 
-			(function loop() {
-				if (!original) { return; }
-				index = index % 3 + 1;
-				image.src = `https://i.ytimg.com/vi/${ videoId }/${ index }.jpg`;
-				setTimeout(loop, 1000);
-			})();
+		(function loop() {
+			if (!original) { return; }
+			index = index % 3 + 1;
+			image.src = `https://i.ytimg.com/vi/${ videoId }/${ index }.jpg`;
+			setTimeout(loop, 1000);
+		})();
 
-			once(image, 'mouseout', event => {
-				image.src = original;
-				original = null;
-			});
+		once(image, 'mouseout', event => {
+			image.src = original;
+			original = null;
 		});
 	}
 
-	enableFullscreen() {
-		const { options, } = this.main;
-		this.main.addStyleLink(chrome.extension.getURL('web/layout.css'));
-
-		options.player.seamlessFullscreen.atStart && document.documentElement.classList.add('fullscreen');
-
-		this.main.addDomListener(window, 'wheel', event => {
-			if (
-				!document.documentElement.classList.contains('watchpage')
-				|| !options.player.seamlessFullscreen
-				|| event.ctrlKey || event.altKey || event.shiftKey
-			) { return; }
-			if (
-				event.deltaY <= 0 && window.pageYOffset === 0
-				&& event.target && event.target.matches
-				&& !event.target.matches('#playlist-autoscroll-list *')
-			) { // scroll to top
-				options.player.seamlessFullscreen.showOnScrollTop
-				&& document.documentElement.classList.add('fullscreen');
-			} else if (
-				options.player.seamlessFullscreen.hideOnScrollDown
-				&& document.documentElement.classList.contains('fullscreen')
-			) {
-				document.documentElement.classList.remove('fullscreen');
-				window.scrollY === 0 && event.preventDefault();
-			}
-		});
-
-		options.player.seamlessFullscreen && options.player.seamlessFullscreen.showOnMouseRight
-		&& this.main.addDomListener(window, 'mousemove', event => {
-			options.player.seamlessFullscreen && event.pageX < (options.player.seamlessFullscreen.showOnMouseRight || 0)
-			&& document.documentElement.classList.contains('watchpage')
+	fullscreenOnWheel(event) {
+		if (
+			!document.documentElement.classList.contains('watchpage')
+			|| !this.options.player.children.seamlessFullscreen.value
+			|| event.ctrlKey || event.altKey || event.shiftKey
+		) { return; }
+		if (
+			event.deltaY <= 0 && window.pageYOffset === 0
+			&& event.target && event.target.matches
+			&& !event.target.matches('#playlist-autoscroll-list *')
+		) { // scroll to top
+			this.options.player.children.seamlessFullscreen.children.showOnScrollTop.value
 			&& document.documentElement.classList.add('fullscreen');
-		});
+		} else if (
+			this.options.player.children.seamlessFullscreen.children.hideOnScrollDown.value
+			&& document.documentElement.classList.contains('fullscreen')
+		) {
+			document.documentElement.classList.remove('fullscreen');
+			window.scrollY === 0 && event.preventDefault();
+		}
 	}
 
-	enableVideoZoom() {
-		this.main.addDomListener(window, 'wheel', event => {
-			if (
-				!event.ctrlKey || !event.deltaY
-				|| !event.target.matches('#player-api, #player-api *, #external_player')
-			) { return; }
-			event.preventDefault();
-			const factor = 1 + this.options.player.zoomFactor / 100;
-			const divisor = 1 / factor;
-			const rect = document.querySelector('#player-api').getBoundingClientRect();
-			const scale = event.deltaY < 0 ? (this.scale * factor) : (this.scale / factor);
-			this.setZoom(
-				(scale < factor && scale > 1 / factor) || (scale > factor && scale < 1 / factor) ? 1 : scale,
-				((event.clientX - rect.left) / rect.width) * (1 - divisor) + this.scaleX * divisor,
-				((event.clientY - rect.top) / rect.height) * (1 - divisor) + this.scaleY * divisor
-			);
-		});
+	seamlessFullscreenOnMousemove(event) {
+		event.pageX < (this.options.player.children.seamlessFullscreen.children.showOnMouseRight.value || 0)
+		&& document.documentElement.classList.contains('watchpage')
+		&& document.documentElement.classList.add('fullscreen');
+	}
+
+	videoZoomOnWheel(event) {
+		if (
+			!event.ctrlKey || !event.deltaY
+			|| !event.target.matches('#player-api, #player-api *, #external_player')
+		) { return; }
+		event.preventDefault();
+		const factor = 1 + this.options.player.zoomFactor / 100;
+		const divisor = 1 / factor;
+		const rect = document.querySelector('#player-api').getBoundingClientRect();
+		const scale = event.deltaY < 0 ? (this.scale * factor) : (this.scale / factor);
+		this.setZoom(
+			(scale < factor && scale > 1 / factor) || (scale > factor && scale < 1 / factor) ? 1 : scale,
+			((event.clientX - rect.left) / rect.width) * (1 - divisor) + this.scaleX * divisor,
+			((event.clientY - rect.top) / rect.height) * (1 - divisor) + this.scaleY * divisor
+		);
 	}
 
 	enableVideoAutoZoom() {

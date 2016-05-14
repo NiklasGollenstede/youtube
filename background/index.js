@@ -10,13 +10,15 @@ if (!Storage.sync) {
 	Storage.sync = Storage.local;
 }
 
+
 Promise.all([
 	require('db/meta-data'),
-	Storage.sync.get('options').then(({ options, }) => {
-		if (options) { return options; }
-		options = require('options/utils').simplify(require('options/defaults'));
-		Storage.sync.set({ options, });
-		return options;
+	require('common/options')({
+		defaults: require('options/defaults'),
+		prefix: 'options',
+		storage: Storage.sync,
+		addChangeListener: listener => Storage.onChanged
+		.addListener(changes => Object.keys(changes).forEach(key => key.startsWith('options') && listener(key, changes[key].newValue))),
 	}),
 ]).then(([ db, options, ]) => {
 window.db = db; window.options = options;
@@ -78,9 +80,15 @@ chrome.runtime.onConnect.addListener(port => { switch (port.name) {
 
 const getWindow = (windowId) => chromium ? window : Extension.getViews({ type: 'tab', windowId, })[0];
 
+// asynchronously respond to all kind of messages: Object{ (function) name, (function) args, } =async=> Object{ value or error, }
 chrome.runtime.onMessage.addListener((message, sender, reply) => (Promise.resolve({
+
+	// alert etc. doesn't work in the options panel in chrome
 	alert, confirm, prompt,
+
 	openOptionsTab() { Tabs.create({ url: chrome.extension.getURL('options/index.html'), }); },
+
+	// handle clicks on control buttons on the options page
 	control: async(function*(type) { switch (type) {
 		case 'export': {
 			const data = gecko ? db : db.transaction();
@@ -108,10 +116,22 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => (Promise.resolv
 			(yield db.clear());
 			window.alert('Done. It\'s all gone ...');
 		} break;
+		case 'reset': {
+			if (!getWindow(sender.tab.windowId).confirm('Are you sure that you want to reset all options to their default values?')) { return; }
+			(function reset(options) {
+				options.forEach(option => {
+					option.values.reset();
+					reset(option.children);
+				});
+			})(options);
+		} break;
+
 		default: {
 			throw new Error('Unhandled command "'+ type +'"');
 		}
 	} }),
+
+	// Firefox only: respond to the chrome.storage shim in context scripts
 	storage(area, method, query) {
 		console.log('storage', area, method, query);
 		return query ? Storage[area][method](query) : Storage[area][method]();
@@ -121,6 +141,7 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => (Promise.resolv
 	error => reply({ error: error && { message: error.message || error, stack: error.stack, }, })
 ), true));
 
+// Firefox only: feed the chrome.storage shim in context scripts with updates (excluding changes due to the indexDB workaround in db/meta-data.js)
 gecko && Storage.onChanged.addListener((change, area) => {
 	const keep = Object.keys(change).filter(key => !(/^[A-z0-9_-]{11}\$\w+$/).test(key));
 	if (!keep.length) { return; }
@@ -131,26 +152,23 @@ gecko && Storage.onChanged.addListener((change, area) => {
 	Tab.instances.forEach(tab => chrome.tabs.sendMessage(tab.id, message));
 });
 
-Storage.onChanged.addListener((change, area) => {
-	if (change.options && (area === 'sync' || Storage.sync === Storage.local)) {
-		Object.assign(options, change.options.newValue);
-		console.log('options changed', options);
-	}
-});
-
+// load the content_scripts into all existing tabs
 Tabs.query({ }).then(tabs => {
 	console.log(tabs);
-	const { js, css, } = chrome.runtime.getManifest().content_scripts[0];
-	Promise.all(tabs.map(({ id, url, }) =>
-		url && !Tab.instances.has(id) && (/^https:\/\/www.youtube.com\/.*$/).test(url)
-		&& Tabs.executeScript(id, { file: '/content/cleanup.js', })
-		.then(() => {
-			css.forEach(file => chrome.tabs.insertCSS(id, { file, }));
-			js.forEach(file => chrome.tabs.executeScript(id, { file, }));
-			return true;
-		})
-		.catch(error => console.log('skipped tab', error)) // not allowed to execute, i.e. not YouTube
-	)).then(success => console.log('attached to', success.filter(x=>x).length, 'tabs'));
+	chrome.runtime.getManifest().content_scripts.forEach(({ js, css, matches, exclude_matches, }) => {
+		const include = !matches ? (/(?!)/) : new RegExp('^('+ matches.map(s => s.replace(/[\-\[\]\{\}\(\)\*\+\?\.\,\\\^\$\|\#]/g, '\\$&').replace(/\\\*/g, '.*')).join('|') +'$)');
+		const exclude = !exclude_matches ? (/(?!)/) : new RegExp('^('+ exclude_matches.map(s => s.replace(/[\-\[\]\{\}\(\)\*\+\?\.\,\\\^\$\|\#]/g, '\\$&').replace(/\\\*/g, '.*')).join('|') +'$)');
+		Promise.all(tabs.map(({ id, url, }) =>
+			url && !Tab.instances.has(id) && (include).test(url) && !(exclude).test(url)
+			&& Tabs.executeScript(id, { file: '/content/cleanup.js', })
+			.then(() => {
+				css.forEach(file => chrome.tabs.insertCSS(id, { file, }));
+				js.forEach(file => chrome.tabs.executeScript(id, { file, }));
+				return true;
+			})
+			.catch(error => console.log('skipped tab', error)) // not allowed to execute, i.e. not YouTube
+		)).then(success => console.log('attached to', success.filter(x=>x).length, 'tabs'));
+	});
 });
 
 }).catch(error => console.error('Error during startup', error));

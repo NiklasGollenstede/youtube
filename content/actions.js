@@ -14,11 +14,13 @@
 	}
 ) {
 
+let keyMap = { };
+
 function updateKeyMap(settings) {
-	settings.keyMap = { };
-	Object.keys(settings.keys).forEach(command => settings.keys[command].forEach(shortcut => settings.keyMap[shortcut] = command));
+	keyMap = { };
+	settings.keys.children.forEach(command => command.values.current.forEach(shortcut => keyMap[shortcut] = command.name));
 	for (let i = 1; i <= 10; i++) {
-		settings.keyMap[settings.keys.openRelatedModifier +'Digit'+ (i % 10)] = 'openRelated'+ i;
+		keyMap[settings.keys.children.openRelatedModifier.value +'Digit'+ (i % 10)] = 'openRelated'+ i;
 	}
 }
 
@@ -164,14 +166,10 @@ const actions = {
 	},
 	videoDownloadCover() {
 		const url = `https://i.ytimg.com/vi/${ new QueryObject(location.search).v }/maxresdefault.jpg`;
-		const title = document.querySelector('#eow-title').textContent;
-		saveAs(url +'?title='+ encodeURIComponent(title), title +'.jpg');
-		return;
-		/*HttpRequest({ url, responseType: 'blob', })
-		.then(({ response, }) => {
-			saveAs(response, title +'.jpg');
-		})
-		.catch(Logger('Faild to load maxresdefault.jpg'));*/
+		const title = (document.querySelector('#eow-title') || { textContent: 'cover', }).textContent;
+		HttpRequest({ url, responseType: 'blob', })
+		.then(({ response, }) => saveAs(response, title +'.jpg'))
+		.catch(error => saveAs(url, title +'.jpg'));
 	},
 };
 [1,2,3,4,5,6,7,8,9,10].forEach(i => {
@@ -197,7 +195,7 @@ return class Actions {
 	_key(event) {
 		if (event.target && (event.target.tagName == 'INPUT' || event.target.tagName == 'TEXTAREA')) { return; }
 		const key = (event.ctrlKey ? 'Ctrl+' : '') + (event.altKey ? 'Alt+' : '') + (event.shiftKey ? 'Shift+' : '') + event.code;
-		const name = this.options.keyMap[key];
+		const name = keyMap[key];
 		if (!name || !actions[name]) { return; }
 		console.log('keypress', key, name);
 		event.stopPropagation(); event.preventDefault();
