@@ -1,36 +1,59 @@
+/* general */
 * {
+	font-family: "Segoe UI", Tahoma, sans-serif;
 	box-sizing: border-box;
 }
 body {
 	font-size: 12.5px;
-	overflow: hidden;
-	height: 500px;
-	width: 368px;
+}
+::-webkit-scrollbar {
+	width: 8px;
 }
 
-form#options, footer {
-	position: fixed;
-	left: 0;
-	right: 0;
-	padding: 5px 10px;
-}
-form#options {
-	top: 0;
-	bottom: 0;
-	overflow-y: auto;
-}
-footer {
-	bottom: 0;
-	height: 40px;
-}
-footer>div {
-	float: right;
-}
-#save {
-	margin: 0 10px;
-}
-
-input.invalid {
+/* invalid inputs */
+input.invalid, .invalid input,
+select.invalid, .invalid select {
 	color: red;
 	border-color: red;
+}
+
+/* inputs */
+input, select {
+	border-style: solid;
+	border-width: 1px;
+	outline: none;
+	border-radius: 3px;
+	padding: 2px 7px;
+}
+input:focus, select:focus,
+input:active:focus, select:active:focus {
+	outline: none;
+}
+input[type="checkbox"] {
+	position: relative;
+	width: 20px;
+	height: 20px;
+	-webkit-appearance: none;
+	-moz-appearance: none;
+	appearance: none;
+}
+input[type="checkbox"]::after {
+	content: '✓';
+	position: absolute;
+	left: 25%;
+	top: 0%;
+}
+input[type="checkbox"]:not(:checked)::after {
+	color: transparent;
+}
+
+/* spacing */
+h1, h3 {
+	margin: 8px 0;
+}
+.value-container:not(:first-child) {
+    margin: 5px 0;
+}
+.value-unit {
+	margin-left: 3px;
 }
