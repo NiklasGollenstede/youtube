@@ -27,9 +27,9 @@ return Object.freeze([ // TODO: deepFreeze
 						title: "Cache lifetime (total)",
 						description: "Maximum absolute lifetime of cached global video information. Set to -1 to disable caching",
 						type: "integer",
-						restrict: { from: -1, to: 365 * 24 * 60 * 60, },
-						unit: "ms",
-						default: 7 * 24 * 60 * 60,
+						restrict: { from: -1, to: 365 * 24, },
+						unit: "hours",
+						default: 7 * 24,
 					}, {
 						name: "relativeLifetime",
 						title: "Cache lifetime (relative)",

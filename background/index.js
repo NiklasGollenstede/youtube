@@ -16,7 +16,7 @@ Promise.all([
 	require('common/options')({
 		defaults: require('options/defaults'),
 		prefix: 'options',
-		storage: Storage.sync,
+		storage: Storage.sync || Storage.local,
 		addChangeListener: listener => Storage.onChanged
 		.addListener(changes => Object.keys(changes).forEach(key => key.startsWith('options') && listener(key, changes[key].newValue))),
 	}),

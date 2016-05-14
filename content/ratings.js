@@ -13,8 +13,6 @@
 
 const CSS = {
 	static: () => (`
-		.yt-uix-simple-thumb-related>img /* without this, the ratings bar will be hidden far below the sidebar images */
-		{ margin-bottom: -27px !important; }
 		.channels-browse-content-grid .channels-content-item
 		{ height: 167px; }
 		.inserted-ratings
@@ -29,6 +27,10 @@ const CSS = {
 		{ top: -${ barHeight }px !important; }
 		.inserted-ratings>*
 		{ height: ${ barHeight }px !important; }
+		.yt-uix-simple-thumb-related>img /* without this, the ratings bar will be hidden far below the sidebar images */
+		{ margin-bottom: -${ 25 + barHeight }px !important; }
+		.yt-uix-simple-thumb-related>img[height="67"] /* higher resolution thumbs have a different aspect ratio -.- */
+		{ margin-bottom: -${ 4 + barHeight }px !important; }
 	`),
 	likesColor: likesColor => (`
 		.inserted-ratings .video-extras-sparkbar-likes
@@ -110,7 +112,7 @@ return class Ratings {
 			let now = Date.now(), age;
 			if (
 				stored.meta && stored.rating
-				&& (age = now - stored.rating.timestamp) < this.totalLifetime
+				&& (age = now - stored.rating.timestamp) < this.totalLifetime * 36e5
 				&& age < (now - stored.meta.published) * (this.relativeLifetime / 100)
 			) {
 				return attatchRatingBar(element, stored);
@@ -140,7 +142,13 @@ return class Ratings {
 		this.observer && this.observer.disconnect();
 		this.main.observer && this.main.observer.remove(this.selector.split(',').map(s => s +':not([data-rating="true"])').join(','), this.loadAndDisplayRating);
 		Array.prototype.forEach.call(document.querySelectorAll('[data-rating="true"]'), element => delete element.dataset.rating);
-		Array.prototype.forEach.call(document.querySelectorAll('.inserted-ratings'), element => element.remove());
+		Array.prototype.forEach.call(document.querySelectorAll('.inserted-ratings'), element => {
+			const { parentNode: parent, } = element;
+			parent.classList.remove('yt-uix-tooltip');
+			parent.removeAttribute('title');
+			delete parent.dataset.tooltipText;
+			element.remove();
+		});
 	}
 };
 

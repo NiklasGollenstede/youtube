@@ -19,7 +19,7 @@ const prompt = gecko ? window.prompt : (message, value) => handleResponse(sendMe
 require('common/options')({
 	defaults: require('options/defaults'),
 	prefix: 'options',
-	storage: Storage.sync,
+	storage: Storage.sync || Storage.local,
 	addChangeListener: listener => Storage.onChanged
 	.addListener(changes => Object.keys(changes).forEach(key => key.startsWith('options') && listener(key, changes[key].newValue))),
 }).then(options => {
@@ -31,14 +31,16 @@ document.addEventListener('click', function({ target, button, }) {
 	if (button || !target.matches) { return; }
 	target.className.split(/\s+/).every(_class => { switch (_class) {
 		case 'remove-value-entry': {
-			const element = target.parentNode.parentNode.parentNode;
+			const element = getParent(target, '.pref-container');
 			target.parentNode.remove();
+			saveInput(element);
 			setButtonDisabled(element);
 		} break;
 		case 'add-value-entry': {
-			const element = target.parentNode;
+			const element = getParent(target, '.pref-container');
 			const container = element.querySelector('.values-container');
-			container.appendChild(cloneInput(element.input));
+			const row = container.appendChild(cloneInput(element.input));
+			saveInput(row.querySelector('.value-input'));
 			setButtonDisabled(element);
 		} break;
 		case 'value-input': {
@@ -69,8 +71,8 @@ function setButtonDisabled(element) {
 	const container = element.querySelector('.values-container');
 	const add = element.querySelector('.add-value-entry');
 	if (!add) { return; }
-	const min = +add.dataset.minLength, length = container.children.length;
-	add.disabled = length >= +add.dataset.maxLength;
+	const { min, max, } = element.pref.values, length = container.children.length;
+	add.disabled = length >= max;
 	Array.prototype.forEach.call(container.querySelectorAll('.remove-value-entry'), remove => remove.disabled = length <= min);
 }
 
@@ -80,12 +82,13 @@ function saveInput(target) {
 	const values = Array.prototype.map.call(element.querySelector('.values-container').children, getInputValue);
 	try {
 		pref.values = values;
-		target.classList.remove('invalid');
-		element.classList.remove('invalid');
+		Array.prototype.forEach.call(element.querySelectorAll('.invalid'), invalid => {
+			invalid.classList.remove('invalid');
+			invalid.title = '';
+		});
 	} catch (error) {
 		target.title = error && error.message || error;
 		target.classList.add('invalid');
-		element.classList.add('invalid');
 		throw error;
 	}
 }
@@ -127,13 +130,14 @@ function createInput(pref) {
 				label: 'hidden',
 			}[pref.type] || pref.type,
 		}),
-		pref.unit && createElement('span', {
-			textContent: pref.unit,
-		}),
-		pref.maxLength > 1 && createElement('input', {
+		pref.values.max > 1 && createElement('input', {
 			type: 'button',
 			value: '-',
 			className: 'remove-value-entry',
+		}),
+		pref.unit && createElement('span', {
+			textContent: pref.unit,
+			className: 'value-unit'
 		}),
 	]), {
 		pref,
@@ -197,7 +201,6 @@ function displayPreferences(prefs, host = document.body, parent = null) {
 
 		let valuesContainer;
 		const element = Object.assign(host.appendChild(createElement('div', {
-			input,
 			className: 'pref-container type-'+ pref.type,
 		}, [
 			createElement('h1', {
@@ -209,7 +212,7 @@ function displayPreferences(prefs, host = document.body, parent = null) {
 			valuesContainer = createElement('div', {
 				className: 'values-container',
 			}),
-			pref.maxLength > 1 && createElement('input', {
+			pref.values.max > 1 && createElement('input', {
 				type: 'button',
 				value: '+',
 				className: 'add-value-entry',
@@ -225,7 +228,7 @@ function displayPreferences(prefs, host = document.body, parent = null) {
 				}),
 				pref
 			),
-		])), { pref, });
+		])), { pref, input, });
 
 		pref.whenChange((_, { current: values, }) => {
 			while (valuesContainer.children.length < values.length) { valuesContainer.appendChild(cloneInput(input)); }

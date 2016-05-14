@@ -36,7 +36,7 @@ class Option {
 			this.defaults = Object.freeze([ this.default ]);
 		}
 
-		_default.restrict && (this.restrict = new Restriction(_default.restrict));
+		_default.restrict && (this.restrict = _default.restrict === 'inherit' ? parent.restrict : new Restriction(_default.restrict));
 
 		this.children = new OptionList((_default.children || [ ]).map(child => new Option(child, this)));
 
@@ -96,8 +96,8 @@ class ValueList {
 		this.key = prefix + this.parent.path;
 		Values.set(this, Object.freeze(values));
 		const _default = Defaults.get(parent);
-		this.min = +_default.minLength || 0;
-		this.max = +_default.maxLength || Infinity;
+		this.min = +_default.minLength || 1;
+		this.max = +_default.maxLength || 1;
 		return Object.freeze(this);
 	}
 	get current() { return Values.get(this); }
@@ -145,7 +145,7 @@ class Restriction {
 		return Object.freeze(this);
 	}
 	validate(value) {
-		const message = this.checks.find(check => check(value));
+		const message = this.checks.map(check => check(value)).find(x => x);
 		if (message) { throw new Error(message); }
 	}
 }
@@ -177,9 +177,10 @@ addChangeListener((key, values) => {
 
 return storage.get(Array.from(Options.keys()).map(path => prefix + path))
 .then(data => {
+	const { hasOwnProperty, } = Object.prototype;
 	Options.forEach(option => Values.set(option, new ValueList(
 		option,
-		data.hasOwnProperty(prefix + option.path) ? data[prefix + option.path] : option.defaults
+		hasOwnProperty.call(data, prefix + option.path) ? data[prefix + option.path] : option.defaults
 	)));
 	return roots;
 });
