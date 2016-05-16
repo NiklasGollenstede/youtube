@@ -21,7 +21,7 @@
 	"permissions": [
 		"storage",
 		"clipboardWrite",
-		"https://www.youtube.com/*", "tabs"
+		"https://www.youtube.com/*", "https://gaming.youtube.com/*", "tabs"
 	],
 	"optional_permissions": [ ],
 	"background": {
@@ -29,7 +29,7 @@
 	},
 	"content_scripts": [
 		{
-			"matches": [ "https://www.youtube.com/*" ],
+			"matches": [ "https://www.youtube.com/*", "https://gaming.youtube.com/*" ],
 			"js": [
 				"node_modules/es6lib/require.js",
 				"node_modules/es6lib/template/escape.js",

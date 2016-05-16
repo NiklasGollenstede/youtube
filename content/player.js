@@ -6,7 +6,7 @@
 	{
 		format: { QueryObject, },
 		functional: { log, },
-		dom: { createElement, DOMContentLoaded, RemoveObserver, },
+		dom: { createElement, DOMContentLoaded, RemoveObserver, getParent, },
 		object: { Class, },
 		network: { HttpRequest, },
 	}
@@ -53,7 +53,7 @@ const methods = [
 ];
 
 function isTrusted({ data, origin, isTrusted, }) {
-	return /*isTrusted &&*/ origin === 'https://www.youtube.com' && typeof data === 'object' && data.target === target.self;
+	return /*isTrusted &&*/ (/^https:\/\/\w+\.youtube\.com$/).test(origin) && typeof data === 'object' && data.target === target.self;
 	// XXX: for some reason isTrusted is flase in Firefox (47)
 }
 function sendMessage(type, args = [ ]) {
@@ -70,6 +70,7 @@ const Player = new Class({
 		self.main = main;
 		self.promises = { };
 		self.queue = [ ];
+		self.suspended = [ ];
 		this.video = self.video = this.root = self.root = null;
 		self.removePlayer = self.removePlayer.bind(self);
 		self.visibilityChange = self.visibilityChange.bind(self);
@@ -113,7 +114,7 @@ const Player = new Class({
 					window.removeEventListener('message', done);
 
 					// wait for player
-					this.main.observer.all('#movie_player', this.initPlayer.bind(this));
+					this.main.observer.all('.html5-video-player', this.initPlayer.bind(this));
 					this.main.observer.all('#watch7-player-age-gate-content', this.loadExternalPlayer.bind(this, { reason: 'age', }));
 				};
 				window.addEventListener('message', done);
@@ -156,6 +157,7 @@ const Player = new Class({
 
 		initPlayer(element) {
 			const self = Public(this), _this = Protected(this);
+			this.root && this.suspendPlayer();
 			sendMessage('initPlayer', [ element.ownerDocument !== document, ]);
 			window.addEventListener('message', this);
 			this.root = self.root = element;
@@ -185,10 +187,21 @@ const Player = new Class({
 			!this.queue && (this.queue = [ ]);
 			this.root = self.root = null;
 			this.video = self.video = null;
+			this.suspended.length && this.initPlayer(this.suspended.pop());
+		},
+
+		suspendPlayer() {
+			if (!this.root) { return; }
+			const old = this.root;
+			const suspended = this.suspended.concat(old);
+			RemoveObserver.on(old, () => this.suspended = this.suspended.filter(value => value !== old));
+			this.suspended = [ ];
+			this.removePlayer();
+			this.suspended = suspended;
 		},
 
 		loadExternalPlayer({ reason, } = { }) {
-			if (reason === 'age' && !this.main.options.player.bypassAge) { return; }
+			if (reason === 'age' && !this.main.options.player.children.bypassAge.value) { return; }
 			this.removePlayer();
 			const { videoId, } = this.main;
 			document.querySelector('#player-unavailable').classList.add('hid');
@@ -301,10 +314,5 @@ const Player = new Class({
 		},
 	}),
 });
-
-function getParent(element, selector) {
-	while (element && (!element.matches || !element.matches(selector))) { element = element.parentNode; }
-	return element;
-}
 
 return (Player.Player = Player); });

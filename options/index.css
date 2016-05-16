@@ -57,3 +57,9 @@ h1, h3 {
 .value-unit {
 	margin-left: 3px;
 }
+
+/* transitions */
+* {
+	transition-property: color, fill, background-color, border-color;
+	transition-duration: 0.21s;
+}

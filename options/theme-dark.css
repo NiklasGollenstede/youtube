@@ -10,10 +10,10 @@ html, body {
 	fill: #c5e2ff;
 }
 ::-webkit-scrollbar {
-	background-color: #eee;
+	background-color: #000;
 }
 ::-webkit-scrollbar-thumb {
-	background-color: #444;
+	background-color: #666;
 }
 
 /* inputs */
@@ -23,7 +23,7 @@ input, select {
 	background-color: black;
 }
 input:focus, select:focus {
-	border-color: #4444ff;
+	border-color: #7d7dff;
 	box-shadow: 0 0 6px 0 #4444ff;
 }
 input:active:focus, select:active:focus {

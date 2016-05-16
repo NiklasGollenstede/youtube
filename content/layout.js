@@ -3,7 +3,7 @@
 ], function(
 	{ getVideoIdFromImageSrc, },
 	{
-		dom: { createElement, once, },
+		dom: { createElement, once, getParent, },
 	}
 ) {
 
@@ -15,6 +15,11 @@ return class Layout {
 		this.options = null;
 
 		this.fullscreenStyle = null;
+
+		const selectors = [ 'img', '.ytp-redesign-videowall-still', '.videowall-still', '.thumbnail-container', ];
+		this.animateThumbsTargets = `img, .ytp-redesign-videowall-still-image, .videowall-still-image, div#image`;
+		this.animateThumbsParents = selectors.join(', ');
+		this.animateThumbsChildren = selectors.map(s => s +' *, '+ s).join(', ');
 
 		this.scale = 1;
 		this.scaleX = this.scaleY = 0.5;
@@ -41,7 +46,7 @@ return class Layout {
 		this.options = options;
 		options.animateThumbs.when({
 			true: () => this.main.addDomListener(window, 'mouseover', this.animatedThumbsOnMouseover),
-			false: () => this.main.addDomListener(window, 'mouseover', this.animatedThumbsOnMouseover),
+			false: () => this.main.removeDomListener(window, 'mouseover', this.animatedThumbsOnMouseover),
 		});
 		options.player.children.seamlessFullscreen.when({
 			true: () => {
@@ -50,23 +55,23 @@ return class Layout {
 			},
 			false: () => {
 				this.fullscreenStyle && this.fullscreenStyle.remove; this.fullscreenStyle = null;
-				this.main.addDomListener(window, 'wheel', this.fullscreenOnWheel);
+				this.main.removeDomListener(window, 'wheel', this.fullscreenOnWheel);
 			},
 		});
 		options.player.children.seamlessFullscreen.children.showOnMouseRight.when({
 			true: () => this.main.addDomListener(window, 'mousemove', this.seamlessFullscreenOnMousemove),
-			false: () => this.main.addDomListener(window, 'mousemove', this.seamlessFullscreenOnMousemove),
+			false: () => this.main.removeDomListener(window, 'mousemove', this.seamlessFullscreenOnMousemove),
 		});
 		options.player.children.zoomFactor.when({
 			true: () => this.main.addDomListener(window, 'wheel', this.videoZoomOnWheel),
-			false: () => this.main.addDomListener(window, 'wheel', this.videoZoomOnWheel),
+			false: () => this.main.removeDomListener(window, 'wheel', this.videoZoomOnWheel),
 		});
 		this.enableVideoAutoZoom();
 	}
 
 	navigated() {
 		const { options, videoId, listId, player, } = this.main;
-		if (!videoId) {
+		if (!videoId || location.host !== 'www.youtube.com') {
 			return document.documentElement.classList.remove('watchpage');
 		}
 
@@ -83,8 +88,7 @@ return class Layout {
 			options.player.alwaysVolume && (element.querySelector('.ytp-volume-panel') || noop).classList.add('ytp-volume-control-hover');
 
 			// disable annotations (and all other checkboxes in the player settings)
-			if (!options.player.annotations) { hide(); /*setTimeout(hide, 5e3); setTimeout(hide, 12e3);*/ }
-			function hide() {
+			if (!options.player.annotations) {
 				element.querySelector('.ytp-settings-button').click();
 				Array.prototype.forEach.call(element.querySelectorAll('#ytp-main-menu-id .ytp-menuitem[aria-checked="true"]'), button => button.click());
 				element.querySelector('.ytp-settings-button').click();
@@ -96,22 +100,27 @@ return class Layout {
 		});
 	}
 
-	animatedThumbsOnMouseover({ target: image, }) {
-		if (image.nodeName !== 'IMG') { return; }
+	animatedThumbsOnMouseover({ target, }) {
+		if (!target.matches || !target.matches(this.animateThumbsChildren)) { return; }
+
+		const image = (getParent(target, this.animateThumbsParents) || target).querySelector(this.animateThumbsTargets) || target;
 		const videoId = getVideoIdFromImageSrc(image);
 		if (!videoId) { return; }
-		let original = image.src;
+		const background = !image.src;
+		let original = background ? image.style.backgroundImage : image.src;
 		let index = 0;
 
 		(function loop() {
 			if (!original) { return; }
 			index = index % 3 + 1;
-			image.src = `https://i.ytimg.com/vi/${ videoId }/${ index }.jpg`;
+			background
+			? image.style.backgroundImage = `url("https://i.ytimg.com/vi/${ videoId }/${ index }.jpg")`
+			: image.src = `https://i.ytimg.com/vi/${ videoId }/${ index }.jpg`;
 			setTimeout(loop, 1000);
 		})();
 
-		once(image, 'mouseout', event => {
-			image.src = original;
+		once(target, 'mouseout', event => {
+			background ? image.style.backgroundImage = original : image.src = original;
 			original = null;
 		});
 	}
@@ -147,12 +156,12 @@ return class Layout {
 	videoZoomOnWheel(event) {
 		if (
 			!event.ctrlKey || !event.deltaY
-			|| !event.target.matches('#player-api, #player-api *, #external_player')
+			|| !event.target.matches('.html5-video-player, .html5-video-player *, #external_player')
 		) { return; }
 		event.preventDefault();
-		const factor = 1 + this.options.player.zoomFactor / 100;
+		const factor = 1 + this.options.player.children.zoomFactor.value / 100;
 		const divisor = 1 / factor;
-		const rect = document.querySelector('#player-api').getBoundingClientRect();
+		const rect = getParent(event.target, '.html5-video-player, #external_player').getBoundingClientRect();
 		const scale = event.deltaY < 0 ? (this.scale * factor) : (this.scale / factor);
 		this.setZoom(
 			(scale < factor && scale > 1 / factor) || (scale > factor && scale < 1 / factor) ? 1 : scale,

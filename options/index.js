@@ -2,7 +2,7 @@
 
 const {
 	concurrent: { async, promisifyAll, spawn, sleep, timeout, },
-	dom: { clickElement, createElement, CreationObserver, notify, once, saveAs, },
+	dom: { clickElement, createElement, CreationObserver, notify, once, saveAs, getParent, },
 	format: { hhMmSsToSeconds, numberToRoundString, timeToRoundString, QueryObject, },
 	functional: { noop, Logger, log, },
 	object: { copyProperties, },
@@ -91,11 +91,6 @@ function saveInput(target) {
 		target.classList.add('invalid');
 		throw error;
 	}
-}
-
-function getParent(element, selector) {
-	while (element && (!element.matches || !element.matches(selector))) { element = element.parentNode; }
-	return element;
 }
 
 function createInput(pref) {

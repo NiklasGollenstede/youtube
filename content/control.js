@@ -2,7 +2,7 @@
 	'es6lib',
 ], function(
 	{
-		concurrent: { async, },
+		concurrent: { async, sleep, },
 		format: { hhMmSsToSeconds, },
 		object: { Class, },
 	}
@@ -34,10 +34,10 @@ return function(main) {
 		const unMute = player.silence();
 
 		// set quality
-		const { available, current, } = (yield player.getQuality());
-		const quality = (main.options.player.children.defaultQualities.values.current).find(level => available.includes(level));
-		if (quality && quality !== "auto" && quality !== current) {
-			(yield player.setQuality(quality));
+		let quality; while (!(quality = (yield player.getQuality())) || quality.current === 'unknown') { (yield sleep(33)); }
+		const wanted = (main.options.player.children.defaultQualities.values.current).find(level => quality.available.includes(level));
+		if (wanted && wanted !== "auto" && wanted !== quality.current) {
+			(yield player.setQuality(wanted));
 		}
 
 		// play, stop or pause
@@ -56,8 +56,9 @@ return function(main) {
 		unMute();
 
 		const duration = hhMmSsToSeconds(player.root.querySelector('.ytp-time-duration').textContent);
-		const title = document.querySelector('#eow-title').textContent.trim();
-		(yield port.request('db', 'assign', main.videoId, 'meta', { title, duration, }));
+		const titleElement = document.querySelector('#eow-title, .video-title span, .video-title');
+		const title = titleElement && titleElement.textContent.trim();
+		(yield port.request('db', 'assign', main.videoId, 'meta', title ? { title, duration, } : { duration, }));
 
 		console.log('control done', title, duration, main.videoId);
 		port.emit('player_created', main.videoId);

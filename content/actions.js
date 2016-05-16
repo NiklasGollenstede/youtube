@@ -1,8 +1,7 @@
 'use strict'; define('content/actions', [
-	'common/chrome', 'content/utils', 'content/templates', 'es6lib',
+	'common/chrome', 'content/templates', 'es6lib',
 ], function(
 	{ applications: { gecko, chromium, }, },
-	{ getVideoIdFromImageSrc, },
 	Templates,
 	{
 		concurrent: { async, spawn, sleep, timeout, },
@@ -115,7 +114,8 @@ const actions = {
 		const { video, } = player;
 		if (!video || !video.videoWidth || !video.videoHeight) { return; }
 		let canvas, time = video.currentTime;
-		document.getElementById('watch7-content').appendChild(createElement('div', {
+		const ref = document.querySelector('#watch-discussion, ytg-related-videos');
+		ref.parentNode.insertBefore(createElement('div', {
 			className: 'yt-card yt-card-has-padding screenshot-preview',
 			style: { position: 'relative', },
 		}, [
@@ -146,11 +146,12 @@ const actions = {
 					position: 'absolute',
 					right: '12px',
 					top: '12px',
+					lineHeight: '20px',
 				},
 				textContent: '⨉',
 				onclick: event => event.target.parentNode.remove(),
 			}),
-		]));
+		]), ref);
 		canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
 	},
 	videoPopScreenshot() {

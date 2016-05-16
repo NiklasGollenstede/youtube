@@ -19,6 +19,8 @@ const CSS = {
 		{ position: relative; }
 		.ytp-redesign-videowall-still-info
 		{ display: block; height: 100%; }
+		.inserted-ratings>*
+		{ float: left; }
 	`),
 	barHeight: barHeight => (`
 		.video-time /* make room for ratings bar */
@@ -42,13 +44,9 @@ const CSS = {
 	`),
 };
 
-function attatchRatingBar(element, { rating: { likes, dislikes, views, }, meta: { published, }, })  {
-	if (element.matches('img, .videowall-still-image, .ytp-redesign-videowall-still-image')) {
-		element = element.parentNode;
-		if (element.matches('.yt-thumb-clip')) {
-			element = element.parentNode.parentNode;
-		}
-	}
+function attatchRatingBar({ parentNode: element, }, { rating: { likes, dislikes, views, }, meta: { published, }, })  {
+	element.matches('.yt-thumb-clip') && (element = element.parentNode.parentNode);
+	element.matches('ytg-thumbnail') && (element = element.parentNode.parentNode.parentNode);
 	element.classList.add('yt-uix-tooltip');
 	element.insertAdjacentHTML('beforeend', Templates.ratingsBar(likes, dislikes));
 	element.title = Templates.videoInfoTitle(likes, dislikes, views, published);
@@ -76,7 +74,7 @@ return class Ratings {
 	constructor(main) {
 		this.main = main;
 		this.observer = null;
-		this.selector = 'img, .videowall-still-image, .ytp-redesign-videowall-still-image';
+		this.selector = 'img, .videowall-still-image, .ytp-redesign-videowall-still-image, div#image';
 
 		this.enable = this.enable.bind(this);
 		this.disable = this.disable.bind(this);
@@ -102,9 +100,9 @@ return class Ratings {
 	loadAndDisplayRating(element) {
 		const id = getVideoIdFromImageSrc(element);
 		if (!id || element.dataset.rating) { return; }
+		element.dataset.rating = true;
 		const { port, } = this.main;
 		spawn(function*() {
-			element.dataset.rating = true;
 			if (this.totalLifetime < 0) {
 				return attatchRatingBar(element, (yield loadRatingFromServer(id)));
 			}

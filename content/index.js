@@ -1,7 +1,7 @@
 'use strict'; (() => {
 
 const {
-	dom: { CreationObserver, DOMContentLoaded, createElement, },
+	dom: { CreationObserver, DOMContentLoaded, createElement, getParent, },
 	format: { QueryObject, },
 	object: { Class, setConst, copyProperties, },
 	namespace: { IterableNameSpace, },
@@ -33,6 +33,7 @@ const Main = new Class({
 		this.options = null;
 		this.observer = null;
 		self.update(this);
+		this.gaming = location.host === 'gaming.youtube.com';
 
 		function error(error) { console.error('Failed to load module:', error); }
 		try { this.port = new (require('content/port'))(this); } catch(e) { error(e); }
@@ -108,8 +109,12 @@ const Main = new Class({
 			self.options = options;
 			console.log('options loaded', self.options);
 			DOMContentLoaded.then(this.loaded.bind(this));
-			self.addDomListener(window, 'spfrequest', this.navigate.bind(this));
-			self.addDomListener(window, 'spfdone', this.navigated.bind(this));
+			if (self.gaming) {
+				self.port.on('navigated', ({ url, }) => this.navigate({ detail: { url, }, }) === this.navigated());
+			} else {
+				self.addDomListener(window, 'spfrequest', this.navigate.bind(this));
+				self.addDomListener(window, 'spfdone', this.navigated.bind(this));
+			}
 			_this.emitSync('optionsLoaded', options);
 			_this.clear('optionsLoaded');
 		},

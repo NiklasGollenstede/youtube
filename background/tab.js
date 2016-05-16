@@ -170,10 +170,10 @@ class Tab {
 	focus_temporary() {
 		if (!chromium) { return; }
 		console.log('focus_temporary', this);
-		this.tab().then(({ index, windowId, active, }) => {
+		this.tab().then(({ index, windowId, active, pinned, }) => {
 			Windows.create({ tabId: this.id, state: 'minimized', })
 			.then(() => Tabs.move(this.id, { index, windowId, }))
-			.then(() => Tabs.update(this.id, { active, }));
+			.then(() => Tabs.update(this.id, { active, pinned, }));
 		});
 	}
 }

@@ -106,7 +106,7 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => (Promise.resolv
 			console.log('import', infos);
 			if (!Array.isArray(infos)) { throw new Error('The import data must be an Array'); }
 			const corrupt = infos.findIndex(info => !info || !(/^[A-z0-9_-]{11}$/).test(info.id));
-			if(corrupt !== -1) { throw new Error('The object at index '+ corrupt +' must have an "id" property set to a valid YouTube video id: "'+ JSON.stringify(infos[corrupt]) +'"'); }
+			if (corrupt !== -1) { throw new Error('The object at index '+ corrupt +' must have an "id" property set to a valid YouTube video id: "'+ JSON.stringify(infos[corrupt]) +'"'); }
 			const data = db.transaction(true);
 			(yield Promise.all(infos.map(info => data.set(info))));
 		} break;
@@ -140,6 +140,9 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => (Promise.resolv
 	value => reply({ value, }),
 	error => reply({ error: error && { message: error.message || error, stack: error.stack, }, })
 ), true));
+
+// report location changes to the content scripts
+Tabs.onUpdated.addListener((id, { url, }) => url && Tab.instances.has(id) && Tab.instances.get(id).emit('navigated', { url, }));
 
 // Firefox only: feed the chrome.storage shim in context scripts with updates (excluding changes due to the indexDB workaround in db/meta-data.js)
 gecko && Storage.onChanged.addListener((change, area) => {
