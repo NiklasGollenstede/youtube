@@ -6,7 +6,7 @@ const {
 	object: { Class, setConst, copyProperties, },
 	namespace: { IterableNameSpace, },
 } = require('es6lib');
-const { storage: Storage, applications: { gecko, chromium, }, } = require('common/chrome');
+const { storage: Storage, applications: { gecko, chromium, }, } = require('web-ext-utils/chrome');
 
 /**
  * Event sequence: optionsLoaded (navigate|navigated)* observerCreated navigated (navigate|navigated)* <destroyed>

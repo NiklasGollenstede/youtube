@@ -41,9 +41,9 @@
 				"node_modules/es6lib/format.js",
 				"node_modules/es6lib/network.js",
 				"node_modules/es6lib/index.js",
-				"common/chrome.js",
+				"web-ext-utils/chrome.js",
 				"common/event-emitter.js",
-				"common/options.js",
+				"web-ext-utils/options/index.js",
 				"content/utils.js",
 				"content/port.js",
 				"content/templates.js",
@@ -75,7 +75,7 @@
 		"default_popup": "panel/index.html"
 	},
 	"options_ui": {
-		"page": "options/open-in-tab-instead.html"
+		"page": "options/show-options-tab.html"
 	},
 
 	"commands": {

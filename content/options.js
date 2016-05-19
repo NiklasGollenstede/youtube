@@ -1,6 +1,6 @@
 'use strict'; define('content/options', [
-	'common/options',
-	'common/chrome',
+	'web-ext-utils/options',
+	'web-ext-utils/chrome',
 ], function(
 	Options,
 	{ storage: Storage, }

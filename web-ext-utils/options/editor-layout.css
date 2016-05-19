@@ -8,6 +8,7 @@ body {
 }
 ::-webkit-scrollbar {
 	width: 8px;
+	height: 8px;
 }
 
 /* invalid inputs */
@@ -38,7 +39,7 @@ input[type="checkbox"] {
 	appearance: none;
 }
 input[type="checkbox"]::after {
-	content: '✓';
+	content: '\2713'; /* '✓' */
 	position: absolute;
 	left: 25%;
 	top: 0%;
@@ -56,6 +57,14 @@ h1, h3 {
 }
 .value-unit {
 	margin-left: 3px;
+}
+
+/* sizes */
+input[type="text"] {
+	min-width: 500px;
+}
+pre {
+	white-space: pre-wrap;
 }
 
 /* transitions */

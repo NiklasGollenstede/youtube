@@ -1,4 +1,4 @@
-'use strict'; define('options/defaults', [
+'use strict'; define('common/defaults', [
 	'es6lib/format',
 ], function(
 	{ RegExpX, }
@@ -219,7 +219,7 @@ return Object.freeze([ // TODO: deepFreeze
 					| Power
 					| Browser(Search | Favorites | Refresh | Stop | Forward | Back)
 					| Launch(App1 | Mail)
-				) $`), message: 'Please enter a valid key combination', },
+				) $`), unique: '*', message: 'Please enter a valid key combination', },
 				children: [
 					{
 						name: "openRelatedModifier",
@@ -228,7 +228,7 @@ return Object.freeze([ // TODO: deepFreeze
 						type: "menulist",
 						default: [ "" ],
 						options: [
-							{ value: "\0",   label: "[disabled]", },
+							{ value: "<disabled>",   label: "[disabled]", },
 							{ value: "",     label: "[none]", },
 							{ value: "Alt+",  label: "Alt", },
 							{ value: "Ctrl+", label: "Ctrl", },
@@ -436,7 +436,7 @@ return Object.freeze([ // TODO: deepFreeze
 		name: "reset",
 		title: "Reset Options",
 		description: "Reset all options displayed on this page to their default values",
-		default: "Reset",
+		default: [ "Reset1", "Reset2", ],
 		type: "control",
 	},
 ]);

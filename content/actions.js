@@ -1,5 +1,5 @@
 'use strict'; define('content/actions', [
-	'common/chrome', 'content/templates', 'es6lib',
+	'web-ext-utils/chrome', 'content/templates', 'es6lib',
 ], function(
 	{ applications: { gecko, chromium, }, },
 	Templates,
@@ -12,16 +12,6 @@
 		network: { HttpRequest, },
 	}
 ) {
-
-let keyMap = { };
-
-function updateKeyMap(settings) {
-	keyMap = { };
-	settings.keys.children.forEach(command => command.values.current.forEach(shortcut => keyMap[shortcut] = command.name));
-	for (let i = 1; i <= 10; i++) {
-		keyMap[settings.keys.children.openRelatedModifier.value +'Digit'+ (i % 10)] = 'openRelated'+ i;
-	}
-}
 
 
 const actions = {
@@ -172,16 +162,18 @@ const actions = {
 		.then(({ response, }) => saveAs(response, title +'.jpg'))
 		.catch(error => saveAs(url, title +'.jpg'));
 	},
+	openRelatedModifier(_, { key, }) {
+		document.querySelectorAll('li.video-list-item.related-list-item')[key - 1].querySelector('a').click();
+	}
 };
-[1,2,3,4,5,6,7,8,9,10].forEach(i => {
-	actions['openRelated'+ i] = () => document.querySelectorAll('li.video-list-item.related-list-item')[i - 1].querySelector('a').click();
-});
 
 return class Actions {
 	constructor(main) {
 		this.main = main;
+		this.keyMap = new Map;
 		this.main.addDomListener(window, 'keydown', this._key.bind(this), true);
 		main.once('optionsLoaded', this._optionsLoaded.bind(this));
+		console.log('message');
 	}
 
 	setAction(name, action) {
@@ -190,17 +182,24 @@ return class Actions {
 
 	_optionsLoaded() {
 		this.options = this.main.options;
-		updateKeyMap(this.options);
+		this.options.keys.children.forEach(command => command.whenChange((_, { current, }, old) => {
+			if (command.name === 'openRelatedModifier') {
+				current = [1,2,3,4,5,6,7,8,9,0].map(i => _ +'Digit'+ i);
+				old = old && [1,2,3,4,5,6,7,8,9,0].map(i => old[0] +'Digit'+ i);
+			}
+			old && old.forEach(this.keyMap.delete.bind(this.keyMap));
+			current.forEach(key => this.keyMap.set(key, command.name));
+		}));
 	}
 
 	_key(event) {
 		if (event.target && (event.target.tagName == 'INPUT' || event.target.tagName == 'TEXTAREA')) { return; }
 		const key = (event.ctrlKey ? 'Ctrl+' : '') + (event.altKey ? 'Alt+' : '') + (event.shiftKey ? 'Shift+' : '') + event.code;
-		const name = keyMap[key];
+		const name = this.keyMap.get(key);
 		if (!name || !actions[name]) { return; }
 		console.log('keypress', key, name);
 		event.stopPropagation(); event.preventDefault();
-		actions[name](this.main);
+		actions[name](this.main, event);
 	}
 };
 

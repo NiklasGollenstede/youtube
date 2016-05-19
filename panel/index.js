@@ -90,7 +90,7 @@ window.addEventListener('DOMContentLoaded', () => {
 		const { left: x, bottom: y, } = document.querySelector('#more').getBoundingClientRect();
 		const items = [
 			chrome.runtime.reload && { label: 'Restart', action: () => chrome.runtime.reload(), },
-			{ label: 'Settings', action: () => chrome.runtime.sendMessage({ name: 'openOptionsTab', args: [ '', ], }, () => window.close()), },
+			{ label: 'Settings', action: () => chrome.runtime.sendMessage({ name: 'showOptionsTab', args: [ '', ], }, () => window.close()), },
 		];
 		new ContextMenu({ x, y, items, });
 	});

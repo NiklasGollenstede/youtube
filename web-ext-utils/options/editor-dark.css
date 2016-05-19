@@ -34,6 +34,9 @@ input::selection, select::selection {
 	background-color: #39f;
 	color: white;
 }
+input[disabled] {
+	opacity: 0.5;
+}
 
 /* context menu */
 .popup-menu, .submenu {

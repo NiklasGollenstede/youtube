@@ -1,5 +1,5 @@
 'use strict'; define('background/panel', [
-	'common/chrome',
+	'web-ext-utils/chrome',
 ], function(
 	{ tabs: Tabs, }
 ) {

@@ -3,7 +3,8 @@
 const {
 	concurrent: { async, },
 } = require('es6lib');
-const { tabs: Tabs, storage: Storage, extension: Extension, applications: { gecko, chromium, }, } = require('common/chrome');
+const { Tabs, Storage, Extension, applications: { gecko, chromium, }, Messages, } = window.Chrome = require('web-ext-utils/chrome');
+Messages.isExclusiveMessageHandler = true;
 
 if (!Storage.sync) {
 	console.log('chrome.storage.sync is unavailable, fall back to chrome.storage.local');
@@ -13,13 +14,7 @@ if (!Storage.sync) {
 
 Promise.all([
 	require('db/meta-data'),
-	require('common/options')({
-		defaults: require('options/defaults'),
-		prefix: 'options',
-		storage: Storage.sync || Storage.local,
-		addChangeListener: listener => Storage.onChanged
-		.addListener(changes => Object.keys(changes).forEach(key => key.startsWith('options') && listener(key, changes[key].newValue))),
-	}),
+	require('common/options'),
 ]).then(([ db, options, ]) => {
 window.db = db; window.options = options;
 
@@ -78,18 +73,16 @@ chrome.runtime.onConnect.addListener(port => { switch (port.name) {
 	}
 } });
 
-const getWindow = (windowId) => chromium ? window : Extension.getViews({ type: 'tab', windowId, })[0];
+// Firefox can't alert etc. in the background window
+const getWindow = () => chromium ? window : Extension.getViews({ type: 'tab', }).find(window => (/options\/index\.html$/).test(window.local.href));
 
-// asynchronously respond to all kind of messages: Object{ (function) name, (function) args, } =async=> Object{ value or error, }
-chrome.runtime.onMessage.addListener((message, sender, reply) => (Promise.resolve({
+// open or focus the options view in a tab.
+Messages.addHandler('showOptionsTab', () => Tabs.create({ url: chrome.extension.getURL('options/index.html'), })); // TODO: don't allow duplicates
 
-	// alert etc. doesn't work in the options panel in chrome
-	alert, confirm, prompt,
-
-	openOptionsTab() { Tabs.create({ url: chrome.extension.getURL('options/index.html'), }); },
-
-	// handle clicks on control buttons on the options page
-	control: async(function*(type) { switch (type) {
+// handle clicks on control buttons on the options page
+Messages.addHandler('control', async(function*(type, subtype) {
+	const window = getWindow();
+	switch (type) {
 		case 'export': {
 			const data = gecko ? db : db.transaction();
 			const ids = (yield data.ids());
@@ -98,26 +91,27 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => (Promise.resolv
 				(yield require('es6lib/dom').writeToClipboard({ 'application/json': json, 'text/plain': json, }));
 				alert('The JSON data has been put into your clipboard');
 			} else {
-				getWindow(sender.tab.windowId).prompt('Please copy the JSON from the field below', json);
+				window.prompt('Please copy the JSON from the field below', json);
 			}
 		} break;
 		case 'import': {
-			const infos = JSON.parse(getWindow(sender.tab.windowId).prompt('Please paste your JSON data below', ''));
+			const string = window.prompt('Please paste your JSON data below', '');
+			if (!string) { return; }
+			let infos; try { infos = JSON.parse(string); } catch (error) { }
 			console.log('import', infos);
-			if (!Array.isArray(infos)) { throw new Error('The import data must be an Array'); }
+			if (!Array.isArray(infos)) { return window.alert('The import data must be an Array (as JSON)'); }
 			const corrupt = infos.findIndex(info => !info || !(/^[A-z0-9_-]{11}$/).test(info.id));
-			if (corrupt !== -1) { throw new Error('The object at index '+ corrupt +' must have an "id" property set to a valid YouTube video id: "'+ JSON.stringify(infos[corrupt]) +'"'); }
+			if (corrupt !== -1) { return window.alert('The object at index '+ corrupt +' must have an "id" property set to a valid YouTube video id: "'+ JSON.stringify(infos[corrupt]) +'"'); }
 			const data = db.transaction(true);
 			(yield Promise.all(infos.map(info => data.set(info))));
 		} break;
 		case 'clear': {
-			const window = getWindow(sender.tab.windowId);
 			if (window.prompt('If you really mean to delete all your user data type "yes" below') !== 'yes') { return window.alert('Canceled. Nothing was deleted'); }
 			(yield db.clear());
 			window.alert('Done. It\'s all gone ...');
 		} break;
 		case 'reset': {
-			if (!getWindow(sender.tab.windowId).confirm('Are you sure that you want to reset all options to their default values?')) { return; }
+			if (!window.confirm('Are you sure that you want to reset all options to their default values?')) { return; }
 			(function reset(options) {
 				options.forEach(option => {
 					option.values.reset();
@@ -129,17 +123,14 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => (Promise.resolv
 		default: {
 			throw new Error('Unhandled command "'+ type +'"');
 		}
-	} }),
+	}
+}));
 
-	// Firefox only: respond to the chrome.storage shim in context scripts
-	storage(area, method, query) {
-		console.log('storage', area, method, query);
-		return query ? Storage[area][method](query) : Storage[area][method]();
-	},
-}[message.name].apply(window, message.args)).then(
-	value => reply({ value, }),
-	error => reply({ error: error && { message: error.message || error, stack: error.stack, }, })
-), true));
+// Firefox only: respond to the chrome.storage shim in context scripts
+gecko && Messages.addHandler('storage', (area, method, query) => {
+	console.log('storage', area, method, query);
+	return query ? Storage[area][method](query) : Storage[area][method]();
+});
 
 // report location changes to the content scripts
 Tabs.onUpdated.addListener((id, { url, }) => url && Tab.instances.has(id) && Tab.instances.get(id).emit('navigated', { url, }));
@@ -156,21 +147,22 @@ gecko && Storage.onChanged.addListener((change, area) => {
 });
 
 // load the content_scripts into all existing tabs
+const { matchPatternToRegExp, } = require('web-ext-utils/utils');
 Tabs.query({ }).then(tabs => {
 	console.log(tabs);
 	chrome.runtime.getManifest().content_scripts.forEach(({ js, css, matches, exclude_matches, }) => {
-		const include = !matches ? (/(?!)/) : new RegExp('^('+ matches.map(s => s.replace(/[\-\[\]\{\}\(\)\*\+\?\.\,\\\^\$\|\#]/g, '\\$&').replace(/\\\*/g, '.*')).join('|') +'$)');
-		const exclude = !exclude_matches ? (/(?!)/) : new RegExp('^('+ exclude_matches.map(s => s.replace(/[\-\[\]\{\}\(\)\*\+\?\.\,\\\^\$\|\#]/g, '\\$&').replace(/\\\*/g, '.*')).join('|') +'$)');
-		Promise.all(tabs.map(({ id, url, }) =>
-			url && !Tab.instances.has(id) && (include).test(url) && !(exclude).test(url)
-			&& Tabs.executeScript(id, { file: '/content/cleanup.js', })
+		const includes = (matches|| [ ]).map(matchPatternToRegExp);
+		const excludes = (exclude_matches|| [ ]).map(matchPatternToRegExp);
+		Promise.all(tabs.map(({ id, url, }) => {
+			if (!url || Tab.instances.has(id) || !includes.some(exp => exp.test(url)) || excludes.some(exp => exp.test(url))) { return; }
+			return Tabs.executeScript(id, { file: '/content/cleanup.js', })
 			.then(() => {
 				css.forEach(file => chrome.tabs.insertCSS(id, { file, }));
 				js.forEach(file => chrome.tabs.executeScript(id, { file, }));
 				return true;
 			})
-			.catch(error => console.log('skipped tab', error)) // not allowed to execute, i.e. not YouTube
-		)).then(success => console.log('attached to', success.filter(x=>x).length, 'tabs'));
+			.catch(error => console.log('skipped tab', error)); // not allowed to execute, i.e. not YouTube
+		})).then(success => console.log('attached to', success.filter(x=>x).length, 'tabs'));
 	});
 });
 

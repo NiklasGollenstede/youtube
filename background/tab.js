@@ -1,5 +1,5 @@
 'use strict'; define('background/tab', [
-	'common/chrome',
+	'web-ext-utils/chrome',
 ], function(
 	{ tabs: Tabs, windows: Windows, storage: Storage, applications: { gecko, chromium, }, }
 ) {
@@ -173,7 +173,8 @@ class Tab {
 		this.tab().then(({ index, windowId, active, pinned, }) => {
 			Windows.create({ tabId: this.id, state: 'minimized', })
 			.then(() => Tabs.move(this.id, { index, windowId, }))
-			.then(() => Tabs.update(this.id, { active, pinned, }));
+			.then(() => Tabs.update(this.id, { active, pinned, }))
+			.then(() => Tabs.move(this.id, { index, windowId, }));
 		});
 	}
 }

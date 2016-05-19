@@ -67,7 +67,7 @@ return getResult(db).then(db => class Transaction {
 	if (!(error && error instanceof DOMException && error.name === 'SecurityError')) { throw error; }
 	console.log('indexedDB is unavailable, fall back to chrome.storage.local');
 
-	const storage = require('common/chrome').storage.local;
+	const storage = require('web-ext-utils/chrome').storage.local;
 	return Promise.resolve(class Storage {
 		constructor(write, keys, tmp) {
 			this.keys = keys || allKeys;
