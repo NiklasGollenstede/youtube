@@ -1,15 +1,29 @@
 'use strict'; define('common/options', [
-	'web-ext-utils/chrome'
+	'web-ext-utils/chrome',
+	'web-ext-utils/options',
+	'common/defaults',
 ], function(
-	{ storage: Storage, }
+	{ storage: Storage, },
+	Options,
+	defaults
 ) {
 
-return require('web-ext-utils/options')({
-	defaults: require('common/defaults'),
+const listerners = new WeakMap;
+
+return new Options({
+	defaults,
 	prefix: 'options',
 	storage: Storage.sync || Storage.local,
-	addChangeListener: listener => Storage.onChanged
-	.addListener(changes => Object.keys(changes).forEach(key => key.startsWith('options') && listener(key, changes[key].newValue))),
+	addChangeListener(listener) {
+		const onChanged = changes => Object.keys(changes).forEach(key => key.startsWith('options') && listener(key, changes[key].newValue));
+		listerners.set(listener, onChanged);
+		Storage.onChanged.addListener(onChanged);
+	},
+	removeChangeListener(listener) {
+		const onChanged = listerners.get(listener);
+		listerners.delete(listener);
+		Storage.onChanged.removeListener(onChanged);
+	},
 });
 
 });

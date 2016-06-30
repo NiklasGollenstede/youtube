@@ -112,12 +112,7 @@ Messages.addHandler('control', async(function*(type, subtype) {
 		} break;
 		case 'reset': {
 			if (!window.confirm('Are you sure that you want to reset all options to their default values?')) { return; }
-			(function reset(options) {
-				options.forEach(option => {
-					option.values.reset();
-					reset(option.children);
-				});
-			})(options);
+			options.resetAll();
 		} break;
 
 		default: {

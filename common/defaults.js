@@ -28,7 +28,7 @@ return Object.freeze([ // TODO: deepFreeze
 						description: "Maximum absolute lifetime of cached global video information. Set to -1 to disable caching",
 						type: "integer",
 						restrict: { from: -1, to: 365 * 24, },
-						unit: "hours",
+						suffix: "hours",
 						default: 7 * 24,
 					}, {
 						name: "relativeLifetime",
@@ -36,7 +36,7 @@ return Object.freeze([ // TODO: deepFreeze
 						description: "Global video information will be refreshed if it is older than a percentage of the video age",
 						type: "integer",
 						restrict: { from: 1, to: 1e5, },
-						unit: "%",
+						suffix: "%",
 						default: 20,
 					}, {
 						name: "likesColor",
@@ -55,7 +55,7 @@ return Object.freeze([ // TODO: deepFreeze
 						title: "Rating bar height",
 						type: "integer",
 						restrict: { from: 0, to: 5, },
-						unit: "px",
+						suffix: "px",
 						default: 2,
 					},
 				],
@@ -100,7 +100,7 @@ return Object.freeze([ // TODO: deepFreeze
 						title: "Video zoom levels",
 						description: "Factor that each zooming will scale the video",
 						type: "integer",
-						unit: "%",
+						suffix: "%",
 						restrict: { from: -50, to: 100, },
 						default: 10,
 					}, {
@@ -157,7 +157,7 @@ return Object.freeze([ // TODO: deepFreeze
 								title: "Right edge motion",
 								description: "Enables full screen mode when cursor is moved close to the right edge of the window",
 								type: "integer",
-								unit: "pixel",
+								suffix: "pixel",
 								restrict: { from: 0, to: 100, },
 								default: 0,
 							}, {
@@ -229,10 +229,10 @@ return Object.freeze([ // TODO: deepFreeze
 						default: [ "" ],
 						options: [
 							{ value: "<disabled>",   label: "[disabled]", },
-							{ value: "",     label: "[none]", },
-							{ value: "Alt+",  label: "Alt", },
-							{ value: "Ctrl+", label: "Ctrl", },
-							{ value: "Shift+",  label: "Shift", },
+							{ value: "",             label: "[none]", },
+							{ value: "Alt+",         label: "Alt", },
+							{ value: "Ctrl+",        label: "Ctrl", },
+							{ value: "Shift+",       label: "Shift", },
 						],
 					}, {
 						name: "videoIncreaseQuality",
@@ -436,7 +436,7 @@ return Object.freeze([ // TODO: deepFreeze
 		name: "reset",
 		title: "Reset Options",
 		description: "Reset all options displayed on this page to their default values",
-		default: [ "Reset1", "Reset2", ],
+		default: "Reset",
 		type: "control",
 	},
 ]);

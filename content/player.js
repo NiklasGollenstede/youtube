@@ -263,8 +263,9 @@ const Player = new Class({
 				if (video.dataset.visible != 'true') {
 					this.main.port.emit('focus_temporary');
 				} else {
-					const timer = setTimeout(() => this.main.port.emit('focus_temporary'), 2000);
-					Public(this).once('playing', () => clearTimeout(timer));
+					const timer1 = setTimeout(() => this.main.port.emit('focus_temporary'), 2000);
+					const timer2 = setTimeout(() => createElement('a', { className: 'spf-link', href: location.href, }).click(), 5000);
+					Public(this).once('playing', () => clearTimeout(timer1) === clearTimeout(timer2));
 				}
 				return false;
 			}

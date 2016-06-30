@@ -45,7 +45,7 @@ const Main = new Class({
 		try { this.control = new (require('content/control'))(this); } catch(e) { error(e); }
 
 		this.port.on(Symbol.for('destroyed'), self.destroy.bind(self));
-		new (require('content/options'))(this).then(self.optionsLoaded.bind(self));
+		require('content/options').then(self.optionsLoaded.bind(self));
 	}),
 
 	public: (Private, Protected, Public) => ({
@@ -106,7 +106,8 @@ const Main = new Class({
 
 		optionsLoaded(options) {
 			const self = Public(this), _this = Protected(this);
-			self.options = options;
+			this.optionsRoot = options;
+			self.options = options.children;
 			console.log('options loaded', self.options);
 			DOMContentLoaded.then(this.loaded.bind(this));
 			if (self.gaming) {
@@ -115,7 +116,7 @@ const Main = new Class({
 				self.addDomListener(window, 'spfrequest', this.navigate.bind(this));
 				self.addDomListener(window, 'spfdone', this.navigated.bind(this));
 			}
-			_this.emitSync('optionsLoaded', options);
+			_this.emitSync('optionsLoaded', self.options);
 			_this.clear('optionsLoaded');
 		},
 
@@ -133,6 +134,8 @@ const Main = new Class({
 			Object.keys(self).forEach(key => delete self[key]);
 
 			this.styles.remove();
+
+			this.optionsRoot.destroy();
 
 			// remove all listeners
 			[ this.nodesCapture, this.nodesBubble ]

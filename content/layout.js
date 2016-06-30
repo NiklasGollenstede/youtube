@@ -54,7 +54,7 @@ return class Layout {
 				this.main.addDomListener(window, 'wheel', this.fullscreenOnWheel);
 			},
 			false: () => {
-				this.fullscreenStyle && this.fullscreenStyle.remove; this.fullscreenStyle = null;
+				this.fullscreenStyle && this.fullscreenStyle.remove(); this.fullscreenStyle = null;
 				this.main.removeDomListener(window, 'wheel', this.fullscreenOnWheel);
 			},
 		});
