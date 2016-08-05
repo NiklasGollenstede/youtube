@@ -42,6 +42,7 @@ const methods = [
 
 	[ 'isMuted',            '_isMuted',         ],
 	[ 'getTime',            '_getTime',         ],
+	[ 'getLoaded',          '_getLoaded',       ],
 	[ 'showVideoInfo',      null,               ],
 	[ 'hideVideoInfo',      null,               ],
 

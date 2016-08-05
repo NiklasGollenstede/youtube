@@ -21,6 +21,22 @@ return function(main) {
 	port.on('play', () => console.log('control play') === player.play(true));
 	port.on('pause', () => console.log('control pause') === player.pause(true));
 
+	const setQuality = async(function*() {
+		let quality, _try = 0; while (
+			!(quality = (yield player.getQuality()))
+			|| quality.current === 'unknown'
+		) {
+			if (++_try > 30) { return; }
+			(yield sleep(33 + 10 * _try));
+		}
+		console.log('current quality', quality);
+		const wanted = (main.options.player.children.defaultQualities.values.current).find(level => quality.available.includes(level));
+		if (wanted && wanted !== "auto" && wanted !== quality.current) {
+			console.log('setting quality to', wanted);
+			(yield player.setQuality(wanted));
+		}
+	});
+
 	main.on('navigated', async(function*() {
 		const { videoId, } = main;
 		if (!videoId) {
@@ -33,24 +49,24 @@ return function(main) {
 
 		const unMute = player.silence();
 
-		// set quality
-		let quality; while (!(quality = (yield player.getQuality())) || quality.current === 'unknown') { (yield sleep(33)); }
-		const wanted = (main.options.player.children.defaultQualities.values.current).find(level => quality.available.includes(level));
-		if (wanted && wanted !== "auto" && wanted !== quality.current) {
-			(yield player.setQuality(wanted));
-		}
-
 		// play, stop or pause
 		const should = main.options.player.children.onStart.value;
-		const play = should === 'play'
+		const play = !should
 		|| should === 'visible' && !document.hidden
 		|| should === 'focused' && document.hasFocus();
 		if (play) {
+			(yield setQuality());
 			(yield player.play());
-		} else if (should === 'stop') {
-			(yield player.stop());
 		} else {
-			(yield player.pause());
+			if (
+				main.options.player.children.onStart.children.stop.value
+				&& (yield player.getLoaded()) < 0.5
+			) {
+				(yield player.stop());
+				player.once('unstarted', setQuality);
+			} else {
+				(yield setQuality());
+			}
 		}
 
 		unMute();

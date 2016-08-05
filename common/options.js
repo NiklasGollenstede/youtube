@@ -11,7 +11,7 @@
 const listerners = new WeakMap;
 
 return new Options({
-	defaults,
+	model: defaults,
 	prefix: 'options',
 	storage: Storage.sync || Storage.local,
 	addChangeListener(listener) {

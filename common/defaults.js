@@ -14,6 +14,7 @@ return Object.freeze([ // TODO: deepFreeze
 		title: "Page options",
 		description: "",
 		type: "label",
+		default: true,
 		children: [
 			{
 				name: "displayRatings",
@@ -21,6 +22,7 @@ return Object.freeze([ // TODO: deepFreeze
 				description: "Displays a video rating bar for every thumbnail and shows the view count and video age when the cursor hovers over the image. This needs to load a snippet of information from YouTube servers for every thumbnail and caches these to reduce the network load",
 				type: "bool",
 				default: true,
+				expanded: false,
 				children: [
 					{
 						name: "totalLifetime",
@@ -76,6 +78,8 @@ return Object.freeze([ // TODO: deepFreeze
 				title: "Player preferences",
 				description: "",
 				type: "label",
+				default: true,
+				expanded: false,
 				children: [
 					{
 						name: "defaultQualities",
@@ -127,11 +131,19 @@ return Object.freeze([ // TODO: deepFreeze
 						type: "menulist",
 						default: "focused",
 						options: [
-							{ value: "play", label: "keep playing (YouTube default)", },
-							{ value: "stop", label: "stop playback without buffering", },
+							{ value: "", label: "keep playing (YouTube default)", },
 							{ value: "pause", label: "pause playback but keep buffering", },
 							{ value: "visible", label: "only pause if the tab is not visible", },
 							{ value: "focused", label: "only pause if the tab is not focused", },
+						],
+						children: [
+							{
+								name: "stop",
+								title: "Stop",
+								description: "Stop the video instead of pausing. This prevents buffering",
+								type: "bool",
+								default: false,
+							},
 						],
 					}, {
 						name: "cinemaMode",
@@ -145,6 +157,7 @@ return Object.freeze([ // TODO: deepFreeze
 						description: "Hides the sidebar to display the video player across the entire browser window",
 						type: "bool",
 						default: true,
+						expanded: false,
 						children: [
 							{
 								name: "atStart",
@@ -185,8 +198,10 @@ return Object.freeze([ // TODO: deepFreeze
 			}, {
 				name: "keys",
 				title: "Keyboard shortcuts",
-				description: "To change a shortcut, focus the textbox and press any combination of the modifiers Alt, Command, Control and Shift plus another key. Note that some combinations are reserved by Chrome itself",
+				description: "To change a shortcut, focus the textbox and press any combination of the modifiers Alt, Command, Control and Shift plus another key. Note that some combinations may be reserved by the browser itself.<br>All key names are those of the standard English keyboard",
 				type: "label",
+				default: true,
+				expanded: false,
 				restrict: { match: (RegExpX`^ (?:Ctrl\+)? (?:Alt\+)? (?:Shift\+)? (?:
 					  Key[A-Z]
 					| F\d\d?
@@ -234,175 +249,112 @@ return Object.freeze([ // TODO: deepFreeze
 							{ value: "Ctrl+",        label: "Ctrl", },
 							{ value: "Shift+",       label: "Shift", },
 						],
-					}, {
+					}, keybordKey({
 						name: "videoIncreaseQuality",
 						title: "Increase video quality",
 						description: "",
-						type: "keybordKey",
 						default: [ "Ctrl+ArrowUp", "Shift+BracketRight", "Numpad8", ],
-						restrict: "inherit",
-						maxLength: 5,
-					}, {
+					}), keybordKey({
 						name: "videoDecreaseQuality",
 						title: "Decrease video quality",
 						description: "",
-						type: "keybordKey",
 						default: [ "Ctrl+ArrowDown", "Shift+Slash", "Numpad2", ],
-						restrict: "inherit",
-						maxLength: 5,
-					}, {
+					}), keybordKey({
 						name: "videoIncreaseSpeed",
 						title: "Increase video speed",
 						description: "",
-						type: "keybordKey",
 						default: [ "BracketRight", "Numpad6", ],
-						restrict: "inherit",
-						maxLength: 5,
-					}, {
+					}), keybordKey({
 						name: "videoDecreaseSpeed",
 						title: "Decrease video speed",
 						description: "",
-						type: "keybordKey",
 						default: [ "Slash", "Numpad4", ],
-						restrict: "inherit",
-						maxLength: 5,
-					}, {
+					}), keybordKey({
 						name: "videoTogglePause",
 						title: "Play/pause",
 						description: "Toggles Play/Pause in the current tab. (For the global playlist play/pause see \"Keyboard shortcuts\" at the bottom of the \"chrome://extensions\" page)",
-						type: "keybordKey",
 						default: [ "Space", ],
-						restrict: "inherit",
-						maxLength: 5,
-					}, {
+					}), keybordKey({
 						name: "videoToggleFullscreen",
 						title: "Full screen",
 						description: "Toggle YouTubes default full screen mode on/off",
-						type: "keybordKey",
 						default: [ "KeyF", ],
-						restrict: "inherit",
-						maxLength: 5,
-					}, {
+					}), keybordKey({
 						name: "videoPromptPosiotion",
 						title: "Seek video to",
 						description: "Prompt for video position in hh:mm:SS.ss",
-						type: "keybordKey",
 						default: [ "KeyT", ],
-						restrict: "inherit",
-						maxLength: 5,
-					}, {
+					}), keybordKey({
 						name: "videoPromptVolume",
 						title: "Set volume to",
 						description: "Prompt for video volume in %",
-						type: "keybordKey",
 						default: [ "KeyV", ],
-						restrict: "inherit",
-						maxLength: 5,
-					}, {
+					}), keybordKey({
 						name: "playlistNext",
 						title: "Local playlist next",
 						description: "Play the next video in the YouTube playlist in the current tab. (For the global playlist Next command see \"Keyboard shortcuts\" at the bottom of the \"chrome://extensions\" page)",
-						type: "keybordKey",
 						default: [ "KeyN", ],
-						restrict: "inherit",
-						maxLength: 5,
-					}, {
+					}), keybordKey({
 						name: "playlistPrevious",
 						title: "Local playlist previous",
 						description: "Play the previous video in the YouTube playlist in the current tab. (For the global playlist Previous command see \"Keyboard shortcuts\" at the bottom of the \"chrome://extensions\" page)",
-						type: "keybordKey",
 						default: [ "KeyP", ],
-						restrict: "inherit",
-						maxLength: 5,
-					}, {
+					}), keybordKey({
 						name: "playlistToggleShuffle",
 						title: "Toggle local playlist shuffle",
 						description: "",
-						type: "keybordKey",
 						default: [ "KeyS", ],
-						restrict: "inherit",
-						maxLength: 5,
-					}, {
+					}), keybordKey({
 						name: "playlistToggleLoop",
 						title: "Toggle local playlist loop",
 						description: "",
-						type: "keybordKey",
 						default: [ "KeyR", ],
-						restrict: "inherit",
-						maxLength: 5,
-					}, {
+					}), keybordKey({
 						name: "playlistClear",
 						title: "Clear local playlist",
 						description: "",
-						type: "keybordKey",
 						default: [ "KeyE", ],
-						restrict: "inherit",
-						maxLength: 5,
-					}, {
+					}), keybordKey({
 						name: "videoStop",
 						title: "Stop video",
 						description: "Stop the YouTube player (stops buffering and discards all buffering progress)",
-						type: "keybordKey",
 						default: [ "KeyQ", ],
-						restrict: "inherit",
-						maxLength: 5,
-					}, {
+					}), keybordKey({
 						name: "videoToggleMute",
 						title: "Mute video",
 						description: "",
-						type: "keybordKey",
 						default: [ "KeyM", ],
-						restrict: "inherit",
-						maxLength: 5,
-					}, {
+					}), keybordKey({
 						name: "videoToggleInfoScreen",
 						title: "Display/hide the \"Stats for nerds\"",
 						description: "",
-						type: "keybordKey",
 						default: [ "KeyI", ],
-						restrict: "inherit",
-						maxLength: 5,
-					}, {
+					}), keybordKey({
 						name: "videoPushScreenshot",
 						title: "Take screenshot",
 						description: "Take a screenshot of the video at its current position in its native resolution and add it to the screenshot list in the sidebar",
-						type: "keybordKey",
 						default: [ "KeyC", ],
-						restrict: "inherit",
-						maxLength: 5,
-					}, {
+					}), keybordKey({
 						name: "videoPopScreenshot",
 						title: "Remove screenshot",
 						description: "Remove the topmost, oldest screenshot from the sidebar",
-						type: "keybordKey",
 						default: [ "KeyX", "Delete", ],
-						restrict: "inherit",
-						maxLength: 5,
-					}, {
+					}), keybordKey({
 						name: "videoSave",
 						title: "Save video",
 						description: "Tries to save the current video, which will only work if the browser doesn't support DASH-playback and YouTube uses the 360p/720p-.mp4-fallback",
-						type: "keybordKey",
 						default: [ "Ctrl+KeyS", ],
-						restrict: "inherit",
-						maxLength: 5,
-					}, {
+					}), keybordKey({
 						name: "videoDownloadCover",
 						title: "Download video cover",
 						description: "Save the \"maxresdefault\" preview image of the video",
-						type: "keybordKey",
 						default: [ "Ctrl+Alt+KeyS", "Numpad5", ],
-						restrict: "inherit",
-						maxLength: 5,
-					}, {
+					}), keybordKey({
 						name: "videoAutoZoom",
 						title: "Auto video zoom",
 						description: "Adjusts the video zoom so that black bars at the top and/or bottom are hidden. Useful to view 21:9 videos with black bars in full screen on 21:9 displays",
-						type: "keybordKey",
 						default: [ "KeyZ", "KeyA", ],
-						restrict: "inherit",
-						maxLength: 5,
-					},
+					}),
 				],
 			},
 		],
@@ -411,6 +363,8 @@ return Object.freeze([ // TODO: deepFreeze
 		title: "Storage options",
 		description: "",
 		type: "label",
+		default: true,
+		expanded: false,
 		children: [
 			{
 				name: "export",
@@ -438,7 +392,17 @@ return Object.freeze([ // TODO: deepFreeze
 		description: "Reset all options displayed on this page to their default values",
 		default: "Reset",
 		type: "control",
+		expanded: false,
 	},
 ]);
+
+function keybordKey(arg) {
+	return Object.assign({ }, {
+		type: "keybordKey",
+		restrict: "inherit",
+		maxLength: 5,
+		expanded: false,
+	}, arg);
+}
 
 });

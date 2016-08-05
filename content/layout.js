@@ -16,7 +16,7 @@ return class Layout {
 
 		this.fullscreenStyle = null;
 
-		const selectors = [ 'img', '.ytp-redesign-videowall-still', '.videowall-still', '.thumbnail-container', ];
+		const selectors = [ 'img', '.ytp-videowall-still', '.ytp-redesign-videowall-still', '.videowall-still', '.thumbnail-container', ];
 		this.animateThumbsTargets = `img, .ytp-redesign-videowall-still-image, .videowall-still-image, div#image`;
 		this.animateThumbsParents = selectors.join(', ');
 		this.animateThumbsChildren = selectors.map(s => s +' *, '+ s).join(', ');
@@ -88,7 +88,8 @@ return class Layout {
 			options.player.alwaysVolume && (element.querySelector('.ytp-volume-panel') || noop).classList.add('ytp-volume-control-hover');
 
 			// disable annotations (and all other checkboxes in the player settings)
-			if (!options.player.annotations) {
+			if (!options.player.annotations) { [ 0, 300, 2000, ].forEach(time => setTimeout(disable, time)); }
+			function disable() {
 				element.querySelector('.ytp-settings-button').click();
 				Array.prototype.forEach.call(element.querySelectorAll('#ytp-main-menu-id .ytp-menuitem[aria-checked="true"]'), button => button.click());
 				element.querySelector('.ytp-settings-button').click();
@@ -97,6 +98,12 @@ return class Layout {
 			// remove title overlay of external player
 			const title = element.querySelector('.ytp-chrome-top');
 			title && title.remove() === element.querySelector('.ytp-gradient-top').remove();
+
+			// remove "Recommended for you" stuff
+			Array.prototype.forEach.call(document.querySelectorAll('.video-list-item, .related-list-item'), item => {
+				const viewCount = item.querySelector('.view-count');
+				viewCount && !(/\d/).test(viewCount.textContent) && item.remove();
+			});
 		});
 	}
 

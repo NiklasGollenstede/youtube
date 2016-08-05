@@ -11,8 +11,8 @@ if (!Storage.sync) {
 	Storage.sync = Storage.local;
 }
 
-
-Promise.all([
+require('web-ext-utils/update')()
+.then(() => Promise.all([
 	require('db/meta-data'),
 	require('common/options'),
 ]).then(([ db, options, ]) => {
@@ -142,23 +142,9 @@ gecko && Storage.onChanged.addListener((change, area) => {
 });
 
 // load the content_scripts into all existing tabs
-const { matchPatternToRegExp, } = require('web-ext-utils/utils');
-Tabs.query({ }).then(tabs => {
-	console.log(tabs);
-	chrome.runtime.getManifest().content_scripts.forEach(({ js, css, matches, exclude_matches, }) => {
-		const includes = (matches|| [ ]).map(matchPatternToRegExp);
-		const excludes = (exclude_matches|| [ ]).map(matchPatternToRegExp);
-		Promise.all(tabs.map(({ id, url, }) => {
-			if (!url || Tab.instances.has(id) || !includes.some(exp => exp.test(url)) || excludes.some(exp => exp.test(url))) { return; }
-			return Tabs.executeScript(id, { file: '/content/cleanup.js', })
-			.then(() => {
-				css.forEach(file => chrome.tabs.insertCSS(id, { file, }));
-				js.forEach(file => chrome.tabs.executeScript(id, { file, }));
-				return true;
-			})
-			.catch(error => console.log('skipped tab', error)); // not allowed to execute, i.e. not YouTube
-		})).then(success => console.log('attached to', success.filter(x=>x).length, 'tabs'));
-	});
-});
+return require('web-ext-utils/utils').attachAllContentScripts({ cleanup: () => {
+	delete window.require;
+	delete window.define;
+}, });
 
-}).catch(error => console.error('Error during startup', error));
+}));

@@ -28,6 +28,7 @@ const methods = {
 
 	   isMuted:         (player, args) => sendMessage('_isMuted', player.isMuted()),
 	   getTime:         (player, args) => sendMessage('_getTime', player.getCurrentTime()),
+	   getLoaded:       (player, args) => sendMessage('_getLoaded', player.getVideoLoadedFraction()),
 	   showVideoInfo:   (player, args) => player.showVideoInfo(...args),
 	   hideVideoInfo:   (player, args) => player.hideVideoInfo(...args),
 };

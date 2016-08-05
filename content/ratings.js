@@ -95,6 +95,8 @@ return class Ratings {
 				false: this.disable,
 			});
 		});
+
+		main.addDomListener(window, 'click', () => Array.prototype.forEach.call(document.querySelectorAll('.yt-uix-tooltip-tip'), item => item.remove()));
 	}
 
 	loadAndDisplayRating(element) {
