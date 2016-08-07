@@ -3,31 +3,33 @@
 ) {
 
 const allKeys = [
-	'id', // <dummi>
+	'id', // string
 	'meta', // { title: string, published: natural, duration: float, }
 	'private', // { ...TBD, }
 	'rating', // { views: natural, likes: natural, dislikes: natural, timestamp: natural, }
 	'viewed', // float (seconds)
+	'thumb', // Blob
 ];
 // e.g.:
 // db.set(1, { meta: { title: 'Awesome title', published: Date.now(), duration: 213.4, }, private: { rating: 0.6, }, rating: { views: 301, likes: 5, dislikes: 1, }, viewCount: 1.7, })
 // db.modify(1, ({ viewCount, }) => ({ viewCount: viewCount + 1, }), [ 'viewCount', ])
 
-const promise = (() => { try {
-
-const db = window.indexedDB.open('videoInfo', 5);
-db.onupgradeneeded = ({ target: { result: db, }, }) => {
-	const existing = db.objectStoreNames;
-	const includes = existing.includes ? 'includes' : 'contains';
-	allKeys.forEach(store => !existing[includes](store) && db.createObjectStore(store, { }));
-};
-
-return getResult(db).then(db => class Transaction {
+return Promise.resolve().then(() => {
+	const db = window.indexedDB.open('videoInfo', 6); // throws in firefox if cookies are disabled
+	db.onupgradeneeded = ({ target: { result: db, }, }) => {
+		const existing = db.objectStoreNames;
+		const includes = existing.includes ? 'includes' : 'contains';
+		allKeys.forEach(store => !existing[includes](store) && db.createObjectStore(store, { }));
+	};
+	return getResult(db); // throws in firefox if ???
+})
+.then(db => class Transaction {
 	constructor(write, keys, tmp) {
 		this.keys = keys || allKeys;
 		this._ = db.transaction(this.keys, write ? 'readwrite' : 'readonly');
 		this.done = !tmp && getResult(this);
 	}
+	get isIDB() { return true; }
 	ids() {
 		return getResult(this._.objectStore('meta').getAllKeys());
 	}
@@ -61,19 +63,20 @@ return getResult(db).then(db => class Transaction {
 	assign(id, key, props) {
 		return this.modify(id, data => ({ [key]: typeof data[key] !== 'object' ? props : Object.assign(data[key], props), }), [ key, ]);
 	}
-});
-
-} catch(error) {
-	if (!(error && error instanceof DOMException && error.name === 'SecurityError')) { throw error; }
+})
+.catch(error => {
+	if (!error || !((error instanceof DOMException) || (error instanceof Event))) { throw error; }
 	console.log('indexedDB is unavailable, fall back to chrome.storage.local');
 
 	const storage = require('web-ext-utils/chrome').storage.local;
-	return Promise.resolve(class Storage {
+
+	return class Storage {
 		constructor(write, keys, tmp) {
 			this.keys = keys || allKeys;
 			this.write = write;
 			this.done = !tmp && Promise.resolve();
 		}
+		get isIDB() { return false; }
 		ids() {
 			return storage.get().then(data => {
 				const ids = new Set;
@@ -119,12 +122,14 @@ return getResult(db).then(db => class Transaction {
 		assign(id, key, props) {
 			return this.modify(id, data => ({ [key]: typeof data[key] !== 'object' ? props : Object.assign(data[key], props), }), [ key, ]);
 		}
-	});
-} })();
-
-return promise.then(Transaction => ({
+	};
+})
+.then(Transaction => ({
 	transaction(write, keys) {
 		return new Transaction(write, keys);
+	},
+	get isIDB() {
+		return Transaction.name === 'Transaction';
 	},
 	ids() {
 		return new Transaction(false, [ 'meta', ], true).ids();

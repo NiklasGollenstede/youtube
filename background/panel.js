@@ -1,17 +1,18 @@
 'use strict'; define('background/panel', [
 	'web-ext-utils/chrome',
+	'db/meta-data',
 ], function(
-	{ tabs: Tabs, }
+	{ tabs: Tabs, },
+	db
 ) {
 
-class Panel {
-	constructor({ tabs, commands, playlist, data, }) {
+class PanelHandler {
+	constructor({ tabs, commands, playlist, }) {
 		this.ports = new Set;
 		this.is = false;
 		this.tabs = tabs;
 		this.commands = commands;
 		this.playlist = playlist;
-		this.data = data;
 		this.onTabMoved = this.onTabMoved.bind(this);
 	}
 
@@ -122,9 +123,9 @@ class Panel {
 		const mapper = {
 			random: Math.random,
 			position: tab => tab.tab().then(info => (info.windowId << 16) + info.index),
-			viewsGlobal: tab => this.data.get(tab.videoId, [ 'rating', ]).then(({ rating, }) => -rating.views),
-			viewsTotal: tab => this.data.get(tab.videoId, [ 'viewed', ]).then(({ viewed, }) => -(viewed || 0)),
-			viewsRelative: tab => this.data.get(tab.videoId, [ 'viewed', 'meta', ]).then(({ viewed, meta, }) => -(viewed || 0) / (meta && meta.duration || Infinity)),
+			viewsGlobal: tab => db.get(tab.videoId, [ 'rating', ]).then(({ rating, }) => -rating.views),
+			viewsTotal: tab => db.get(tab.videoId, [ 'viewed', ]).then(({ viewed, }) => -(viewed || 0)),
+			viewsRelative: tab => db.get(tab.videoId, [ 'viewed', 'meta', ]).then(({ viewed, meta, }) => -(viewed || 0) / (meta && meta.duration || Infinity)),
 		}[by];
 		const data = new WeakMap;
 		return Promise.all(this.playlist.map(tab => Promise.resolve(tab).then(mapper).catch(error => console.error(error)).then(value => data.set(tab, +value || 0))))
@@ -143,6 +144,6 @@ class Panel {
 	command_loop() { this.commands.loop(); }
 }
 
-return Panel;
+return PanelHandler;
 
 });

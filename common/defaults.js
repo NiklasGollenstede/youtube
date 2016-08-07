@@ -86,10 +86,9 @@ return Object.freeze([ // TODO: deepFreeze
 						title: "Playback Quality",
 						description: "",
 						type: "menulist",
-						default: [ "hd1080", "hd720", "auto" ],
+						default: [ "hd1080", "hd720", ],
 						maxLength: 10,
 						options: [
-							{ value: "auto",	label: "auto" },
 							{ value: "hd2160",	label: "2160p | UHD 4k" },
 							{ value: "hd1440",	label: "1440p | Quad HD" },
 							{ value: "hd1080",	label: "1080p | Full HD" },

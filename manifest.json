@@ -19,9 +19,10 @@
 	},
 
 	"permissions": [
-		"storage",
 		"clipboardWrite",
-		"https://www.youtube.com/*", "https://gaming.youtube.com/*", "tabs"
+		"storage",
+		"tabs",
+		"https://www.youtube.com/*", "https://gaming.youtube.com/*", "https://i.ytimg.com/*"
 	],
 	"optional_permissions": [ ],
 	"background": {

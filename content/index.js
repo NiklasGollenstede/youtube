@@ -45,7 +45,7 @@ const Main = new Class({
 		try { this.control = new (require('content/control'))(this); } catch(e) { error(e); }
 
 		this.port.on(Symbol.for('destroyed'), self.destroy.bind(self));
-		require('content/options').then(self.optionsLoaded.bind(self));
+		require.async('content/options').then(self.optionsLoaded.bind(self));
 	}),
 
 	public: (Private, Protected, Public) => ({

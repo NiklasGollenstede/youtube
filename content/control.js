@@ -31,9 +31,12 @@ return function(main) {
 		}
 		console.log('current quality', quality);
 		const wanted = (main.options.player.children.defaultQualities.values.current).find(level => quality.available.includes(level));
-		if (wanted && wanted !== "auto" && wanted !== quality.current) {
-			console.log('setting quality to', wanted);
+		if (!wanted || wanted === "auto") { return; }
+		console.log('setting quality to', wanted);
+		if (wanted !== quality.current) {
 			(yield player.setQuality(wanted));
+		} else {
+			player.setQuality(wanted);
 		}
 	});
 
@@ -71,7 +74,7 @@ return function(main) {
 
 		unMute();
 
-		const duration = hhMmSsToSeconds(player.root.querySelector('.ytp-time-duration').textContent);
+		const duration = hhMmSsToSeconds(player.root.querySelector('.ytp-time-duration').textContent); // TODO: this may use the duration of an ad
 		const titleElement = document.querySelector('#eow-title, .video-title span, .video-title');
 		const title = titleElement && titleElement.textContent.trim();
 		(yield port.request('db', 'assign', main.videoId, 'meta', title ? { title, duration, } : { duration, }));

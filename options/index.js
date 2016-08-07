@@ -2,7 +2,7 @@
 
 const { request, } = require('web-ext-utils/chrome').messages;
 
-require('common/options').then(options => {
+require.async('common/options').then(options => {
 	window.options = options;
 	require('web-ext-utils/options/editor')({
 		options,

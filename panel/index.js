@@ -124,7 +124,7 @@ document.addEventListener('click', function({ target, button, }) {
 
 // show context menus
 document.addEventListener('contextmenu', function(event) {
-	const { target, x, y, } = event;
+	const { target, clientX: x, clientY: y, } = event;
 	if (!target.matches) { return; }
 	const items = [ ];
 	if (target.matches('.tab, .tab *')) {
@@ -244,7 +244,9 @@ function updateTab(element, tab) {
 	}
 	if ('videoId' in tab) {
 		element.className = element.className.replace(/video-[^ ]*/, 'video-'+ tab.videoId);
-		element.querySelector('.icon').style.backgroundImage = `url("https://i.ytimg.com/vi/${ tab.videoId }/default.jpg")`;
+	}
+	if ('thumb' in tab) {
+		element.querySelector('.icon').style.backgroundImage = `url(${ tab.thumb })`;
 	}
 	if ('title' in tab) {
 		element.querySelector('.title').textContent = tab.title;
@@ -271,7 +273,7 @@ function positionInParent(element) {
 function hideScrollBars() {
 	const element = document.body.appendChild(document.createElement('div'));
 	element.classList.add('scroll-inner');
-	const width = (element.offsetWidth - element.clientWidth) || 17; // TODO: in FF47 this doesn't work within panels
+	const width = element.offsetWidth - element.clientWidth;
 	document.styleSheets[0].insertRule(`.scroll-inner { margin-right: -${ width }px; }`, 0);
 	element.remove();
 }

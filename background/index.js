@@ -1,9 +1,29 @@
-'use strict';
+define('background/update', [ 'web-ext-utils/update', ], _=>_()); // run updates
+define('background/main', [
+	'background/update',
+	'es6lib',
+	'web-ext-utils/chrome',
+	'db/meta-data',
+	'common/options',
+	'background/tab',
+	'background/panel',
+], function(
+	_,
+	{
+		concurrent: { async, },
+	}, {
+		Tabs, Storage, Extension, Messages, applications: {
+			gecko, chromium,
+		},
+	},
+	db,
+	options,
+	Tab,
+	PanelHandler
+) {
 
-const {
-	concurrent: { async, },
-} = require('es6lib');
-const { Tabs, Storage, Extension, applications: { gecko, chromium, }, Messages, } = window.Chrome = require('web-ext-utils/chrome');
+window.Chrome = require('web-ext-utils/chrome');
+window.db = db; window.options = options;
 Messages.isExclusiveMessageHandler = true;
 
 if (!Storage.sync) {
@@ -11,14 +31,6 @@ if (!Storage.sync) {
 	Storage.sync = Storage.local;
 }
 
-require('web-ext-utils/update')()
-.then(() => Promise.all([
-	require('db/meta-data'),
-	require('common/options'),
-]).then(([ db, options, ]) => {
-window.db = db; window.options = options;
-
-const Tab = window.Tab = new require('background/tab');
 
 const playlist = window.playlist = new (require('background/playlist'))({
 	onSeek(index) {
@@ -53,7 +65,7 @@ const commands = window.commands = {
 	},
 };
 
-const panel = window.panel = new (require('background/panel'))({ tabs: Tab.actives, playlist, commands, data: db, });
+const panel = window.panel = new PanelHandler({ tabs: Tab.actives, playlist, commands, data: db, });
 
 chrome.commands.onCommand.addListener(command => ({
 	MediaPlayPause: commands.toggle,
@@ -147,4 +159,4 @@ return require('web-ext-utils/utils').attachAllContentScripts({ cleanup: () => {
 	delete window.define;
 }, });
 
-}));
+});
