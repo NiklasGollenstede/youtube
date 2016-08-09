@@ -46,6 +46,10 @@ window.addEventListener('DOMContentLoaded', () => {
 			tabList.insertBefore(windowList.querySelector('.tab-'+ tabId).cloneNode(true), tabList.children[index]);
 			reference && (tabList.children[index].reference = reference);
 		},
+		playlist_push(tabIds) {
+			console.log('playlist_push', ...tabIds);
+			tabIds.forEach(tabId => tabList.appendChild(windowList.querySelector('.tab-'+ tabId).cloneNode(true)));
+		},
 		playlist_seek(active) {
 			console.log('playlist_seek', active);
 			Array.prototype.forEach.call(tabList.querySelectorAll('.active'), tab => tab.classList.remove('active'));
@@ -54,6 +58,10 @@ window.addEventListener('DOMContentLoaded', () => {
 		playlist_delete(index) {
 			console.log('playlist_delete', index);
 			removeTab(tabList.children[index]);
+		},
+		playlist_clear() {
+			console.log('playlist_clear');
+			tabList.textContent = '';
 		},
 		playlist_replace(playlist) {
 			console.log('playlist_replace', playlist);
@@ -102,19 +110,20 @@ window.addEventListener('DOMContentLoaded', () => {
 document.addEventListener('dblclick', function({ target, button, }) {
 	if (button || !target.matches || !target.matches('.description, .description :not(.remove)')) { return; }
 
-	target = getParent(target, '.tab');
+	target = target.closest('.tab');
 	if (target.matches('#playlist *')) {
 		port.emit('playlist_seek', positionInParent(target));
 	} else if (target.matches('#windows *')) {
 		port.emit('tab_focus', +target.dataset.tabId);
 	}
+	window.getSelection().removeAllRanges();
 });
 
 // remove tab on leftcklick on ".remove"
 document.addEventListener('click', function({ target, button, }) {
 	if (button || !target.matches || !target.matches('.tab .remove, .tab .remove *')) { return; }
 
-	target = getParent(target, '.tab');
+	target = target.closest('.tab');
 	if (target.matches('#playlist *')) {
 		port.emit('playlist_delete', positionInParent(target));
 	} else if (target.matches('#windows *')) {
@@ -128,13 +137,14 @@ document.addEventListener('contextmenu', function(event) {
 	if (!target.matches) { return; }
 	const items = [ ];
 	if (target.matches('.tab, .tab *')) {
-		const tab = getParent(target, '.tab');
+		const tab = target.closest('.tab');
 		const tabId = +tab.dataset.tabId;
 		items.push(
 			{ label: 'Play video', action: () => port.emit('tab_play', tabId), default: target.matches('#playlist *') && !target.matches('.remove'), },
 			{ label: 'Show tab', action: () => port.emit('tab_focus', tabId), default: target.matches('#windows *') && !target.matches('.remove'), },
 			{ label: 'Close tab', action: () => port.emit('tab_close', tabId), default: target.matches('.remove'), },
-			target.matches('#playlist *') && { label: 'Duplicate', action: () => port.emit('playlist_add', { index: positionInParent(tab), tabId, }), }
+			target.matches('#playlist *') && { label: 'Duplicate', action: () => port.emit('playlist_add', { index: positionInParent(tab), tabId, }), },
+			target.matches('.window *') && { label: 'Add tab', action: () => port.emit('playlist_push', tabId), }
 		);
 	}
 	if (target.matches('#playlist, #playlist *')) {
@@ -147,7 +157,8 @@ document.addEventListener('contextmenu', function(event) {
 					{ label: 'yours in times viewed', action: () => port.emit('playlist_sort', { by: 'viewsRelative', }), },
 				], },
 				{ label: 'Shuffle', action: () => port.emit('playlist_sort', { by: 'random', }), },
-			], }
+			], },
+			{ label: 'Clear list', action: () => port.emit('playlist_clear'), }
 		);
 	}
 	if (target.matches('.window .header .title')) {
@@ -156,8 +167,15 @@ document.addEventListener('contextmenu', function(event) {
 			{ label: (box.checked ? 'Expand' : 'Collapse') +' tab list', action: () => box.checked = !box.checked, default: true, }
 		);
 	}
+	if (target.matches('.window, .window *')) {
+		items.push(
+			{ label: 'Add all', action: () => port.emit('playlist_push', Array.prototype.map.call(
+				target.closest('.window').querySelectorAll('.tab'), _=>_.dataset.tabId
+			)), }
+		);
+	}
 	if (target.matches('#windows, #windows *')) {
-		const windowId = getParent(target, '.window').id.match(/^window-(.+)$/)[1];
+		const windowId = target.closest('.window').id.match(/^window-(.+)$/)[1];
 		items.push(
 			{ label: 'Close window', action: () => confirm(
 				'Close all '+ windowList.querySelectorAll('#window-'+ windowId +' .tab').length +' tabs in this window?'

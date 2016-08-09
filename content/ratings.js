@@ -13,26 +13,22 @@
 
 const CSS = {
 	static: () => (`
-		.channels-browse-content-grid .channels-content-item
-		{ height: 167px; }
 		.inserted-ratings
 		{ position: relative; }
-		.ytp-redesign-videowall-still-info
-		{ display: block; height: 100%; }
 		.inserted-ratings>*
 		{ float: left; }
+		.videowall-endscreen .inserted-ratings
+		{ bottom: 0 !important; position: absolute !important; width: 100% !important; }
 	`),
 	barHeight: barHeight => (`
 		.video-time /* make room for ratings bar */
 		{ margin-bottom: ${ barHeight }px !important; }
-		.videowall-endscreen .inserted-ratings
-		{ top: -${ barHeight }px !important; }
 		.inserted-ratings>*
 		{ height: ${ barHeight }px !important; }
-		.yt-uix-simple-thumb-related>img /* without this, the ratings bar will be hidden far below the sidebar images */
-		{ margin-bottom: -${ 25 + barHeight }px !important; }
-		.yt-uix-simple-thumb-related>img[height="67"] /* higher resolution thumbs have a different aspect ratio -.- */
-		{ margin-bottom: -${ 4 + barHeight }px !important; }
+		.related-list-item .inserted-ratings
+		{ bottom: ${ 3.5 + barHeight }px !important; }
+		.related-list-item .yt-pl-thumb  .inserted-ratings
+		{ bottom: ${ 0.5 + barHeight }px !important; }
 	`),
 	likesColor: likesColor => (`
 		.inserted-ratings .video-extras-sparkbar-likes
@@ -43,14 +39,6 @@ const CSS = {
 		{ background-color: ${ dislikesColor } !important; }
 	`),
 };
-
-function attatchRatingBar({ parentNode: element, }, { rating: { likes, dislikes, views, }, meta: { published, }, })  {
-	element.matches('.yt-thumb-clip') && (element = element.parentNode.parentNode);
-	element.matches('ytg-thumbnail') && (element = element.parentNode.parentNode.parentNode);
-	element.classList.add('yt-uix-tooltip');
-	element.insertAdjacentHTML('beforeend', Templates.ratingsBar(likes, dislikes));
-	element.title = Templates.videoInfoTitle(likes, dislikes, views, published);
-}
 
 const getInt = (string, regexp) => parseInt((string.match(regexp) || [0,'0'])[1].replace(/[\,\.]*/g, ''), 10);
 const getString = (string, regexp) => decodeHtml((string.match(regexp) || [0,''])[1]);
@@ -74,7 +62,9 @@ return class Ratings {
 	constructor(main) {
 		this.main = main;
 		this.observer = null;
-		this.selector = 'img, .videowall-still-image, .ytp-redesign-videowall-still-image, div#image';
+		this.selector = 'img, .ytp-videowall-still-image, div#image';
+		this.barParentSelector = '.video-thumb, .ytp-videowall-still-image';
+		this.tooltipSelector = '.yt-thumb, .yt-pl-thumb, .ytp-videowall-still';
 
 		this.enable = this.enable.bind(this);
 		this.disable = this.disable.bind(this);
@@ -98,7 +88,7 @@ return class Ratings {
 
 		main.addDomListener(window, 'click', () => Array.prototype.forEach.call(document.querySelectorAll('.yt-uix-tooltip-tip'), item => item.remove()));
 	}
-
+// 		viewsRelative: tab => db.get(tab.videoId, [ 'viewed', 'meta', ]).then(({ viewed, meta, }) => -(viewed || 0) / (meta && meta.duration || Infinity)),
 	loadAndDisplayRating(element) {
 		const id = getVideoIdFromImageSrc(element);
 		if (!id || element.dataset.rating) { return; }
@@ -106,25 +96,34 @@ return class Ratings {
 		const { port, } = this.main;
 		spawn(function*() {
 			if (this.totalLifetime < 0) {
-				return attatchRatingBar(element, (yield loadRatingFromServer(id)));
+				return this.attatchRatingBar(element, (yield loadRatingFromServer(id)));
 			}
-			const stored = (yield port.request('db', 'get', id, [ 'meta', 'rating', ]));
+			const stored = (yield port.request('db', 'get', id, [ 'meta', 'rating', 'viewed', ]));
 			let now = Date.now(), age;
 			if (
 				stored.meta && stored.rating
 				&& (age = now - stored.rating.timestamp) < this.totalLifetime * 36e5
 				&& age < (now - stored.meta.published) * (this.relativeLifetime / 100)
 			) {
-				return attatchRatingBar(element, stored);
+				return this.attatchRatingBar(element, stored);
 			}
 			const loaded = (yield loadRatingFromServer(id));
-			attatchRatingBar(element, loaded);
+			this.attatchRatingBar(element, Object.assign(stored, loaded));
 			return Promise.all([
 				port.request('db', 'set', id, { rating: loaded.rating, }),
 				port.request('db', 'assign', id, 'meta', loaded.meta),
 			]);
 		}, this)
 		.catch(error => console.error(error) === delete element.dataset.rating);
+	}
+
+	attatchRatingBar(image, { rating: { likes, dislikes, views, }, meta: { published, duration, }, viewed, })  {
+		const container = image.closest(this.barParentSelector) || image.parentNode;
+		// element.matches('ytg-thumbnail') && (element = element.parentNode.parentNode.parentNode);
+		container.insertAdjacentHTML('beforeend', Templates.ratingsBar(likes, dislikes));
+		const tooltiped = (image.closest(this.tooltipSelector) || image.parentNode);
+		tooltiped.classList.add('yt-uix-tooltip');
+		tooltiped.title = Templates.videoInfoTitle(likes, dislikes, views, published, viewed, duration);
 	}
 
 	enable() {
@@ -143,10 +142,11 @@ return class Ratings {
 		this.main.observer && this.main.observer.remove(this.selector.split(',').map(s => s +':not([data-rating="true"])').join(','), this.loadAndDisplayRating);
 		Array.prototype.forEach.call(document.querySelectorAll('[data-rating="true"]'), element => delete element.dataset.rating);
 		Array.prototype.forEach.call(document.querySelectorAll('.inserted-ratings'), element => {
-			const { parentNode: parent, } = element;
-			parent.classList.remove('yt-uix-tooltip');
-			parent.removeAttribute('title');
-			delete parent.dataset.tooltipText;
+			const image = element.querySelector(this.selector) || element;
+			const tooltiped = image.closest(this.tooltipSelector);
+			tooltiped.classList.remove('yt-uix-tooltip');
+			tooltiped.removeAttribute('title');
+			delete tooltiped.dataset.tooltipText;
 			element.remove();
 		});
 	}

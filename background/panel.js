@@ -99,6 +99,11 @@ class PanelHandler {
 		this.emit('playlist_add', { index, tabId, reference, });
 		this.playlist.splice(index, 0, this.tabs.get(+tabId));
 	}
+	playlist_push(tabIds) {
+		console.log('playlist_push', tabIds);
+		this.emit('playlist_push', tabIds);
+		this.playlist.push(...tabIds.map(tabId => this.tabs.get(+tabId)));
+	}
 	playlist_seek(index) {
 		console.log('playlist_seek', index);
 		if (this.playlist.index === index) {
@@ -114,6 +119,12 @@ class PanelHandler {
 		this.playlist.index === index && this.playlist.is(tab => tab.pause());
 		const old = this.playlist.splice(index, 1);
 		old && old.playing && this.commands.play();
+	}
+	playlist_clear() {
+		console.log('playlist_clear');
+		this.emit('playlist_clear');
+		this.commands.pause();
+		this.playlist.length = 0;
 	}
 	playlist_sort({ by, direction, }) {
 		if (!(direction > 0 || direction < 0)) {

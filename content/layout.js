@@ -16,16 +16,23 @@ return class Layout {
 
 		this.fullscreenStyle = null;
 
-		const selectors = [ 'img', '.ytp-videowall-still', '.ytp-redesign-videowall-still', '.videowall-still', '.thumbnail-container', ];
-		this.animateThumbsTargets = `img, .ytp-redesign-videowall-still-image, .videowall-still-image, div#image`;
-		this.animateThumbsParents = selectors.join(', ');
-		this.animateThumbsChildren = selectors.map(s => s +' *, '+ s).join(', ');
+		const parents              = `img, .ytp-videowall-still,       .ytp-redesign-videowall-still,       .videowall-still,      .thumbnail-container`.split(/,\s+/);
+		this.animateThumbsTargets  = `img, .ytp-videowall-still-image, .ytp-redesign-videowall-still-image, .videowall-still-image, div#image`;
+		this.animateThumbsParents  = parents.join(', ');
+		this.animateThumbsChildren = parents.map(s => s +' *, '+ s).join(', ');
+		this.animateThumbsScaleIf  = `.yt-uix-simple-thumb-related *`;
+		this.main.addStyle(`
+			.yt-uix-simple-thumb-related     .animated-thumb { transform: scaleY(1.366); } /* view, */
+			.yt-thumb-simple                 .animated-thumb { transform: scaleY(1.366) translateY(+0.17%); } /* home, */
+			.yt-thumb-clip                   .animated-thumb { transform: scaleY(1.016) translateY(-0.22%); } /* channels, */
+		`);
 
 		this.scale = 1;
 		this.scaleX = this.scaleY = 0.5;
 		this.zoom = createElement('style');
 		main.player.on('loaded', (element) => element.ownerDocument.head.appendChild(this.zoom));
 
+		this.disableAnnotations = this.disableAnnotations.bind(this);
 		this.animatedThumbsOnMouseover = this.animatedThumbsOnMouseover.bind(this);
 		this.fullscreenOnWheel = this.fullscreenOnWheel.bind(this);
 		this.seamlessFullscreenOnMousemove = this.seamlessFullscreenOnMousemove.bind(this);
@@ -44,8 +51,12 @@ return class Layout {
 
 	optionsLoaded(options) {
 		this.options = options;
+		options.player.children.annotations.when({
+			false: () => this.main.player.on ('playing', this.disableAnnotations),
+			true:  () => this.main.player.off('playing', this.disableAnnotations),
+		});
 		options.animateThumbs.when({
-			true: () => this.main.addDomListener(window, 'mouseover', this.animatedThumbsOnMouseover),
+			true:  () => this.main.addDomListener   (window, 'mouseover', this.animatedThumbsOnMouseover),
 			false: () => this.main.removeDomListener(window, 'mouseover', this.animatedThumbsOnMouseover),
 		});
 		options.player.children.seamlessFullscreen.when({
@@ -59,11 +70,11 @@ return class Layout {
 			},
 		});
 		options.player.children.seamlessFullscreen.children.showOnMouseRight.when({
-			true: () => this.main.addDomListener(window, 'mousemove', this.seamlessFullscreenOnMousemove),
+			true:  () => this.main.addDomListener   (window, 'mousemove', this.seamlessFullscreenOnMousemove),
 			false: () => this.main.removeDomListener(window, 'mousemove', this.seamlessFullscreenOnMousemove),
 		});
 		options.player.children.zoomFactor.when({
-			true: () => this.main.addDomListener(window, 'wheel', this.videoZoomOnWheel),
+			true:  () => this.main.addDomListener   (window, 'wheel', this.videoZoomOnWheel),
 			false: () => this.main.removeDomListener(window, 'wheel', this.videoZoomOnWheel),
 		});
 		this.enableVideoAutoZoom();
@@ -82,40 +93,47 @@ return class Layout {
 
 		player.loaded.then(element => {
 			// use cinema mode to make progress-bar a bit larger
-			options.player.cinemaMode && (element.querySelector('.ytp-size-button') || noop).click();
+			options.player.children.cinemaMode.value && (element.querySelector('.ytp-size-button') || noop).click();
 
 			// always display volume
-			options.player.alwaysVolume && (element.querySelector('.ytp-volume-panel') || noop).classList.add('ytp-volume-control-hover');
-
-			// disable annotations (and all other checkboxes in the player settings)
-			if (!options.player.annotations) { [ 0, 300, 2000, ].forEach(time => setTimeout(disable, time)); }
-			function disable() {
-				element.querySelector('.ytp-settings-button').click();
-				Array.prototype.forEach.call(element.querySelectorAll('#ytp-main-menu-id .ytp-menuitem[aria-checked="true"]'), button => button.click());
-				element.querySelector('.ytp-settings-button').click();
-			}
+			options.player.children.alwaysVolume.value && ((element.querySelector('.ytp-volume-panel') || noop).style.minWidth = '52px');
 
 			// remove title overlay of external player
 			const title = element.querySelector('.ytp-chrome-top');
 			title && title.remove() === element.querySelector('.ytp-gradient-top').remove();
 
 			// remove "Recommended for you" stuff
-			Array.prototype.forEach.call(document.querySelectorAll('.video-list-item, .related-list-item'), item => {
-				const viewCount = item.querySelector('.view-count');
-				viewCount && !(/\d/).test(viewCount.textContent) && item.remove();
-			});
+			if (options.hideRecommended.value) {
+				Array.prototype.forEach.call(document.querySelectorAll('.related-list-item'), item => {
+					const viewCount = item.querySelector('.view-count');
+					viewCount && !(/\d/).test(viewCount.textContent) && item.remove();
+				});
+				player.once('ended', () => Array.prototype.forEach.call(document.querySelectorAll('a.ytp-videowall-still'), item => {
+					const match = (/v=([\w-]{11})/).exec(item.href);
+					match && !document.querySelector(`.related-list-item a[href$="${ match[1] }"]`) && (item.style.opacity = 0.3); // item.remove();
+				}));
+			}
 		});
+	}
+
+	/// disables annotations (and all other checkboxes in the player settings)
+	disableAnnotations() {
+		const element = this.main.player.root;
+		element.querySelector('.ytp-settings-button').click();
+		Array.prototype.forEach.call(element.querySelectorAll('.ytp-settings-menu .ytp-menuitem[aria-checked="true"]'), _=>_.click());
+		element.querySelector('.ytp-settings-button').click();
 	}
 
 	animatedThumbsOnMouseover({ target, }) {
 		if (!target.matches || !target.matches(this.animateThumbsChildren)) { return; }
 
-		const image = (getParent(target, this.animateThumbsParents) || target).querySelector(this.animateThumbsTargets) || target;
+		const image = (target.closest(this.animateThumbsParents) || target).querySelector(this.animateThumbsTargets) || target;
 		const videoId = getVideoIdFromImageSrc(image);
 		if (!videoId) { return; }
 		const background = !image.src;
 		let original = background ? image.style.backgroundImage : image.src;
 		let index = 0;
+		image.classList.add('animated-thumb');
 
 		(function loop() {
 			if (!original) { return; }
@@ -128,6 +146,7 @@ return class Layout {
 
 		once(target, 'mouseout', event => {
 			background ? image.style.backgroundImage = original : image.src = original;
+			image.classList.remove('animated-thumb');
 			original = null;
 		});
 	}

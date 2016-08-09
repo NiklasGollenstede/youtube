@@ -1,6 +1,9 @@
 ::selection {
 	background-color: black;
 }
+::-moz-selection {
+	background-color: black;
+}
 html, body {
 	background-color: #555;
 	color: white;

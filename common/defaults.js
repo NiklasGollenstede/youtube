@@ -74,6 +74,12 @@ return Object.freeze([ // TODO: deepFreeze
 				type: "bool",
 				default: true,
 			}, {
+				name: "hideRecommended",
+				title: "Hide \"Recommended\" videos",
+				description: "Removes any videos that are \"<i>Recommended</i> for you\" from the list of <i>related</i> videos",
+				type: "bool",
+				default: true,
+			}, {
 				name: "player",
 				title: "Player preferences",
 				description: "",

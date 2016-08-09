@@ -149,6 +149,11 @@ class PlayList extends Array {
 		return this;
 	}
 
+	set length(length) {
+		if (length > super.length) { throw new Error('Playlist.length can only be reduced'); }
+		this.splice(length, Infinity);
+	}
+
 	push() {
 		const length = this.length;
 		super.push(...arguments);
