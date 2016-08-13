@@ -143,7 +143,7 @@ const Templates = ({
 		+ likes.toLocaleString() +' \uD83D\uDC4D, '
 		+ dislikes.toLocaleString() +' \uD83D\uDC4E '
 		+ (published ? '['+ timeToRoundString(Date.now() - published, 1.7) +' \uD83D\uDD52] ' : '')
-		+ (viewed ? (duration ? (viewed / duration).toFixed(1).replace('.0', '') +' \u21bb ' : timeToRoundString(viewed * 1000) +' ') : '')
+		+ (viewed ? (duration ? (viewed / duration).toFixed(1).replace('.0', '') +' \u21bb ' : timeToRoundString(viewed * 1000, 1.7) +' ') : '')
 	),
 
 });

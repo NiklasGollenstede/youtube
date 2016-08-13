@@ -259,7 +259,6 @@ const Player = new Class({
 		play(smooth) {
 			const { video, main, } = this;
 			if (!video) { return false; }
-			if (!video.paused) { return true; }
 			if (video.readyState !== 4) {
 				if (video.dataset.visible != 'true') {
 					this.main.port.emit('focus_temporary');
@@ -270,6 +269,7 @@ const Player = new Class({
 				}
 				return false;
 			}
+			if (!video.paused) { return true; }
 			video.play();
 			smooth && this.fadeVolume(fadeIn_factor);
 			return true;

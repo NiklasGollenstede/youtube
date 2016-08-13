@@ -3,8 +3,9 @@
 ], function(
 	{
 		concurrent: { async, sleep, },
-		format: { hhMmSsToSeconds, },
+		format: { hhMmSsToSeconds, timeToRoundString, },
 		object: { Class, },
+		network: { HttpRequest, },
 	}
 ) {
 
@@ -40,6 +41,25 @@ return function(main) {
 		}
 	});
 
+	// update the private view count
+	const displayViews = () => sleep(300)
+	.then(() => port.request('db', 'get', main.videoId, [ 'meta', 'viewed', ]))
+	.then(({ meta: { duration, }, viewed, }) => {
+		const views = document.querySelector('.watch-view-count');
+		views.title = (duration ? (viewed / duration).toFixed(1).replace('.0', '') +' times' : timeToRoundString(viewed * 1000, 1.7)) +' by you';
+		views.classList.add('yt-uix-tooltip');
+		views.style.display = 'block';
+	});
+	[ 'paused', 'ended', ].forEach(event => player.on(event, displayViews));
+	displayViews();
+
+	// increase quality of the video poster
+	player.on('unstarted', () => HttpRequest(`https://i.ytimg.com/vi/${ main.videoId }/maxresdefault.jpg`, { responseType: 'blob', })
+	.then(({ response: blob, }) => main.addStyle(String.raw`.ytp-thumbnail-overlay-image {
+		background-image: url("${ URL.createObjectURL(blob) }") !important;
+	}`)).catch(() => void 0));
+
+	// set initial video quality and playback state according to the options and report to the background script
 	main.on('navigated', async(function*() {
 		const { videoId, } = main;
 		if (!videoId) {
@@ -79,10 +99,11 @@ return function(main) {
 		const title = titleElement && titleElement.textContent.trim();
 		(yield port.request('db', 'assign', main.videoId, 'meta', title ? { title, duration, } : { duration, }));
 
-		console.log('control done', title, duration, main.videoId);
+		console.log('control done', title, duration, player.root.querySelector('.ytp-time-duration').textContent, main.videoId);
 		port.emit('player_created', main.videoId);
 		play && port.emit('player_playing', player.video.currentTime || 0);
 		reportState = true;
+		(yield displayViews());
 
 	}, error => console.error(error)));
 

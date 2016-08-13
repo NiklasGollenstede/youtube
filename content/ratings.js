@@ -88,7 +88,7 @@ return class Ratings {
 
 		main.addDomListener(window, 'click', () => Array.prototype.forEach.call(document.querySelectorAll('.yt-uix-tooltip-tip'), item => item.remove()));
 	}
-// 		viewsRelative: tab => db.get(tab.videoId, [ 'viewed', 'meta', ]).then(({ viewed, meta, }) => -(viewed || 0) / (meta && meta.duration || Infinity)),
+
 	loadAndDisplayRating(element) {
 		const id = getVideoIdFromImageSrc(element);
 		if (!id || element.dataset.rating) { return; }
@@ -143,7 +143,7 @@ return class Ratings {
 		Array.prototype.forEach.call(document.querySelectorAll('[data-rating="true"]'), element => delete element.dataset.rating);
 		Array.prototype.forEach.call(document.querySelectorAll('.inserted-ratings'), element => {
 			const image = element.querySelector(this.selector) || element;
-			const tooltiped = image.closest(this.tooltipSelector);
+			const tooltiped = image.closest(this.tooltipSelector) || image.parentNode;
 			tooltiped.classList.remove('yt-uix-tooltip');
 			tooltiped.removeAttribute('title');
 			delete tooltiped.dataset.tooltipText;

@@ -14,7 +14,7 @@
 	"applications": {
 		"gecko": {
 			"id": "@youtubeoverhaul",
-			"strict_min_version": "47.0"
+			"strict_min_version": "48.0"
 		}
 	},
 
@@ -66,6 +66,8 @@
 	"web_accessible_resources": [
 		"web/player.js",
 		"web/sniffer.js",
+		"web/layout-old.css",
+		"web/layout-new.css",
 		"web/layout.css"
 	],
 	"browser_action": {

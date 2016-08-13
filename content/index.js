@@ -33,7 +33,6 @@ const Main = new Class({
 		this.options = null;
 		this.observer = null;
 		self.update(this);
-		this.gaming = location.host === 'gaming.youtube.com';
 
 		function error(error) { console.error('Failed to load module:', error); }
 		try { this.port = new (require('content/port'))(this); } catch(e) { error(e); }
@@ -108,9 +107,12 @@ const Main = new Class({
 			const self = Public(this), _this = Protected(this);
 			this.optionsRoot = options;
 			self.options = options.children;
+			self.redesign = !!document.querySelector('ytd-app, ytg-app');
+			self.redesign && document.documentElement.classList.add('redesign');
+			console.log('is redesign', self.redesign);
 			console.log('options loaded', self.options);
 			DOMContentLoaded.then(this.loaded.bind(this));
-			if (self.gaming) {
+			if (self.redesign) {
 				self.port.on('navigated', ({ url, }) => this.navigate({ detail: { url, }, }) === this.navigated());
 			} else {
 				self.addDomListener(window, 'spfrequest', this.navigate.bind(this));
@@ -148,16 +150,16 @@ const Main = new Class({
 				nodes.destroy();
 			}));
 
-			window.main = null;
+			window._main = null;
 		},
 	}),
 });
 
-if (window.main) {
-	console.error('Main module already exists', window.main);
-	if (gecko) { window.main.port.destroy(); }
+if (window._main) {
+	console.error('Main module already exists', window._main);
+	if (gecko) { window._main.port.destroy(); }
 	else { return; }
 }
-const main = window.main = new Main;
+const main = window._main = new Main;
 
 })();

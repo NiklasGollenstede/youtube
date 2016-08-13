@@ -200,14 +200,15 @@ Tab.getThumbUrl = !db.isIDB
 			if (blob) { return useBlob(blob); }
 			const url = `https://i.ytimg.com/vi/${ videoId }/default.jpg`;
 			HttpRequest(url, { responseType: 'blob', })
-			.then(({ response: blob, }) => useBlob(blob))
+			.then(({ response: blob, }) => useBlob(blob, true))
 			.catch(error => (console.error('Failed to fetch thumbnail:', error), cache.delete(videoId)));
 			return url;
 		});
 		cache.set(videoId, soon);
 		return soon;
 
-		function useBlob(blob) {
+		function useBlob(blob, save) {
+			save && db.set(videoId, { thumb: blob,});
 			const url = URL.createObjectURL(blob);
 			cache.set(videoId, url);
 			return url;

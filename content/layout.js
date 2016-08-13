@@ -61,7 +61,7 @@ return class Layout {
 		});
 		options.player.children.seamlessFullscreen.when({
 			true: () => {
-				!this.fullscreenStyle && (this.fullscreenStyle = this.main.addStyleLink(chrome.extension.getURL('web/layout.css')));
+				!this.fullscreenStyle && (this.fullscreenStyle = this.main.addStyleLink(chrome.extension.getURL(this.main.redesign ? 'web/layout-new.css' : 'web/layout-old.css')));
 				this.main.addDomListener(window, 'wheel', this.fullscreenOnWheel);
 			},
 			false: () => {
@@ -158,7 +158,7 @@ return class Layout {
 			|| event.ctrlKey || event.altKey || event.shiftKey
 		) { return; }
 		if (
-			event.deltaY <= 0 && window.pageYOffset === 0
+			event.deltaY <= 0 && (this.main.redesign ? document.querySelector('#top').scrollTop === 0 : window.pageYOffset === 0)
 			&& event.target && event.target.matches
 			&& !event.target.matches('#playlist-autoscroll-list *')
 		) { // scroll to top

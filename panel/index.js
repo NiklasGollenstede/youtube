@@ -140,9 +140,9 @@ document.addEventListener('contextmenu', function(event) {
 		const tab = target.closest('.tab');
 		const tabId = +tab.dataset.tabId;
 		items.push(
-			{ label: 'Play video', action: () => port.emit('tab_play', tabId), default: target.matches('#playlist *') && !target.matches('.remove'), },
-			{ label: 'Show tab', action: () => port.emit('tab_focus', tabId), default: target.matches('#windows *') && !target.matches('.remove'), },
-			{ label: 'Close tab', action: () => port.emit('tab_close', tabId), default: target.matches('.remove'), },
+			{ label: 'Play video', action: () => port.emit('tab_play',  tabId), default: tab.matches('#playlist :not(.active)') && !target.matches('.remove, .icon'), },
+			{ label: 'Show tab',   action: () => port.emit('tab_focus', tabId), default: tab.matches('#windows *, .active') && !target.matches('.remove, .icon'), },
+			{ label: 'Close tab',  action: () => port.emit('tab_close', tabId), default: target.matches('#windows .remove'), },
 			target.matches('#playlist *') && { label: 'Duplicate', action: () => port.emit('playlist_add', { index: positionInParent(tab), tabId, }), },
 			target.matches('.window *') && { label: 'Add tab', action: () => port.emit('playlist_push', tabId), }
 		);
