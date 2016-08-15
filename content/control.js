@@ -45,7 +45,9 @@ return function(main) {
 	const displayViews = () => sleep(300)
 	.then(() => port.request('db', 'get', main.videoId, [ 'meta', 'viewed', ]))
 	.then(({ meta: { duration, }, viewed, }) => {
+		viewed = viewed || 0;
 		const views = document.querySelector('.watch-view-count');
+		delete views.dataset.tooltipText;
 		views.title = (duration ? (viewed / duration).toFixed(1).replace('.0', '') +' times' : timeToRoundString(viewed * 1000, 1.7)) +' by you';
 		views.classList.add('yt-uix-tooltip');
 		views.style.display = 'block';

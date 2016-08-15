@@ -17,11 +17,11 @@ body {
 	-moz-user-select: none;
 	-webkit-user-select: none;
 }
-.icon {
+.tab .icon {
 	cursor: grab;
 	cursor: -webkit-grab;
 }
-.ghost {
+.tab.ghost {
 	cursor: grabbing;
 	cursor: -webkit-grabbing;
 }

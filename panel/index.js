@@ -140,36 +140,36 @@ document.addEventListener('contextmenu', function(event) {
 		const tab = target.closest('.tab');
 		const tabId = +tab.dataset.tabId;
 		items.push(
-			{ label: 'Play video', action: () => port.emit('tab_play',  tabId), default: tab.matches('#playlist :not(.active)') && !target.matches('.remove, .icon'), },
-			{ label: 'Show tab',   action: () => port.emit('tab_focus', tabId), default: tab.matches('#windows *, .active') && !target.matches('.remove, .icon'), },
-			{ label: 'Close tab',  action: () => port.emit('tab_close', tabId), default: target.matches('#windows .remove'), },
-			target.matches('#playlist *') && { label: 'Duplicate', action: () => port.emit('playlist_add', { index: positionInParent(tab), tabId, }), },
-			target.matches('.window *') && { label: 'Add tab', action: () => port.emit('playlist_push', tabId), }
+			{ label: 'Play video', icon: '▶', action: () => port.emit('tab_play',  tabId), default: tab.matches('#playlist :not(.active)') && !target.matches('.remove, .icon'), },
+			{ label: 'Show tab',   icon: '👁', action: () => port.emit('tab_focus', tabId), default: tab.matches('#windows *, .active') && !target.matches('.remove, .icon'), },
+			{ label: 'Close tab',  icon: '⨉', action: () => port.emit('tab_close', tabId), default: target.matches('#windows .remove'), },
+			target.matches('#playlist *') && { label: 'Duplicate', icon: '❏', action: () => port.emit('playlist_add', { index: positionInParent(tab), tabId, }), },
+			target.matches('.window *') && { label: 'Add tab', icon: '➕', action: () => port.emit('playlist_push', tabId), }
 		);
 	}
 	if (target.matches('#playlist, #playlist *')) {
 		items.push(
-			{ label: 'Sort by', type: 'menu', children: [
-				{ label: 'position', action: () => port.emit('playlist_sort', { by: 'position', }), },
-				{ label: 'views', type: 'menu', children: [
-					{ label: 'global', action: () => port.emit('playlist_sort', { by: 'viewsGlobal', }), },
-					{ label: 'yours in total duration', action: () => port.emit('playlist_sort', { by: 'viewsTotal', }), },
-					{ label: 'yours in times viewed', action: () => port.emit('playlist_sort', { by: 'viewsRelative', }), },
+			{ label: 'Sort by', icon: '⇵', type: 'menu', children: [
+				{ label: 'position', icon:'\u2009⌖', action: () => port.emit('playlist_sort', { by: 'position', }), },
+				{ label: 'views', icon: '👓', type: 'menu', children: [
+					{ label: 'global', icon: '🌐', action: () => port.emit('playlist_sort', { by: 'viewsGlobal', }), },
+					{ label: 'yours in total duration', icon: '↻', action: () => port.emit('playlist_sort', { by: 'viewsTotal', }), },
+					{ label: 'yours in times viewed', icon: '⏱', action: () => port.emit('playlist_sort', { by: 'viewsRelative', }), },
 				], },
-				{ label: 'Shuffle', action: () => port.emit('playlist_sort', { by: 'random', }), },
+				{ label: 'Shuffle', icon: '🔀', action: () => port.emit('playlist_sort', { by: 'random', }), },
 			], },
-			{ label: 'Clear list', action: () => port.emit('playlist_clear'), }
+			{ label: 'Clear list', icon: '🛇', action: () => port.emit('playlist_clear'), }
 		);
 	}
 	if (target.matches('.window .header .title')) {
 		const box = windowList.querySelector('#'+ target.htmlFor);
 		items.push(
-			{ label: (box.checked ? 'Expand' : 'Collapse') +' tab list', action: () => box.checked = !box.checked, default: true, }
+			{ label: (box.checked ? 'Expand' : 'Collapse') +' tab list', icon: '⇳', action: () => box.checked = !box.checked, default: true, }
 		);
 	}
 	if (target.matches('.window, .window *')) {
 		items.push(
-			{ label: 'Add all', action: () => port.emit('playlist_push', Array.prototype.map.call(
+			{ label: 'Add all', icon: '⋯', action: () => port.emit('playlist_push', Array.prototype.map.call(
 				target.closest('.window').querySelectorAll('.tab'), _=>_.dataset.tabId
 			)), }
 		);
@@ -177,11 +177,12 @@ document.addEventListener('contextmenu', function(event) {
 	if (target.matches('#windows, #windows *')) {
 		const windowId = target.closest('.window').id.match(/^window-(.+)$/)[1];
 		items.push(
-			{ label: 'Close window', action: () => confirm(
+			{ label: 'Close window', icon: '❌', action: () => confirm(
 				'Close all '+ windowList.querySelectorAll('#window-'+ windowId +' .tab').length +' tabs in this window?'
 			) && port.emit('window_close', +windowId), }
 		);
 	}
+	// ' 🔉 🔈 🔇 🔂 🔁 🔜 🌀 🔧 ⫶ 🔞 '; // some more icons, '\u2009' for alignment
 
 	if (!items.length) { return; }
 	new ContextMenu({ x, y, items, });

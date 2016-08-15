@@ -15,11 +15,19 @@ class ContextMenu {
 		element.style.left = (x + element.clientWidth > window.innerWidth ? x - element.clientWidth - 1 : x + 1) +'px';
 	}
 
-	addItem({ type, label, children, value, action, default: _default, }, parent = this.element) {
+	addItem({ type, label, icon, children, value, action, 'default': _default, }, parent = this.element) {
 		const item = document.createElement('div');
 		item.classList.add('menu-item');
 		_default && item.classList.add('default');
+		if (icon) {
+			typeof icon === 'string' && (icon = document.createTextNode(icon));
+			const _icon = document.createElement('div');
+			_icon.classList.add('icon');
+			item.appendChild(_icon).appendChild(icon);
+			parent.classList.add('has-icon');
+		}
 		const _label = item.appendChild(document.createElement('div'));
+		_label.classList.add('label');
 		_label.textContent = label;
 		switch (type) {
 			case 'menu': {
@@ -28,7 +36,7 @@ class ContextMenu {
 				submenu.className = 'submenu';
 				children.forEach(child => child && this.addItem(child, submenu));
 			} break;
-			case 'label':
+			case 'label': /* falls through */
 			default: {
 				item.classList.add('menu-label');
 			}

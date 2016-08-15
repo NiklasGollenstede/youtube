@@ -109,7 +109,7 @@ class Tab {
 
 	stopedPlaying(time) {
 		if (!this.playing) { return; }
-		if (time !== undefined) {
+		if (time !== undefined && false) { // TODO: when seeking, this is already the new time
 			db.increment(this.videoId, 'viewed', time - this.playing.from);
 		} else {
 			db.increment(this.videoId, 'viewed', (Date.now() - this.playing.at) / 1000);
