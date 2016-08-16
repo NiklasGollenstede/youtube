@@ -26,7 +26,7 @@ window.addEventListener('DOMContentLoaded', () => {
 				win.tabs.sort((a, b) => a.index - b.index).forEach(tab => tabList.appendChild(createTab(tab)));
 				enableDragOut(tabList);
 			});
-			playlist.forEach(tabId => tabList.appendChild(windowList.querySelector('.tab-'+ tabId).cloneNode(true)));
+			playlist.forEach(tabId => tabList.appendChild(windowList.querySelector('.tab-'+ tabId).cloneNode(true)).classList.add('in-playlist'));
 			enableDragIn(tabList);
 			this.playlist_seek(active);
 			this.state_change(state);
@@ -46,13 +46,13 @@ window.addEventListener('DOMContentLoaded', () => {
 		playlist_add({ index, tabId, reference, }) {
 			console.log('playlist_add', index, tabId);
 			if (reference && tabList.children[index] && tabList.children[index].reference === reference) { return; }
-			tabList.insertBefore(windowList.querySelector('.tab-'+ tabId).cloneNode(true), tabList.children[index]);
+			tabList.insertBefore(windowList.querySelector('.tab-'+ tabId).cloneNode(true), tabList.children[index]).classList.add('in-playlist');
 			reference && (tabList.children[index].reference = reference);
 			seek(currentIndex);
 		},
 		playlist_push(tabIds) {
 			console.log('playlist_push', ...tabIds);
-			tabIds.forEach(tabId => tabList.appendChild(windowList.querySelector('.tab-'+ tabId).cloneNode(true)));
+			tabIds.forEach(tabId => tabList.appendChild(windowList.querySelector('.tab-'+ tabId).cloneNode(true)).classList.add('in-playlist'));
 			seek(currentIndex);
 		},
 		playlist_seek(active) {
@@ -104,6 +104,7 @@ window.addEventListener('DOMContentLoaded', () => {
 		const items = [
 			chrome.runtime.reload && { label: 'Restart', action: () => chrome.runtime.reload(), },
 			{ label: 'Show in tab', action: () => chrome.runtime.sendMessage({ name: 'openPlaylist', args: [ '', ], }), },
+			{ label: 'Open in panel', action: () => chrome.windows.create({ url: location.href, focused: true, type: 'panel', width: 450,  }), },
 			{ label: 'Settings', action: () => chrome.runtime.sendMessage({ name: 'openOptions', args: [ '', ], }), },
 		];
 		new ContextMenu({ x, y, items, });
@@ -148,7 +149,7 @@ document.addEventListener('contextmenu', function(event) {
 			{ label: 'Show tab',   icon: '👁', action: () => port.emit('tab_focus', tabId), default: tab.matches('#windows *, .active') && !target.matches('.remove, .icon'), },
 			{ label: 'Close tab',  icon: '⨉', action: () => port.emit('tab_close', tabId), default: target.matches('#windows .remove'), },
 			target.matches('#playlist *') && { label: 'Duplicate', icon: '❏', action: () => port.emit('playlist_add', { index: positionInParent(tab), tabId, }), },
-			target.matches('.window *') && { label: 'Add tab', icon: '➕', action: () => port.emit('playlist_push', tabId), }
+			target.matches('.window *') && { label: 'Add tab', icon: '➕', action: () => port.emit('playlist_push', [ tabId, ]), }
 		);
 	}
 	if (target.matches('#playlist, #playlist *')) {
@@ -214,12 +215,17 @@ function enableDragOut(element) {
 		scrollSensitivity: 90,
 		scrollSpeed: 10,
 		sort: false,
+		setData(dataTransfer, item) { // insert url if dropped somewhere else
+			dataTransfer.setData('text', 'https://www.youtube.com/watch?v='+ item.dataset.videoId);
+		},
 	}));
 }
 function enableDragIn(element) {
 	return (element.sortable = new Sortable(element, {
 		group: {
 			name: 'playlist',
+			pull: false,
+			put: true,
 		},
 		handle: '.icon',
 		draggable: '.tab',
@@ -228,12 +234,26 @@ function enableDragIn(element) {
 		scroll: true,
 		scrollSensitivity: 90,
 		scrollSpeed: 10,
-		onSort({ newIndex, oldIndex, target, from, item, }) {
-			if (newIndex === oldIndex && from === target) { return; }
-			if (from === target) {
-				tabList.insertBefore(document.createElement('dummy'), tabList.children[oldIndex]);
-				port.emit('playlist_delete', oldIndex);
+		sort: true,
+		setData(dataTransfer, item) { // insert url if dropped somewhere else
+			dataTransfer.setData('text', 'https://www.youtube.com/watch?v='+ item.dataset.videoId);
+		},
+		onAdd({ item, newIndex, }) { setTimeout(() => { // inserted, async for the :hover test
+			if (!tabList.matches(':hover')) { // cursor is not over drop target ==> invalid drop
+				Array.prototype.forEach.call(tabList.querySelectorAll('.tab:not(.in-playlist)'), _=>_.remove()); // remove any inserted items
+				return;
+			} else { // genuine drop
+				const reference = item.reference || (item.reference = Math.floor(Math.random() * Number.MAX_SAFE_INTEGER).toString(36));
+				Array.prototype.forEach.call(tabList.querySelectorAll('.tab:not(.in-playlist)'), _=>_.classList.add('in-playlist'));
+				port.emit('playlist_add', { index: newIndex, tabId: +item.dataset.tabId, reference, });
+				item.matches('.active') && port.emit('playlist_seek', newIndex);
 			}
+		}); },
+		onUpdate({ item, newIndex, oldIndex, }) { // sorted within
+			console.log('onUpdate');
+			tabList.insertBefore(document.createElement('dummy'), tabList.children[oldIndex]); // will be removed in playlist_delete handler
+			port.emit('playlist_delete', oldIndex);
+
 			const reference = item.reference || (item.reference = Math.floor(Math.random() * Number.MAX_SAFE_INTEGER).toString(36));
 			port.emit('playlist_add', { index: newIndex, tabId: +item.dataset.tabId, reference, });
 			item.matches('.active') && port.emit('playlist_seek', newIndex);
@@ -266,6 +286,7 @@ function updateTab(element, tab) {
 		element.className = element.className.replace(/tab-[^ ]*/, 'tab-'+ tab.tabId);
 	}
 	if ('videoId' in tab) {
+		element.dataset.videoId = tab.videoId;
 		element.className = element.className.replace(/video-[^ ]*/, 'video-'+ tab.videoId);
 	}
 	if ('thumb' in tab) {

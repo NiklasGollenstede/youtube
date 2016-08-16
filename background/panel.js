@@ -2,7 +2,7 @@
 	'web-ext-utils/chrome',
 	'db/meta-data',
 ], function(
-	{ tabs: Tabs, },
+	{ Tabs, Windows, },
 	db
 ) {
 
@@ -83,6 +83,7 @@ class PanelHandler {
 	tab_focus(tabId) {
 		console.log('tab_focus', tabId);
 		Tabs.update(tabId, { active: true, }).then(() => console.log('tab focused'));
+		Tabs.get(tabId).then(({ windowId, }) => Windows.update(windowId, { focused: true, })).then(() => console.log('window focused'));
 	}
 	tab_close(tabId) {
 		console.log('tab_close', tabId);
