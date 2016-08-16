@@ -3,7 +3,9 @@
 const { secondsToHhMmSs, } = require('es6lib/format');
 const ContextMenu = require('context-menu');
 
-let defaultWindow, defaultTab, port, windowList, tabList;
+let defaultWindow, defaultTab, port, windowList, tabList, currentIndex = -1;
+
+chrome.tabs.getCurrent(tab => tab && (window.tabId = tab.id));
 
 window.addEventListener('DOMContentLoaded', () => {
 	defaultWindow = document.querySelector('#window-default');
@@ -29,6 +31,7 @@ window.addEventListener('DOMContentLoaded', () => {
 			this.playlist_seek(active);
 			this.state_change(state);
 			tabList.children[active] && (tabList.children[active].scrollIntoViewIfNeeded ? tabList.children[active].scrollIntoViewIfNeeded() : tabList.children[active].scrollIntoView());
+			initCSS();
 		},
 		state_change(state) {
 			console.log('state_change', state);
@@ -45,19 +48,21 @@ window.addEventListener('DOMContentLoaded', () => {
 			if (reference && tabList.children[index] && tabList.children[index].reference === reference) { return; }
 			tabList.insertBefore(windowList.querySelector('.tab-'+ tabId).cloneNode(true), tabList.children[index]);
 			reference && (tabList.children[index].reference = reference);
+			seek(currentIndex);
 		},
 		playlist_push(tabIds) {
 			console.log('playlist_push', ...tabIds);
 			tabIds.forEach(tabId => tabList.appendChild(windowList.querySelector('.tab-'+ tabId).cloneNode(true)));
+			seek(currentIndex);
 		},
 		playlist_seek(active) {
 			console.log('playlist_seek', active);
-			Array.prototype.forEach.call(tabList.querySelectorAll('.active'), tab => tab.classList.remove('active'));
-			tabList.children[active] && tabList.children[active].classList.add('active');
+			seek(currentIndex = active);
 		},
 		playlist_delete(index) {
 			console.log('playlist_delete', index);
 			removeTab(tabList.children[index]);
+			seek(currentIndex);
 		},
 		playlist_clear() {
 			console.log('playlist_clear');
@@ -98,12 +103,11 @@ window.addEventListener('DOMContentLoaded', () => {
 		const { left: x, bottom: y, } = document.querySelector('#more').getBoundingClientRect();
 		const items = [
 			chrome.runtime.reload && { label: 'Restart', action: () => chrome.runtime.reload(), },
-			{ label: 'Settings', action: () => chrome.runtime.sendMessage({ name: 'showOptionsTab', args: [ '', ], }, () => window.close()), },
+			{ label: 'Show in tab', action: () => chrome.runtime.sendMessage({ name: 'openPlaylist', args: [ '', ], }), },
+			{ label: 'Settings', action: () => chrome.runtime.sendMessage({ name: 'openOptions', args: [ '', ], }), },
 		];
 		new ContextMenu({ x, y, items, });
 	});
-
-	hideScrollBars();
 });
 
 // focus tab (windows) or play tab on dblclick
@@ -189,9 +193,9 @@ document.addEventListener('contextmenu', function(event) {
 	event.preventDefault();
 });
 
-function getParent(element, selector) {
-	while (element && (!element.matches || !element.matches(selector))) { element = element.parentNode; }
-	return element;
+function seek(active) {
+	Array.prototype.forEach.call(tabList.querySelectorAll('.active'), tab => tab.classList.remove('active'));
+	tabList.children[active] && tabList.children[active].classList.add('active');
 }
 
 // enable drag & drop
@@ -230,7 +234,7 @@ function enableDragIn(element) {
 				tabList.insertBefore(document.createElement('dummy'), tabList.children[oldIndex]);
 				port.emit('playlist_delete', oldIndex);
 			}
-			const reference = item.reference || (item.reference = Math.floor(Math.random() * 0xffFFffFF).toString(16));
+			const reference = item.reference || (item.reference = Math.floor(Math.random() * Number.MAX_SAFE_INTEGER).toString(36));
 			port.emit('playlist_add', { index: newIndex, tabId: +item.dataset.tabId, reference, });
 			item.matches('.active') && port.emit('playlist_seek', newIndex);
 		},
@@ -279,7 +283,7 @@ function updateTab(element, tab) {
 
 function removeTab(tab) {
 	tab.classList.contains('active') && tab.nextSibling && tab.nextSibling.classList.add('active');
-	const window = tab.matches('.window *') && getParent(tab, '.window');
+	const window = tab.matches('.window *') && tab.closest('.window');
 	window && window.querySelectorAll('.tab').length === 1 && window.remove();
 	return tab.remove();
 }
@@ -289,7 +293,11 @@ function positionInParent(element) {
 	return Array.prototype.indexOf.call(element.parentNode.children, element);
 }
 
-function hideScrollBars() {
+function initCSS() {
+	// enable transitions
+	document.styleSheets[0].deleteRule(0);
+
+	// hide scrollbars if ::-webkit-scrollbar doesn't apply
 	const element = document.body.appendChild(document.createElement('div'));
 	element.classList.add('scroll-inner');
 	const width = element.offsetWidth - element.clientWidth;

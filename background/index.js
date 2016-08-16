@@ -89,7 +89,14 @@ chrome.runtime.onConnect.addListener(port => { switch (port.name) {
 const getWindow = () => chromium ? window : Extension.getViews({ type: 'tab', }).find(window => (/options\/index\.html$/).test(window.local.href));
 
 // open or focus the options view in a tab.
-Messages.addHandler('showOptionsTab', () => Tabs.create({ url: chrome.extension.getURL('options/index.html'), })); // TODO: don't allow duplicates
+Messages.addHandler('openOptions', () => {
+	const window = chrome.extension.getViews({ type: 'tab', }).find(_=>_.location.pathname === '/options/index.html');
+	window && window.tabId != null ? chrome.tabs.update(window.tabId, { active: true, }) : chrome.tabs.create({ url: chrome.extension.getURL('options/index.html'), });
+});
+Messages.addHandler('openPlaylist', () => {
+	const window = chrome.extension.getViews({ type: 'tab', }).find(_=>_.location.pathname === '/panel/index.html');
+	window && window.tabId != null ? chrome.tabs.update(window.tabId, { active: true, }) : chrome.tabs.create({ url: chrome.extension.getURL('panel/index.html'), });
+});
 
 // handle clicks on control buttons on the options page
 Messages.addHandler('control', async(function*(type, subtype) {

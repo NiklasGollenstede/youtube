@@ -1,3 +1,6 @@
+* { transition: none !important; } /* This rule suppresses transitions during load and is removed afterwards. It must be the first rule. */
+::-webkit-scrollbar { display: none; } /* This has a js based fallback. */
+
 * {
 	font-family: arial,sans-serif;
 	box-sizing: border-box;
@@ -63,11 +66,11 @@ body {
 
 #left {
 	left: 0px;
-	right: calc(50% + 2px);
+	width: calc(50% + 2px);
 }
 #right {
 	right: 0px;
-	left: calc(50% - 2px);
+	width: calc(50% - 2px);
 }
 #playlist {
 	top: 56px;
@@ -189,12 +192,34 @@ input.toggleswitch:checked + * { display: none; }
 }
 
 /* transitions */
+#left,
+#right,
 .button,
 .tab,
 .remove {
-	transition-property: color, fill, background-color, border-color;
+	transition-property: color, fill, background-color, border-color, width, height, padding;
 	transition-duration: 0.16s;
 }
 .tab {
 	transition-duration: 0.24s;
+}
+
+/* thumbnal-only window list */
+@media (max-width: 550px) {
+	#left {
+		left: 0px;
+		width: calc(100% - 72px);
+	}
+	#right {
+		right: 0px;
+		width: 72px;
+	}
+	#right .tab {
+		padding: 0;
+		margin-left: 0;
+		margin-right: 0;
+	}
+	#right .tab .description {
+		display: none;
+	}
 }

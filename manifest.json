@@ -78,7 +78,8 @@
 		"default_popup": "panel/index.html"
 	},
 	"options_ui": {
-		"page": "options/show-options-tab.html"
+		"page": "options/index.html",
+		"open_in_tab": true
 	},
 
 	"commands": {

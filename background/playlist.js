@@ -149,11 +149,6 @@ class PlayList extends Array {
 		return this;
 	}
 
-	set length(length) {
-		if (length > super.length) { throw new Error('Playlist.length can only be reduced'); }
-		this.splice(length, Infinity);
-	}
-
 	push() {
 		const length = this.length;
 		super.push(...arguments);
@@ -192,13 +187,14 @@ class PlayList extends Array {
 
 	splice(at, remove, ...items) {
 		const removed = super.splice(...arguments);
+		remove = removed.length;
 		for (let i = 0; i < removed.length; ++i) {
 			this.onDelete(at + i, removed[i]);
 		}
 		for (let i = 0; i < items.length; ++i) {
 			this.onAdd(at + i, items[i]);
 		}
-		this.index > at && (this.index <= at.remove ? this.next() : (this.index += items.length - remove));
+		this.index >= at && (this.index <= at + remove ? (this.index = at + items.length) : (this.index += items.length - remove));
 		return removed;
 	}
 }

@@ -12,3 +12,5 @@ require.async('common/options').then(options => {
 		},
 	});
 });
+
+chrome.tabs.getCurrent(tab => window.tabId = tab.id);

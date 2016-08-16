@@ -124,7 +124,7 @@ class PanelHandler {
 		console.log('playlist_clear');
 		this.emit('playlist_clear');
 		this.commands.pause();
-		this.playlist.length = 0;
+		this.playlist.splice(0, Infinity);
 	}
 	playlist_sort({ by, direction, }) {
 		if (!(direction > 0 || direction < 0)) {
