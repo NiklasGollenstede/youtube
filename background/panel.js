@@ -134,10 +134,10 @@ class PanelHandler {
 		console.log('playlist_sort', by, direction);
 		const mapper = {
 			random: Math.random,
-			position: tab => tab.tab().then(info => (info.windowId << 16) + info.index),
-			viewsGlobal: tab => db.get(tab.videoId, [ 'rating', ]).then(({ rating, }) => -rating.views),
-			viewsTotal: tab => db.get(tab.videoId, [ 'viewed', ]).then(({ viewed, }) => -(viewed || 0)),
-			viewsRelative: tab => db.get(tab.videoId, [ 'viewed', 'meta', ]).then(({ viewed, meta, }) => -(viewed || 0) / (meta && meta.duration || Infinity)),
+			position:      tab => tab.tab().then(info => (info.windowId << 16) + info.index),
+			viewsGlobal:   tab => db.get(tab.videoId, [ 'rating', ]).then(({ rating, }) => -rating.views),
+			viewsDuration: tab => db.get(tab.videoId, [ 'viewed', ]).then(({ viewed, }) => -(viewed || 0)),
+			viewsTimes:    tab => db.get(tab.videoId, [ 'viewed', 'meta', ]).then(({ viewed, meta, }) => -(viewed || 0) / (meta && meta.duration || Infinity)),
 		}[by];
 		const data = new WeakMap;
 		return Promise.all(this.playlist.map(tab => Promise.resolve(tab).then(mapper).catch(error => console.error(error)).then(value => data.set(tab, +value || 0))))

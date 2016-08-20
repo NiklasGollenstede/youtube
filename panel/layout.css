@@ -1,5 +1,4 @@
 * { transition: none !important; } /* This rule suppresses transitions during load and is removed afterwards. It must be the first rule. */
-::-webkit-scrollbar { display: none; } /* This has a js based fallback. */
 
 * {
 	font-family: arial,sans-serif;
@@ -11,10 +10,14 @@ body {
 	padding: 0px;
 	cursor: default;
 	overflow: hidden;
-	min-height: 560px;
-	min-width: 600px;
+	min-height: 600px;
+	min-width: 700px;
+}
+.hidden {
+	display: none;
 }
 
+/* cursors */
 #controls .button, .tab .remove {
 	cursor: pointer;
 	-moz-user-select: none;
@@ -29,20 +32,8 @@ body {
 	cursor: -webkit-grabbing;
 }
 
-.hidden {
-	display: none;
-}
-
-.column {
-	position: absolute;
-	top: 0px;
-	bottom: 0px;
-	margin: 0px;
-	border-width: 2px;
-	border-style: solid;
-	overflow: hidden;
-}
-
+/* scrolling without scrollbars */
+::-webkit-scrollbar { display: none; } /* This has a JS based fallback. */
 .scroll-outer {
 	position: absolute;
 	overflow: hidden;
@@ -64,6 +55,16 @@ body {
 	overflow-y: hidden;
 }
 
+/* general layout */
+.column {
+	position: fixed;
+	top: 0px;
+	bottom: 0px;
+	margin: 0px;
+	border-width: 2px;
+	border-style: solid;
+	overflow: hidden;
+}
 #left {
 	left: 0px;
 	width: calc(50% + 2px);
@@ -81,6 +82,7 @@ body {
 	bottom: 0px;
 }
 
+/* player buttons */
 #controls {
 	vertical-align: center;
 	text-align: center;
@@ -99,7 +101,8 @@ body {
 	width: calc(100% / 5 - 12px);
 	height: 45px;
 	margin: 2px;
-	padding: 5px;
+	padding-top: 5px;
+	padding-bottom: 5px;
 	overflow: hidden;
 }
 #play.active, #pause.active {
@@ -111,6 +114,7 @@ body {
 	min-height: calc(100% - 10px);
 }
 
+/* tab tiles */
 .tab {
 	padding: 5px;
 	margin: 3px;
@@ -125,7 +129,7 @@ body {
 }
 .tab .icon {
 	display: inline-block;
-	width: 60px;
+	width: 80px;
 	height: 45px;
 	float: left;
 	background-size: cover;
@@ -135,10 +139,13 @@ body {
 .tab .description {
 	position: absolute;
 	top: 0px;
-	left: 75px;
+	left: 92px;
 	right: 5px;
 	top: 3px;
 	bottom: 3px;
+	hyphens: auto;
+	-ms-hyphens: auto;
+	-webkit-hyphens: auto;
 }
 .tab .title {
 	display: block;
@@ -161,10 +168,12 @@ body {
 	text-align: center;
 	width: 17px;
 	height: 17px;
+	font-size: 14px;
 	line-height: 17px;
 	border-radius: 8px;
 }
 
+/*  windows (tab groups) */
 .window {
 	margin: 5px 2px;
 	padding: 4px 0px;
@@ -192,27 +201,25 @@ input.toggleswitch:checked + * { display: none; }
 }
 
 /* transitions */
-#left,
-#right,
-.button,
-.tab,
-.remove {
-	transition-property: color, fill, background-color, border-color, width, height, padding;
+#left, #right,
+.button, .button *,
+.tab, .tab * {
+	transition-property: color, fill, background-color, border-color, width, height, padding, margin, transform, transform-origin, left, right, font-size;
 	transition-duration: 0.16s;
 }
 .tab {
 	transition-duration: 0.24s;
 }
 
-/* thumbnal-only window list */
-@media (max-width: 550px) {
+/* thumbnail-only window list */
+@media (max-width: 570px) {
 	#left {
 		left: 0px;
-		width: calc(100% - 72px);
+		width: calc(100% - 92px);
 	}
 	#right {
 		right: 0px;
-		width: 72px;
+		width: 92px;
 	}
 	#right .tab {
 		padding: 0;
@@ -221,5 +228,83 @@ input.toggleswitch:checked + * { display: none; }
 	}
 	#right .tab .description {
 		display: none;
+	}
+}
+/* smaller thumbnails in window list */
+@media (max-width: 370px) {
+	#left {
+		left: 0px;
+		width: calc(100% - 72px);
+	}
+	#right {
+		right: 0px;
+		width: 72px;
+	}
+	#right .tab .icon {
+		width: 60px;
+		height: 33.75px;
+	}
+}
+/* smaller thumbnails in playlist, less spacing around control buttons */
+@media (max-width: 330px) {
+	.tab .description {
+		left: 70px;
+	}
+	.tab .icon {
+		width: 60px;
+	}
+	#controls .button {
+		width: calc(100% / 5 - 8px);
+		margin-left: 0px;
+		margin-right: 0px;
+	}
+}
+/* hide .remove and .duration from playlist tiles, smaller control buttons icons */
+@media (max-width: 305px) {
+	.tab .title {
+		margin-right: 0;
+	}
+	.tab .remove,
+	.tab .duration {
+		transform: scale(0);
+	}
+	#controls .button>* {
+		transform: scale(0.5);
+	}
+	#controls .button>svg {
+		margin-left: calc(9vw - 27px);
+	}
+}
+@media (max-width: 275px) {
+	.tab .description {
+		font-size: 75%;
+	}
+}
+/* slowly hide window list */
+@media (max-width: 230px) {
+	#left {
+		left: 0px;
+		width: calc(100% - 72px + calc(230px - 100vw));
+	}
+	#right {
+		right: 0px;
+		width: calc(72px - calc(230px - 100vw));
+	}
+	#right .tab .icon {
+		width: calc(60px - calc(230px - 100vw));
+		height: 33.75px;
+	}
+	#controls .button>svg {
+		margin-left: -7px;
+	}
+}
+/* window list hidden */
+@media (max-width: 180px) {
+	#left {
+		left: 0px;
+		width: 100%;
+	}
+	#right {
+		width: 0;
 	}
 }

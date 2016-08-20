@@ -30,7 +30,7 @@ window.addEventListener('DOMContentLoaded', () => {
 			enableDragIn(tabList);
 			this.playlist_seek(active);
 			this.state_change(state);
-			tabList.children[active] && (tabList.children[active].scrollIntoViewIfNeeded ? tabList.children[active].scrollIntoViewIfNeeded() : tabList.children[active].scrollIntoView());
+			tabList.children[active] && (tabList.children[active].scrollIntoViewIfNeeded ? tabList.children[active].scrollIntoViewIfNeeded() : tabList.children[active].scrollIntoView({ behavior: 'smooth', }));
 			initCSS();
 		},
 		state_change(state) {
@@ -104,7 +104,7 @@ window.addEventListener('DOMContentLoaded', () => {
 		const items = [
 			chrome.runtime.reload && { label: 'Restart', action: () => chrome.runtime.reload(), },
 			{ label: 'Show in tab', action: () => chrome.runtime.sendMessage({ name: 'openPlaylist', args: [ '', ], }), },
-			{ label: 'Open in panel', action: () => chrome.windows.create({ url: location.href, focused: true, type: 'panel', width: 450,  }), },
+			{ label: 'Open in panel', action: () => chrome.windows.create({ url: location.href, type: 'panel', width: 450, height: 600, }), },
 			{ label: 'Settings', action: () => chrome.runtime.sendMessage({ name: 'openOptions', args: [ '', ], }), },
 		];
 		new ContextMenu({ x, y, items, });
@@ -141,25 +141,28 @@ document.addEventListener('contextmenu', function(event) {
 	const { target, clientX: x, clientY: y, } = event;
 	if (!target.matches) { return; }
 	const items = [ ];
+	const tab = target.closest('.tab');
+	const _window = target.closest('.window');
+	const _playlist = target.matches('#playlist, #playlist *');
 	if (target.matches('.tab, .tab *')) {
-		const tab = target.closest('.tab');
 		const tabId = +tab.dataset.tabId;
 		items.push(
 			{ label: 'Play video', icon: '▶', action: () => port.emit('tab_play',  tabId), default: tab.matches('#playlist :not(.active)') && !target.matches('.remove, .icon'), },
 			{ label: 'Show tab',   icon: '👁', action: () => port.emit('tab_focus', tabId), default: tab.matches('#windows *, .active') && !target.matches('.remove, .icon'), },
 			{ label: 'Close tab',  icon: '⨉', action: () => port.emit('tab_close', tabId), default: target.matches('#windows .remove'), },
-			target.matches('#playlist *') && { label: 'Duplicate', icon: '❏', action: () => port.emit('playlist_add', { index: positionInParent(tab), tabId, }), },
-			target.matches('.window *') && { label: 'Add tab', icon: '➕', action: () => port.emit('playlist_push', [ tabId, ]), }
+			_playlist && { label: 'Duplicate',         icon: '❏', action: () => port.emit('playlist_add', { index: positionInParent(tab), tabId, }), },
+			_window   && { label: 'Find in playist',   icon: '🔎', action: () => highlight(tabList.querySelector('.tab-'+ tabId) || _window.querySelector('.tab-'+ tabId) ), },
+			_window   && { label: 'Add video',         icon: '➕', action: () => port.emit('playlist_push', [ tabId, ]), }
 		);
 	}
-	if (target.matches('#playlist, #playlist *')) {
+	if (_playlist) {
 		items.push(
 			{ label: 'Sort by', icon: '⇵', type: 'menu', children: [
 				{ label: 'position', icon:'\u2009⌖', action: () => port.emit('playlist_sort', { by: 'position', }), },
 				{ label: 'views', icon: '👓', type: 'menu', children: [
-					{ label: 'global', icon: '🌐', action: () => port.emit('playlist_sort', { by: 'viewsGlobal', }), },
-					{ label: 'yours in total duration', icon: '↻', action: () => port.emit('playlist_sort', { by: 'viewsTotal', }), },
-					{ label: 'yours in times viewed', icon: '⏱', action: () => port.emit('playlist_sort', { by: 'viewsRelative', }), },
+					{ label: 'global',                    icon: '🌐', action: () => port.emit('playlist_sort', { by: 'viewsGlobal', }), },
+					{ label: 'yours in total duration',   icon: '⏱', action: () => port.emit('playlist_sort', { by: 'viewsDuration', }), },
+					{ label: 'yours in times viewed',     icon: '↻', action: () => port.emit('playlist_sort', { by: 'viewsTimes', }), },
 				], },
 				{ label: 'Shuffle', icon: '🔀', action: () => port.emit('playlist_sort', { by: 'random', }), },
 			], },
@@ -172,15 +175,13 @@ document.addEventListener('contextmenu', function(event) {
 			{ label: (box.checked ? 'Expand' : 'Collapse') +' tab list', icon: '⇳', action: () => box.checked = !box.checked, default: true, }
 		);
 	}
-	if (target.matches('.window, .window *')) {
+	if (_window) {
 		items.push(
-			{ label: 'Add all', icon: '⋯', action: () => port.emit('playlist_push', Array.prototype.map.call(
-				target.closest('.window').querySelectorAll('.tab'), _=>_.dataset.tabId
-			)), }
+			{ label: 'Add all', icon: '⋯', action: () => port.emit('playlist_push', Array.prototype.map.call(_window.querySelectorAll('.tab'), _=>_.dataset.tabId)), }
 		);
 	}
 	if (target.matches('#windows, #windows *')) {
-		const windowId = target.closest('.window').id.match(/^window-(.+)$/)[1];
+		const windowId = _window.id.match(/^window-(.+)$/)[1];
 		items.push(
 			{ label: 'Close window', icon: '❌', action: () => confirm(
 				'Close all '+ windowList.querySelectorAll('#window-'+ windowId +' .tab').length +' tabs in this window?'
@@ -197,6 +198,22 @@ document.addEventListener('contextmenu', function(event) {
 function seek(active) {
 	Array.prototype.forEach.call(tabList.querySelectorAll('.active'), tab => tab.classList.remove('active'));
 	tabList.children[active] && tabList.children[active].classList.add('active');
+}
+
+function highlight(element) {
+	if (!element) { return; }
+
+	element.scrollIntoViewIfNeeded ? element.scrollIntoViewIfNeeded() : element.scrollIntoView({ behavior: 'smooth', });
+
+	element.animate([
+		{ transform: 'translateX(-10px)', },
+		{ transform: 'translateX( 10px)', },
+	], {
+		direction: 'alternate',
+		easing: 'cubic-bezier(0, 0.3, 1, 0.7)',
+		duration: 70,
+		iterations: 8,
+	});
 }
 
 // enable drag & drop
@@ -294,9 +311,10 @@ function updateTab(element, tab) {
 	}
 	if ('title' in tab) {
 		element.querySelector('.title').textContent = tab.title;
+		element.querySelector('.icon').title = tab.title;
 	}
 	if ('duration' in tab) {
-		const duration = typeof tab.duration === 'string' ? tab.duration : secondsToHhMmSs(tab.duration);
+		const duration = secondsToHhMmSs(tab.duration);
 		element.querySelector('.duration').textContent = duration;
 	}
 	return element;

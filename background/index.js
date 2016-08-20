@@ -1,8 +1,8 @@
-define('background/update', [ 'web-ext-utils/update', ], _=>_()); // run updates
 define('background/main', [
-	'background/update',
+	'web-ext-utils/update/result',
 	'es6lib',
 	'web-ext-utils/chrome',
+	'web-ext-utils/utils',
 	'db/meta-data',
 	'common/options',
 	'background/tab',
@@ -12,10 +12,11 @@ define('background/main', [
 	{
 		concurrent: { async, },
 	}, {
-		Tabs, Storage, Extension, Messages, applications: {
+		Tabs, Windows, Storage, Extension, Messages, applications: {
 			gecko, chromium,
 		},
 	},
+	{ attachAllContentScripts, showExtensionTab, },
 	db,
 	options,
 	Tab,
@@ -89,14 +90,8 @@ chrome.runtime.onConnect.addListener(port => { switch (port.name) {
 const getWindow = () => chromium ? window : Extension.getViews({ type: 'tab', }).find(window => (/options\/index\.html$/).test(window.local.href));
 
 // open or focus the options view in a tab.
-Messages.addHandler('openOptions', () => {
-	const window = chrome.extension.getViews({ type: 'tab', }).find(_=>_.location.pathname === '/options/index.html');
-	window && window.tabId != null ? chrome.tabs.update(window.tabId, { active: true, }) : chrome.tabs.create({ url: chrome.extension.getURL('options/index.html'), });
-});
-Messages.addHandler('openPlaylist', () => {
-	const window = chrome.extension.getViews({ type: 'tab', }).find(_=>_.location.pathname === '/panel/index.html');
-	window && window.tabId != null ? chrome.tabs.update(window.tabId, { active: true, }) : chrome.tabs.create({ url: chrome.extension.getURL('panel/index.html'), });
-});
+Messages.addHandler('openOptions', () => showExtensionTab('/options/index.html'));
+Messages.addHandler('openPlaylist', () => showExtensionTab('/panel/index.html'));
 
 // handle clicks on control buttons on the options page
 Messages.addHandler('control', async(function*(type, subtype) {
@@ -161,7 +156,7 @@ gecko && Storage.onChanged.addListener((change, area) => {
 });
 
 // load the content_scripts into all existing tabs
-return require('web-ext-utils/utils').attachAllContentScripts({ cleanup: () => {
+return attachAllContentScripts({ cleanup: () => {
 	delete window.require;
 	delete window.define;
 }, });

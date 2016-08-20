@@ -8,6 +8,8 @@ html, body {
 	background-color: #555;
 	color: white;
 	fill: white;
+	background-color: black; /* inherited by context menu */
+	border-color: #333;
 }
 .column {
 	border-color: #555;
@@ -53,12 +55,4 @@ html, body {
 #controls .button.active {
 	color: #5959ED;
 	fill: #5959ED;
-}
-
-.popup-menu, .submenu {
-	background-color: black;
-	border-color: #333;
-}
-.menu-item:hover {
-	background-color: #191919;
 }

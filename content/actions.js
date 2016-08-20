@@ -114,8 +114,13 @@ const actions = {
 				height: video.videoHeight,
 				style: { maxWidth: '100%', },
 				ondblclick() {
-					gecko && (document.fullscreenElement ? document.exitFullscreen() : canvas.requestFullscreen());
-					chromium && (document.webkitFullscreenElement ? document.webkitExitFullscreen() : canvas.webkitRequestFullscreen());
+					if (canvas.requestFullscreen) {
+						document.fullscreenElement ? document.exitFullscreen() : canvas.requestFullscreen();
+					} else if (canvas.webkitRequestFullscreen) {
+						document.webkitFullscreenElement ? document.webkitExitFullscreen() : canvas.webkitRequestFullscreen();
+					} else if (canvas.mozRequestFullScreen) {
+						document.mozFullScreenElement ? document.mozCancelFullScreen() : canvas.mozRequestFullScreen();
+					}
 				},
 			}),
 			createElement('span', {
@@ -149,7 +154,7 @@ const actions = {
 	},
 	videoSave({ player, }) { // works only with simple html-player
 		let url = player.video.src;
-		const title = document.querySelector('#eow-title').textContent;
+		const title = (document.querySelector('#eow-title') || { textContent: 'cover', }).textContent.trim();
 		if (url.startsWith('mediasource:')) {
 			url = `https://i.ytimg.com/vi/${ new QueryObject(location.search).v }/maxresdefault.jpg`;
 		}
@@ -157,7 +162,7 @@ const actions = {
 	},
 	videoDownloadCover() {
 		const url = `https://i.ytimg.com/vi/${ new QueryObject(location.search).v }/maxresdefault.jpg`;
-		const title = (document.querySelector('#eow-title') || { textContent: 'cover', }).textContent;
+		const title = (document.querySelector('#eow-title') || { textContent: 'cover', }).textContent.trim();
 		HttpRequest({ url, responseType: 'blob', })
 		.then(({ response, }) => saveAs(response, title +'.jpg'))
 		.catch(error => saveAs(url, title +'.jpg'));
@@ -193,7 +198,7 @@ return class Actions {
 	}
 
 	_key(event) {
-		if (event.target && (event.target.tagName == 'INPUT' || event.target.tagName == 'TEXTAREA')) { return; }
+		if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') { return; }
 		const key = (event.ctrlKey ? 'Ctrl+' : '') + (event.altKey ? 'Alt+' : '') + (event.shiftKey ? 'Shift+' : '') + event.code;
 		const name = this.keyMap.get(key);
 		if (!name || !actions[name]) { return; }
