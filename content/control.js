@@ -1,13 +1,9 @@
-'use strict'; define('content/control', [
-	'es6lib',
-], function(
-	{
-		concurrent: { async, sleep, },
-		format: { hhMmSsToSeconds, timeToRoundString, },
-		object: { Class, },
-		network: { HttpRequest, },
-	}
-) {
+(() => { 'use strict'; define(function({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
+	'node_modules/es6lib/concurrent': { async, sleep, },
+	'node_modules/es6lib/format': { hhMmSsToSeconds, timeToRoundString, },
+	'node_modules/es6lib/object': { Class, },
+	'node_modules/es6lib/network': { HttpRequest, },
+}) {
 
 let loaded = false;
 
@@ -53,13 +49,16 @@ return function(main) {
 		views.style.display = 'block';
 	});
 	[ 'paused', 'ended', ].forEach(event => player.on(event, displayViews));
-	displayViews();
 
 	// increase quality of the video poster
-	player.on('unstarted', () => HttpRequest(`https://i.ytimg.com/vi/${ main.videoId }/maxresdefault.jpg`, { responseType: 'blob', })
-	.then(({ response: blob, }) => main.addStyle(String.raw`.ytp-thumbnail-overlay-image {
-		background-image: url("${ URL.createObjectURL(blob) }") !important;
-	}`)).catch(() => void 0));
+	let lastVideoId;
+	player.on('unstarted', () => {
+		if (lastVideoId === main.videoId) { return; } lastVideoId = main.videoId;
+		return HttpRequest(`https://i.ytimg.com/vi/${ main.videoId }/maxresdefault.jpg`, { responseType: 'blob', })
+		.then(({ response: blob, }) => main.setStyle('hd-poster', String.raw`.ytp-thumbnail-overlay-image {
+			background-image: url("${ URL.createObjectURL(blob) }") !important;
+		}`)).catch(() => void 0);
+	});
 
 	// set initial video quality and playback state according to the options and report to the background script
 	main.on('navigated', async(function*() {
@@ -69,10 +68,9 @@ return function(main) {
 			return port.emit('player_removed');
 		}
 
-		(yield player.loaded);
-		console.log('player loaded', player);
-
-		const unMute = player.silence();
+		(yield resolveBefore(player.loaded, cancel => main.once('navigated', cancel)));
+		console.log('player loaded', videoId);
+		port.emit('mute_start');
 
 		// play, stop or pause
 		const should = main.options.player.children.onStart.value;
@@ -94,12 +92,14 @@ return function(main) {
 			}
 		}
 
-		unMute();
+		port.emit('mute_stop');
 
 		const duration = hhMmSsToSeconds(player.root.querySelector('.ytp-time-duration').textContent); // TODO: this may use the duration of an ad
 		const titleElement = document.querySelector('#eow-title, .video-title span, .video-title');
 		const title = titleElement && titleElement.textContent.trim();
-		(yield port.request('db', 'assign', main.videoId, 'meta', title ? { title, duration, } : { duration, }));
+		const info = { }; title && (info.title = title); duration && (info.duration = duration);
+		console.log('sending data', info);
+		(yield port.request('db', 'assign', main.videoId, 'meta', info));
 
 		console.log('control done', title, duration, player.root.querySelector('.ytp-time-duration').textContent, main.videoId);
 		port.emit('player_created', main.videoId);
@@ -117,4 +117,13 @@ return function(main) {
 	player.on('ended', checkbox => (checkbox = document.querySelector('#autoplay-checkbox')) && checkbox.checked && checkbox.click());
 };
 
-});
+function resolveBefore(promise, before) {
+	return new Promise((resolve, reject) => {
+		promise.then(resolve);
+		typeof before === 'function'
+		? before(() => reject(new Error(`Operation was cancelled`)))
+		: setTimeout(() => reject(new Error(`Operation was cancelled after ${ before }ms`)), before);
+	});
+}
+
+}); })();

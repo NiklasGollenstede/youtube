@@ -1,13 +1,15 @@
-'use strict'; /* global Sortable */
-
-const { secondsToHhMmSs, } = require('es6lib/format');
-const ContextMenu = require('context-menu');
+define(function({
+	'node_modules/es6lib/format': { secondsToHhMmSs, },
+	'node_modules/sortablejs/Sortable.min': Sortable,
+	'common/context-menu': ContextMenu,
+}) {
+const chrome = window.browser || window.chrome, browser = chrome;
 
 let defaultWindow, defaultTab, port, windowList, tabList, currentIndex = -1;
 
-chrome.tabs.getCurrent(tab => tab && (window.tabId = tab.id));
+if (document.readyState !== 'interactive' && document.readyState !== 'complete') { document.addEventListener('DOMContentLoaded', init); } else { init(); }
 
-window.addEventListener('DOMContentLoaded', () => {
+function init() {
 	defaultWindow = document.querySelector('#window-default');
 	defaultTab = document.querySelector('.tab-default');
 	windowList = document.querySelector('#windows .windows');
@@ -30,7 +32,7 @@ window.addEventListener('DOMContentLoaded', () => {
 			enableDragIn(tabList);
 			this.playlist_seek(active);
 			this.state_change(state);
-			tabList.children[active] && (tabList.children[active].scrollIntoViewIfNeeded ? tabList.children[active].scrollIntoViewIfNeeded() : tabList.children[active].scrollIntoView({ behavior: 'smooth', }));
+			tabList.children[active] && (tabList.children[active].scrollIntoViewIfNeeded ? tabList.children[active].scrollIntoViewIfNeeded() : tabList.children[active].scrollIntoView());
 			initCSS();
 		},
 		state_change(state) {
@@ -103,13 +105,13 @@ window.addEventListener('DOMContentLoaded', () => {
 		const { left: x, bottom: y, } = document.querySelector('#more').getBoundingClientRect();
 		const items = [
 			chrome.runtime.reload && { label: 'Restart', action: () => chrome.runtime.reload(), },
-			{ label: 'Show in tab', action: () => chrome.runtime.sendMessage({ name: 'openPlaylist', args: [ '', ], }), },
+			{ label: 'Show in tab', action: () => chrome.runtime.sendMessage({ name: 'openPlaylist', args: [ '', ], post: true, }), },
 			{ label: 'Open in panel', action: () => chrome.windows.create({ url: location.href, type: 'panel', width: 450, height: 600, }), },
-			{ label: 'Settings', action: () => chrome.runtime.sendMessage({ name: 'openOptions', args: [ '', ], }), },
+			{ label: 'Settings', action: () => chrome.runtime.sendMessage({ name: 'openOptions', args: [ '', ], post: true, }), },
 		];
 		new ContextMenu({ x, y, items, });
 	});
-});
+}
 
 // focus tab (windows) or play tab on dblclick
 document.addEventListener('dblclick', function({ target, button, }) {
@@ -147,43 +149,43 @@ document.addEventListener('contextmenu', function(event) {
 	if (target.matches('.tab, .tab *')) {
 		const tabId = +tab.dataset.tabId;
 		items.push(
-			{ label: 'Play video', icon: '▶', action: () => port.emit('tab_play',  tabId), default: tab.matches('#playlist :not(.active)') && !target.matches('.remove, .icon'), },
-			{ label: 'Show tab',   icon: '👁', action: () => port.emit('tab_focus', tabId), default: tab.matches('#windows *, .active') && !target.matches('.remove, .icon'), },
-			{ label: 'Close tab',  icon: '⨉', action: () => port.emit('tab_close', tabId), default: target.matches('#windows .remove'), },
-			_playlist && { label: 'Duplicate',         icon: '❏', action: () => port.emit('playlist_add', { index: positionInParent(tab), tabId, }), },
-			_window   && { label: 'Find in playist',   icon: '🔎', action: () => highlight(tabList.querySelector('.tab-'+ tabId) || _window.querySelector('.tab-'+ tabId) ), },
-			_window   && { label: 'Add video',         icon: '➕', action: () => port.emit('playlist_push', [ tabId, ]), }
+			             { icon: '▶',	 label: 'Play video',       action: () => port.emit('tab_play',  tabId),    default: tab.matches('#playlist :not(.active)') && !target.matches('.remove, .icon'), },
+			             { icon: '👁',	 label: 'Show tab',         action: () => port.emit('tab_focus', tabId),    default: tab.matches('#windows *, .active') && !target.matches('.remove, .icon'), },
+			             { icon: '⨉',	 label: 'Close tab',        action: () => port.emit('tab_close', tabId),    default: target.matches('#windows .remove'), },
+			_playlist && { icon: '❏',	 label: 'Duplicate',        action: () => port.emit('playlist_add', { index: positionInParent(tab), tabId, }), },
+			_window   && { icon: '🔎',	 label: 'Find in playist',  action: () => highlight(tabList.querySelector('.tab-'+ tabId) || _window.querySelector('.tab-'+ tabId) ), },
+			_window   && { icon: '➕',	 label: 'Add video',        action: () => port.emit('playlist_push', [ tabId, ]), }
 		);
 	}
 	if (_playlist) {
 		items.push(
-			{ label: 'Sort by', icon: '⇵', type: 'menu', children: [
-				{ label: 'position', icon:'\u2009⌖', action: () => port.emit('playlist_sort', { by: 'position', }), },
-				{ label: 'views', icon: '👓', type: 'menu', children: [
-					{ label: 'global',                    icon: '🌐', action: () => port.emit('playlist_sort', { by: 'viewsGlobal', }), },
-					{ label: 'yours in total duration',   icon: '⏱', action: () => port.emit('playlist_sort', { by: 'viewsDuration', }), },
-					{ label: 'yours in times viewed',     icon: '↻', action: () => port.emit('playlist_sort', { by: 'viewsTimes', }), },
+			{ icon: '⇵',	 label: 'Sort by',                      type: 'menu', children: [
+				{ icon:' ⌖',	 label: 'position',                     action: () => port.emit('playlist_sort', { by: 'position', }), },
+				{ icon: '👓',	 label: 'views',                        type: 'menu', children: [
+					{ icon: '🌐',	 label: 'global',                       action: () => port.emit('playlist_sort', { by: 'viewsGlobal', }), },
+					{ icon: '⏱',	 label: 'yours in total duration',      action: () => port.emit('playlist_sort', { by: 'viewsDuration', }), },
+					{ icon: '↻',	 label: 'yours in times viewed',        action: () => port.emit('playlist_sort', { by: 'viewsTimes', }), },
 				], },
-				{ label: 'Shuffle', icon: '🔀', action: () => port.emit('playlist_sort', { by: 'random', }), },
+				{ icon: '🔀',	 label: 'Shuffle',                      action: () => port.emit('playlist_sort', { by: 'random', }), },
 			], },
-			{ label: 'Clear list', icon: '🛇', action: () => port.emit('playlist_clear'), }
+			{ icon: '🛇',	 label: 'Clear list',                   action: () => port.emit('playlist_clear'), }
 		);
 	}
 	if (target.matches('.window .header .title')) {
 		const box = windowList.querySelector('#'+ target.htmlFor);
 		items.push(
-			{ label: (box.checked ? 'Expand' : 'Collapse') +' tab list', icon: '⇳', action: () => box.checked = !box.checked, default: true, }
+			{ icon: '⇳',	 label: (box.checked ? 'Expand' : 'Collapse') +' tab list', action: () => box.checked = !box.checked, default: true, }
 		);
 	}
 	if (_window) {
 		items.push(
-			{ label: 'Add all', icon: '⋯', action: () => port.emit('playlist_push', Array.prototype.map.call(_window.querySelectorAll('.tab'), _=>_.dataset.tabId)), }
+			{ icon: '⋯',	 label: 'Add all', action: () => port.emit('playlist_push', Array.prototype.map.call(_window.querySelectorAll('.tab'), _=>_.dataset.tabId)), }
 		);
 	}
 	if (target.matches('#windows, #windows *')) {
 		const windowId = _window.id.match(/^window-(.+)$/)[1];
 		items.push(
-			{ label: 'Close window', icon: '❌', action: () => confirm(
+			{ icon: '❌',	 label: 'Close window', action: () => confirm(
 				'Close all '+ windowList.querySelectorAll('#window-'+ windowId +' .tab').length +' tabs in this window?'
 			) && port.emit('window_close', +windowId), }
 		);
@@ -343,3 +345,14 @@ function initCSS() {
 	document.styleSheets[0].insertRule(`.scroll-inner { margin-right: -${ width }px; }`, 0);
 	element.remove();
 }
+
+});
+
+(window.browser || window.chrome).tabs.getCurrent(tab => tab && (window.tabId = tab.id));
+
+!Element.prototype.matches && (Element.prototype.matches = Element.prototype.msMatchesSelector);
+!Element.prototype.closest && (Element.prototype.closest = function getParent(selector) {
+	let element = this;
+	while (element && (!element.matches || !element.matches(selector))) { element = element.parentNode; }
+	return element;
+});

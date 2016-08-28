@@ -1,16 +1,12 @@
-'use strict'; define('background/tab', [
-	'es6lib',
-	'web-ext-utils/chrome',
-	'db/meta-data',
-], function(
-	{
-		concurrent: { async, },
-		functional: { cached, },
-		network: { HttpRequest, },
-	},
-	{ tabs: Tabs, windows: Windows, storage: Storage, applications: { gecko, chromium, }, },
-	db
-) {
+(() => { 'use strict'; define(function({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
+	'node_modules/es6lib/concurrent': { async, },
+	'node_modules/es6lib/functional': { cached, },
+	'node_modules/es6lib/network': { HttpRequest, },
+	'node_modules/web-ext-utils/chrome/': { Tabs, Windows, Storage, applications: { gecko, blink, }, },
+	db,
+}) {
+
+const resolved = Promise.resolve();
 
 class Tab {
 	constructor({ port, playlist, panel, commands, }) {
@@ -27,13 +23,17 @@ class Tab {
 		port.onMessage.addListener(message => {
 			if (this.destructed) { return; }
 			const { name, id } = message;
-			if (id) {
-				({ db, 'storage.sync': Storage.sync, })
-				[name][message.method](...message.args).then(
-					value => this.postMessage({ name, value, id, }),
-					error => this.postMessage({ name, error, id, })
-				);
-			} else {
+			if (id) { // from port.request
+				try {
+					Promise.resolve(
+						({ db, })
+						[name][message.method](...message.args)
+					).then(
+						value => this.postMessage({ id, value: value == null ? null : value, }),
+						error => this.postMessage({ id, error: toJson(error), threw: true, })
+					);
+				} catch (error) { this.postMessage({ id, name, error: toJson(error), threw: true, }); }
+			} else { // from port.emit
 				this[name](message.value);
 			}
 		});
@@ -42,6 +42,7 @@ class Tab {
 		this.pingCount = 0;
 		this.pingInterval = 25;
 		this.pingId = -1;
+		this.muteCount = 0;
 		this.destructed = false;
 	}
 
@@ -54,7 +55,7 @@ class Tab {
 		try { this.panel.emit('tab_close', this.id); } catch (e) { error(e); }
 		try { this.playing && this.commands.play(); } catch (e) { error(e); }
 		// TODO: if this.playing && !this.active then focus the next playing tab
-		try { this.port.disconnect(); } catch (e) { error(e); }
+		try { this.port.disconnect(); } catch (e) { /* already disconnected */ }
 		try { clearInterval(this.pingId); } catch (e) { error(e); }
 		try { this.stopedPlaying(); } catch (e) { error(e); }
 		this.destructed = true;
@@ -141,7 +142,7 @@ class Tab {
 		this.panel.emit('state_change', { playing: true, });
 		const added = this.playlist.seek(this);
 		added !== -1 && this.panel.emit('playlist_add', { index: added, tabId: this.id, });
-		(!chromium || !this.panel.hasPanel()) && this.tab().then(({ windowId, }) => Windows.get(windowId))
+		(!blink || !this.panel.hasPanel()) && this.tab().then(({ windowId, }) => Windows.get(windowId))
 		.then(({ focused, }) => !focused && Tabs.update(this.id, { active: true, }));
 	}
 	player_paused(time) {
@@ -176,8 +177,20 @@ class Tab {
 		clearInterval(this.pingId);
 		this.pingId = -1;
 	}
+	mute_start() {
+		console.log('mute_start', this.id);
+		this.muteCount++;
+		if (this.muteCount !== 1) { return; }
+		return Tabs.update(+this.id, { muted: true, });
+	}
+	mute_stop() {
+		console.log('mute_stop', this.id);
+		if (this.muteCount > 0) { this.muteCount--; }
+		if (this.muteCount > 0) { return; }
+		return Tabs.update(+this.id, { muted: false, });
+	}
 	focus_temporary() {
-		if (!chromium) { return; }
+		if (!blink) { return; }
 		console.log('focus_temporary', this);
 		this.tab().then(({ index, windowId, active, pinned, }) => {
 			Windows.create({ tabId: this.id, state: 'minimized', })
@@ -216,6 +229,14 @@ Tab.getThumbUrl = !db.isIDB
 	};
 })();
 
+function toJson(value) {
+	return JSON.stringify(value, (key, value) => {
+		if (!value || typeof value !== 'object') { return value; }
+		if (value instanceof Error) { return '$_ERROR_$'+ JSON.stringify({ name: value.name, message: value.message, stack: value.stack, }); }
+		return value;
+	});
+}
+
 return Tab;
 
-});
+}); })();

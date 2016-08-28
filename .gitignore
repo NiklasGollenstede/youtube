@@ -1,4 +1,5 @@
 node_modules
-*.xpi
-template
+modules
+build
 npm-debug.log
+update/versions.json

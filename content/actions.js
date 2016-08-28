@@ -1,17 +1,13 @@
-'use strict'; define('content/actions', [
-	'web-ext-utils/chrome', 'content/templates', 'es6lib',
-], function(
-	{ applications: { gecko, chromium, }, },
+(() => { 'use strict'; define(function({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
+	'node_modules/web-ext-utils/chrome/': { applications: { gecko, }, },
+	'node_modules/es6lib/concurrent': { async, spawn, sleep, },
+	'node_modules/es6lib/dom': { clickElement, createElement, CreationObserver, notify, once, saveAs, },
+	'node_modules/es6lib/format': { hhMmSsToSeconds, secondsToHhMmSs, numberToRoundString, timeToRoundString, QueryObject, },
+	'node_modules/es6lib/functional': { noop, Logger, log, },
+	'node_modules/es6lib/object': { copyProperties, },
+	'node_modules/es6lib/network': { HttpRequest, },
 	Templates,
-	{
-		concurrent: { async, spawn, sleep, timeout, },
-		dom: { clickElement, createElement, CreationObserver, notify, once, saveAs, },
-		format: { hhMmSsToSeconds, secondsToHhMmSs, numberToRoundString, timeToRoundString, QueryObject, },
-		functional: { noop, Logger, log, },
-		object: { copyProperties, },
-		network: { HttpRequest, },
-	}
-) {
+}) {
 
 
 const actions = {
@@ -178,7 +174,6 @@ return class Actions {
 		this.keyMap = new Map;
 		this.main.addDomListener(window, 'keydown', this._key.bind(this), true);
 		main.once('optionsLoaded', this._optionsLoaded.bind(this));
-		console.log('message');
 	}
 
 	setAction(name, action) {
@@ -208,4 +203,4 @@ return class Actions {
 	}
 };
 
-});
+}); })();

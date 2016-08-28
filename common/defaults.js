@@ -1,8 +1,6 @@
-'use strict'; define('common/defaults', [
-	'es6lib/format',
-], function(
-	{ RegExpX, }
-) {
+(() => { 'use strict'; define(function({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
+	'node_modules/es6lib/format': { RegExpX, },
+}) {
 
 return Object.freeze([ // TODO: deepFreeze
 	{
@@ -55,9 +53,9 @@ return Object.freeze([ // TODO: deepFreeze
 					}, {
 						name: "barHeight",
 						title: "Rating bar height",
-						type: "integer",
+						type: "number",
 						restrict: { from: 0, to: 5, },
-						suffix: "px",
+						suffix: "display pixel",
 						default: 2,
 					},
 				],
@@ -95,14 +93,14 @@ return Object.freeze([ // TODO: deepFreeze
 						default: [ "hd1080", "hd720", ],
 						maxLength: 10,
 						options: [
-							{ value: "hd2160",	label: "2160p | UHD 4k" },
-							{ value: "hd1440",	label: "1440p | Quad HD" },
-							{ value: "hd1080",	label: "1080p | Full HD" },
-							{ value: "hd720",	label: "720p  | HD ready" },
-							{ value: "large",	label: "480p  | large" },
-							{ value: "medium",	label: "360p  | medium" },
-							{ value: "small",	label: "240p  | small" },
-							{ value: "tiny",	label: "144p  | tiny" },
+							{ value: "hd2160",	label:   "2160p | UHD 4k" },
+							{ value: "hd1440",	label:   "1440p | Quad HD" },
+							{ value: "hd1080",	label:   "1080p | Full HD" },
+							{ value: "hd720",	label: "   720p | HD ready" }, /* The three '\u2009' indent the <option>'s text to align the '|'s */
+							{ value: "large",	label: "   480p | large" },
+							{ value: "medium",	label: "   360p | medium" },
+							{ value: "small",	label: "   240p | small" },
+							{ value: "tiny",	label: "   144p | tiny" },
 						],
 					}, {
 						name: "zoomFactor",
@@ -375,7 +373,7 @@ return Object.freeze([ // TODO: deepFreeze
 				name: "export",
 				title: "Export all collected data",
 				description: "Copies the all cache data and user data to clipboard (as JSON)",
-				default: "Export",
+				default: [ "all", "viewed only", ],
 				type: "control",
 			}, {
 				name: "import",
@@ -410,4 +408,4 @@ function keybordKey(arg) {
 	}, arg);
 }
 
-});
+}); })();

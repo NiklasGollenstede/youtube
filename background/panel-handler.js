@@ -1,10 +1,7 @@
-'use strict'; define('background/panel', [
-	'web-ext-utils/chrome',
-	'db/meta-data',
-], function(
-	{ Tabs, Windows, },
-	db
-) {
+(() => { 'use strict'; define(function({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
+	'node_modules/web-ext-utils/chrome/': { Tabs, Windows, },
+	db,
+}) {
 
 class PanelHandler {
 	constructor({ tabs, commands, playlist, }) {
@@ -47,14 +44,14 @@ class PanelHandler {
 
 	attach() {
 		this.is = true;
-		chrome.tabs.onMoved.addListener(this.onTabMoved);
-		chrome.tabs.onAttached.addListener(this.onTabMoved);
+		Tabs.onMoved     && Tabs.onMoved   .addListener(this.onTabMoved);
+		Tabs.onAttached  && Tabs.onAttached.addListener(this.onTabMoved);
 	}
 
 	detach() {
 		this.is = false;
-		chrome.tabs.onMoved.removeListener(this.onTabMoved);
-		chrome.tabs.onAttached.removeListener(this.onTabMoved);
+		Tabs.onMoved    && Tabs.onMoved   .removeListener(this.onTabMoved);
+		Tabs.onAttached && Tabs.onAttached.removeListener(this.onTabMoved);
 	}
 
 	emit(type, value) {
@@ -158,4 +155,4 @@ class PanelHandler {
 
 return PanelHandler;
 
-});
+}); })();

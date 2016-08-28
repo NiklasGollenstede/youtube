@@ -1,18 +1,15 @@
-'use strict'; define('content/ratings', [
-	'content/utils', 'content/templates', 'es6lib', 'es6lib/template/escape',
-], function(
-	{ getVideoIdFromImageSrc, },
+(() => { 'use strict'; define(function({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
+	'node_modules/web-ext-utils/chrome/': { applications: { gecko, edgeHTML, }, },
+	'node_modules/es6lib/concurrent': { async, spawn, sleep, },
+	'node_modules/es6lib/dom': { once, },
+	'node_modules/es6lib/network': { HttpRequest, },
+	'node_modules/es6lib/template/escape': { decodeHtml, },
+	utils: { getVideoIdFromImageSrc, },
 	Templates,
-	{
-		concurrent: { async, spawn, },
-		dom: { once, },
-		network: { HttpRequest, },
-	},
-	{ decodeHtml, }
-) {
+}) {
 
 const CSS = {
-	static: () => (`
+	static: () => (`/* template strings confuse the syntax highlighting in Chrome and Firefox */
 		.inserted-ratings
 		{ position: relative; }
 		.inserted-ratings>*
@@ -20,23 +17,23 @@ const CSS = {
 		.videowall-endscreen .inserted-ratings
 		{ bottom: 0 !important; position: absolute !important; width: 100% !important; }
 	`),
-	barHeight: barHeight => (`
+	barHeight: barHeight => ((barHeight /= window.devicePixelRatio), `
 		.video-time /* make room for ratings bar */
-		{ margin-bottom: ${ barHeight }px !important; }
+		{ margin-bottom: `+( barHeight )+`px !important; }
 		.inserted-ratings>*
-		{ height: ${ barHeight }px !important; }
+		{ height: `+( barHeight )+`px !important; }
 		.related-list-item .inserted-ratings
-		{ bottom: ${ 3.5 + barHeight }px !important; }
+		{ bottom: `+( barHeight + 3.5 + gecko * 0.5 - edgeHTML * 0.23 )+`px !important; }
 		.related-list-item .yt-pl-thumb  .inserted-ratings
-		{ bottom: ${ 0.5 + barHeight }px !important; }
+		{ bottom: `+( barHeight + 0.5 /* + gecko * 0.5 ? */ )+`px !important; }
 	`),
 	likesColor: likesColor => (`
 		.inserted-ratings .video-extras-sparkbar-likes
-		{ background-color: ${ likesColor } !important; }
+		{ background-color: `+( likesColor )+` !important; }
 	`),
 	dislikesColor: dislikesColor => (`
 		.inserted-ratings .video-extras-sparkbar-dislikes
-		{ background-color: ${ dislikesColor } !important; }
+		{ background-color: `+( dislikesColor )+` !important; }
 	`),
 };
 
@@ -48,9 +45,9 @@ const loadRatingFromServer = id => HttpRequest('https://www.youtube.com/watch?v=
 	id,
 	rating: {
 		timestamp: +Date.now(),
-		likes: getInt(response, (/<[^\/>]*?class="[^"]*?like-button-renderer-like-button[^"]*?"[^\/>]*?><span [^\/>]*?>([\d\.\,]+)<\//)),
-		dislikes: getInt(response, (/<[^\/>]*?class="[^"]*?like-button-renderer-dislike-button[^"]*?"[^\/>]*?><span [^\/>]*?>([\d\.\,]+)<\//)),
-		views: getInt(response, (/<meta[^\/>]*?itemprop="interactionCount"[^\/>]*?content="([\d\.\,]+)">/)),
+		likes:     getInt(response,                (/like-button-renderer-like-button[^\w-].*?>([\d\.\,]+)<\//)),
+		dislikes:  getInt(response,             (/like-button-renderer-dislike-button[^\w-].*?>([\d\.\,]+)<\//)),
+		views:     getInt(response, (/<meta[^\/>]*?itemprop="interactionCount"[^\/>]*?content="([\d\.\,]+)">/)),
 	},
 	meta: {
 		title: getString(response, (/<meta[^\/>]*?name="title"[^\/>]*?content="([^"]*?)">/)),
@@ -74,12 +71,13 @@ return class Ratings {
 
 		main.once('observerCreated', () => {
 			const ratingOptions = main.options.displayRatings.children;
-			const styles = this.styles = { static: main.addStyle(CSS.static()), };
-			[ 'barHeight', 'likesColor', 'dislikesColor' ].forEach(option => {
-				styles[option] = main.addStyle('');
-				ratingOptions[option].whenChange(value => styles[option].textContent = CSS[option](value));
-			});
-			[ 'totalLifetime', 'relativeLifetime', ].forEach(option => ratingOptions[option].whenChange(value => this[option] = value));
+			main.setStyle('ratings-static', CSS.static());
+			[ 'barHeight', 'likesColor', 'dislikesColor' ].forEach(
+				option => ratingOptions[option].whenChange(value => main.setStyle('ratings-'+ option, CSS[option](value)))
+			);
+			[ 'totalLifetime', 'relativeLifetime', ].forEach(
+				option => ratingOptions[option].whenChange(value => this[option] = value)
+			);
 			main.options.displayRatings.when({
 				true: this.enable,
 				false: this.disable,
@@ -152,4 +150,4 @@ return class Ratings {
 	}
 };
 
-});
+}); })();

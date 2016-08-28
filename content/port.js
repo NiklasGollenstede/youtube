@@ -1,11 +1,8 @@
-'use strict'; define('content/port', [
-	'common/event-emitter', 'es6lib',
-], function(
-	EventEmitter,
-	{
-		object: { Class, },
-	}
-) {
+(() => { 'use strict'; define(function({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
+	'node_modules/web-ext-utils/chrome/': { runtime, applications: { gecko, }, },
+	'node_modules/es6lib/object': { Class, },
+	'common/event-emitter': EventEmitter,
+}) {
 
 const Port = new Class({
 	extends: { public: EventEmitter, },
@@ -15,7 +12,7 @@ const Port = new Class({
 		const self = Private(this), _this = self._this = Protected(this);
 		self.requests = new Map;
 		self.nextId = 1;
-		self.port = chrome.runtime.connect({ name: 'tab', });
+		self.port = runtime.connect({ name: 'tab', });
 		self.port.onMessage.addListener(self.onMessage.bind(self));
 		self.port.onDisconnect.addListener(() => _this.destroy());
 	}),
@@ -28,7 +25,7 @@ const Port = new Class({
 		request(name, method, ...args) {
 			const self = Private(this);
 			return new Promise((resolve, reject) => {
-				self.requests.set(self.nextId, [ resolve, reject, ]);
+				self.requests.set(self.nextId, { resolve, reject, });
 				self.postMessage({ name, method, id: self.nextId++, args, });
 			});
 		},
@@ -50,10 +47,10 @@ const Port = new Class({
 		onMessage(message) {
 			const { id, } = message;
 			if (id) {
-				if (message.hasOwnProperty('value')) {
-					this.requests.get(id)[0](message.value);
+				if (message.threw) {
+					this.requests.get(id).reject(fromJson(message.error));
 				} else {
-					this.requests.get(id)[1](message.error);
+					this.requests.get(id).resolve(message.value);
 				}
 				this.requests.delete(id);
 			} else {
@@ -63,6 +60,18 @@ const Port = new Class({
 	}),
 });
 
+function fromJson(string) {
+	if (typeof string !== 'string') { return string; }
+	return JSON.parse(string, (key, value) => {
+		if (!value || typeof value !== 'string' || !value.startsWith('$_ERROR_$')) { return value; }
+		const object = JSON.parse(value.slice(9));
+		const Constructor = object.name ? window[object.name] || Error : Error;
+		const error = gecko ? Object.create(Constructor.prototype) : new Constructor; // Firefox (49) won't log any properties of actual Error instances to the web pages console
+		Object.assign(error, object);
+		return error;
+	});
+}
+
 return (Port.Port = Port);
 
-});
+}); })();

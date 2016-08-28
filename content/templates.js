@@ -1,11 +1,8 @@
-'use strict'; define('content/templates', [
-	'es6lib', 'es6lib/template/escape',
-], function(
-	{
-		format: { secondsToHhMmSs, numberToRoundString, timeToRoundString, },
-	},
-	{ encodeHtml, }
-) {
+(() => { 'use strict'; define(function({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
+	'node_modules/es6lib/format': { secondsToHhMmSs, numberToRoundString, timeToRoundString, },
+	'node_modules/es6lib/template/escape': { encodeHtml, },
+	utils: { getVideoIdFromImageSrc, },
+}) {
 
 const transformVars = transformer => function urlToHtml(strings, ...vars) {
 	const ret = Array(vars.length);
@@ -150,4 +147,4 @@ const Templates = ({
 
 return (Templates.Templates = Templates);
 
-});
+}); })();

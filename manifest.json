@@ -2,7 +2,7 @@
 	"manifest_version": 2,
 	"name": "YouTube Overhaul",
 	"short_name": "YouTube Overhaul",
-	"version": "0.3.0",
+	"version": "0.4.0",
 	"author": "Niklas Gollenstede",
 
 	"description": "",
@@ -26,7 +26,8 @@
 	],
 	"optional_permissions": [ ],
 	"background": {
-		"page": "background/index.html"
+		"page": "background/index.html",
+		"persistent": true
 	},
 	"content_scripts": [
 		{
@@ -45,6 +46,9 @@
 				"node_modules/web-ext-utils/chrome/index.js",
 				"node_modules/web-ext-utils/options/index.js",
 				"common/event-emitter.js",
+				"content/layout-new.css.js",
+				"content/layout-old.css.js",
+				"content/player.js.js",
 				"content/utils.js",
 				"content/port.js",
 				"content/templates.js",
@@ -64,21 +68,16 @@
 		}
 	],
 	"web_accessible_resources": [
-		"web/player.js",
-		"web/sniffer.js",
-		"web/layout-old.css",
-		"web/layout-new.css",
-		"web/layout.css"
 	],
 	"browser_action": {
 		"default_icon": {
 			"64": "icon.png"
 		},
 		"default_title": "Youtube Overhaul",
-		"default_popup": "panel/index.html"
+		"default_popup": "ui/panel/index.html"
 	},
 	"options_ui": {
-		"page": "options/index.html",
+		"page": "ui/options/index.html",
 		"open_in_tab": true
 	},
 

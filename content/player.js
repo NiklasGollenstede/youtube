@@ -1,16 +1,16 @@
-'use strict'; define('content/player', [
-	'common/event-emitter', 'content/templates', 'es6lib',
-], function(
-	EventEmitter,
+(() => { 'use strict'; define(function({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
+	'node_modules/web-ext-utils/chrome/': { extension, applications: { gecko, }, },
+	'node_modules/es6lib/concurrent': { async, spawn, sleep, },
+	'node_modules/es6lib/dom':  { createElement, DOMContentLoaded, RemoveObserver, getParent, },
+	'node_modules/es6lib/format': { QueryObject, },
+	'node_modules/es6lib/object': { Class, },
+	'node_modules/es6lib/network': { HttpRequest, },
+	'common/event-emitter': EventEmitter,
 	Templates,
-	{
-		format: { QueryObject, },
-		functional: { log, },
-		dom: { createElement, DOMContentLoaded, RemoveObserver, getParent, },
-		object: { Class, },
-		network: { HttpRequest, },
-	}
-) { /* global WheelEvent */
+	'./player.js': playerJS,
+}) {
+
+	/* global WheelEvent */
 
 const fadeIn_factor = 1.4, fadeIn_margin = 0.05;
 
@@ -21,6 +21,8 @@ const target = {
 	self: 'content-player-proxy',
 };
 
+// table of public members, which all (may) trigger an remote call, and the events they wait for to fulfill their returned promises
+// if a private method of the same name exists, that will be called first
 const methods = [
 	[ 'setQuality',         'qualityChanged',   ],
 	[ 'getQuality',         '_getQuality',      ],
@@ -46,7 +48,6 @@ const methods = [
 	[ 'showVideoInfo',      null,               ],
 	[ 'hideVideoInfo',      null,               ],
 
-	[ 'silence',            null,               ],
 	[ null,                 'buffering',        ],
 
 	[ null,                 'loaded',           ],
@@ -54,8 +55,7 @@ const methods = [
 ];
 
 function isTrusted({ data, origin, isTrusted, }) {
-	return /*isTrusted &&*/ (/^https:\/\/\w+\.youtube\.com$/).test(origin) && typeof data === 'object' && data.target === target.self;
-	// XXX: for some reason isTrusted is flase in Firefox (47)
+	return (gecko || isTrusted) && (/^https:\/\/\w+\.youtube\.com$/).test(origin) && typeof data === 'object' && data.target === target.self;
 }
 function sendMessage(type, args = [ ]) {
 	return window.postMessage({ target: target.other, type, args, }, '*');
@@ -69,10 +69,11 @@ const Player = new Class({
 		Super.call(this);
 		const self = Private(this), _this = Protected(this);
 		self.main = main;
-		self.promises = { };
-		self.queue = [ ];
-		self.suspended = [ ];
-		this.video = self.video = this.root = self.root = null;
+		self.promises = { }; // one pending Promise of each event in the 'methods' array above, to make sure all pending calls are resolved when an event occurs
+		self.queue = [ ]; // queue of calls meant for the player while it is not loaded yet
+		self.suspended = [ ]; // stack of players that already existed when a new one showed up
+		this.video = self.video = null; // the current <video> element
+		this.root = self.root = null; // the current root element of the html5-video-player
 		self.removePlayer = self.removePlayer.bind(self);
 		self.visibilityChange = self.visibilityChange.bind(self);
 		main.once(Symbol.for('destroyed'), () => self.destroy());
@@ -88,7 +89,7 @@ const Player = new Class({
 			members[method] = function(...args) {
 				if (Instance !== this) { return new Error('"'+ method +'" called on dead Player'); }
 				const self = Private(this);
-				let value; if (self[method] && (value = self[method](...args))) { return value; }
+				let value; if (self[method] && (value = self[method](...args))) { return value; } // call private method first. Only proceed if it returns falsy
 				if (self.queue) {
 					self.queue.push([ method, args, ]);
 				} else {
@@ -106,19 +107,11 @@ const Player = new Class({
 			this.main.once('observerCreated', () => {
 				// inject unsafe script
 				document.body.appendChild(createElement('script', {
-					src: chrome.extension.getURL('web/player.js'),
+					textContent: playerJS,
 				})).remove();
 
-				const done = (message) => {
-					// wait for script
-					if (!isTrusted(message) || message.data.type !== '_scriptLoaded') { return; }
-					window.removeEventListener('message', done);
-
-					// wait for player
-					this.main.observer.all('.html5-video-player', this.initPlayer.bind(this));
-					this.main.observer.all('#watch7-player-age-gate-content', this.loadExternalPlayer.bind(this, { reason: 'age', }));
-				};
-				window.addEventListener('message', done);
+				this.main.observer.all('.html5-video-player', this.initPlayer.bind(this));
+				this.main.observer.all('#watch7-player-age-gate-content', this.loadExternalPlayer.bind(this, { reason: 'age', }));
 			});
 		},
 
@@ -260,7 +253,7 @@ const Player = new Class({
 			const { video, main, } = this;
 			if (!video) { return false; }
 			if (video.readyState !== 4) {
-				if (video.dataset.visible != 'true') {
+				if (video.dataset.visible !== 'true') {
 					this.main.port.emit('focus_temporary');
 				} else {
 					const timer1 = setTimeout(() => this.main.port.emit('focus_temporary'), 2000);
@@ -305,16 +298,9 @@ const Player = new Class({
 		togglePlayPause(smooth) {
 			return this.video.paused ? this.play(smooth) : this.pause(smooth);
 		},
-
-		silence() {
-			const video = this.video;
-			if (!video) { return () => void 0; }
-			if (video.unMute) { return video.unMute; }
-			const old = video.volume;
-			video.volume = 0;
-			return (video.unMute = () => video.volume = old);
-		},
 	}),
 });
 
-return (Player.Player = Player); });
+return (Player.Player = Player);
+
+}); })();

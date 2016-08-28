@@ -1,3 +1,5 @@
+define(`
+
 /*
 * always
 */
@@ -93,3 +95,4 @@ ytd-masthead #container {
     padding: 0 !important;
 }
 
+`);

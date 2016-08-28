@@ -1,8 +1,10 @@
-'use strict'; define('content/utils', function() {
+(() => { 'use strict'; define(function({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
+	exports,
+}) {
 
 function getVideoIdFromImageSrc(element) {
 	return (
-		element.nodeName == "IMG" && element.src
+		element.nodeName === "IMG" && element.src
 		&& (element.src.match(/(vi\/|vi_webp\/)([\w-_]{11})(?=\/)/) || [ ])[2]
 	) || (
 		element.style && element.style.backgroundImage
@@ -12,4 +14,4 @@ function getVideoIdFromImageSrc(element) {
 
 return { getVideoIdFromImageSrc, };
 
-});
+}); })();

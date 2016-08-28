@@ -1,12 +1,18 @@
-'use strict'; (() => {
-
-const {
-	dom: { CreationObserver, DOMContentLoaded, createElement, getParent, },
-	format: { QueryObject, },
-	object: { Class, setConst, copyProperties, },
-	namespace: { IterableNameSpace, },
-} = require('es6lib');
-const { storage: Storage, applications: { gecko, chromium, }, } = require('web-ext-utils/chrome');
+(() => { 'use strict'; define(function({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
+	'node_modules/web-ext-utils/chrome/': { Storage, applications: { gecko, }, },
+	'node_modules/es6lib/concurrent': { async, spawn, sleep, },
+	'node_modules/es6lib/dom': { CreationObserver, DOMContentLoaded, createElement, getParent, },
+	'node_modules/es6lib/format': { QueryObject, },
+	'node_modules/es6lib/object': { Class, setConst, copyProperties, },
+	'node_modules/es6lib/namespace': { IterableNameSpace, },
+	Actions,
+	Control,
+	Layout,
+	Passive,
+	Port,
+	Player,
+	Ratings,
+}) {
 
 /**
  * Event sequence: optionsLoaded (navigate|navigated)* observerCreated navigated (navigate|navigated)* <destroyed>
@@ -25,8 +31,7 @@ const Main = new Class({
 
 		this.on = this.on.bind(this);
 		this.once = this.once.bind(this);
-		this.addStyle = this.addStyle.bind(this);
-		this.addStyleLink = this.addStyleLink.bind(this);
+		this.setStyle = this.setStyle.bind(this);
 		this.addDomListener = this.addDomListener.bind(this);
 		this.removeDomListener = this.removeDomListener.bind(this);
 
@@ -35,30 +40,25 @@ const Main = new Class({
 		self.update(this);
 
 		function error(error) { console.error('Failed to load module:', error); }
-		try { this.port = new (require('content/port'))(this); } catch(e) { error(e); }
-		try { this.actions = new (require('content/actions'))(this); } catch(e) { error(e); }
-		try { this.player = new (require('content/player'))(this); } catch(e) { error(e); }
-		try { this.layout = new (require('content/layout'))(this); } catch(e) { error(e); }
-		try { this.ratings = new (require('content/ratings'))(this); } catch(e) { error(e); }
-		try { this.passive = new (require('content/passive'))(this); } catch(e) { error(e); }
-		try { this.control = new (require('content/control'))(this); } catch(e) { error(e); }
+		try { this.port      = new Port(this);      } catch(e) { error(e); }
+		try { this.actions   = new Actions(this);   } catch(e) { error(e); }
+		try { this.player    = new Player(this);    } catch(e) { error(e); }
+		try { this.layout    = new Layout(this);    } catch(e) { error(e); }
+		try { this.ratings   = new Ratings(this);   } catch(e) { error(e); }
+		try { this.passive   = new Passive(this);   } catch(e) { error(e); }
+		try { this.control   = new Control(this);   } catch(e) { error(e); }
 
 		this.port.on(Symbol.for('destroyed'), self.destroy.bind(self));
 		require.async('content/options').then(self.optionsLoaded.bind(self));
 	}),
 
 	public: (Private, Protected, Public) => ({
-		addStyle(css) {
+		setStyle(id, css) {
 			const self = Private(this);
-			return self.styles.appendChild(createElement('style', {
-				textContent: css,
-			}));
-		},
-		addStyleLink(href) {
-			const self = Private(this);
-			return self.styles.appendChild(createElement('link', {
-				rel: 'stylesheet', href,
-			}));
+			const style = self.styles.querySelector('#'+ id)
+			|| self.styles.appendChild(createElement('style', { id, }));
+			style.textContent = css;
+			return style;
 		},
 		addDomListener(node, type, listener, capture) {
 			const self = Private(this);
@@ -112,12 +112,7 @@ const Main = new Class({
 			console.log('is redesign', self.redesign);
 			console.log('options loaded', self.options);
 			DOMContentLoaded.then(this.loaded.bind(this));
-			if (self.redesign) {
-				self.port.on('navigated', ({ url, }) => this.navigate({ detail: { url, }, }) === this.navigated());
-			} else {
-				self.addDomListener(window, 'spfrequest', this.navigate.bind(this));
-				self.addDomListener(window, 'spfdone', this.navigated.bind(this));
-			}
+			self.port.on('navigated', ({ url, }) => this.navigate({ detail: { url, }, }) === this.navigated());
 			_this.emitSync('optionsLoaded', self.options);
 			_this.clear('optionsLoaded');
 		},
@@ -137,7 +132,7 @@ const Main = new Class({
 
 			this.styles.remove();
 
-			this.optionsRoot.destroy();
+			try { this.optionsRoot.destroy(); } catch (e) { }
 
 			// remove all listeners
 			[ this.nodesCapture, this.nodesBubble ]
@@ -157,9 +152,19 @@ const Main = new Class({
 
 if (window._main) {
 	console.error('Main module already exists', window._main);
-	if (gecko) { window._main.port.destroy(); }
+	if (gecko) { try {
+		window._main.port.destroy();
+	} catch (error) { console.error('Failed to destroy previous module', error); } }
 	else { return; }
 }
+
 const main = window._main = new Main;
 
-})();
+}); })();
+
+!Element.prototype.matches && (Element.prototype.matches = Element.prototype.msMatchesSelector);
+!Element.prototype.closest && (Element.prototype.closest = function getParent(selector) {
+	let element = this;
+	while (element && (!element.matches || !element.matches(selector))) { element = element.parentNode; }
+	return element;
+});

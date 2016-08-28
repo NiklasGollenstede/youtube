@@ -1,3 +1,5 @@
+define(`
+
 /*
 * always
 */
@@ -324,3 +326,5 @@
     min-height: 68px !important;
     overflow: hidden;
 }
+
+`);

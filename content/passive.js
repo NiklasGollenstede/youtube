@@ -1,11 +1,7 @@
-'use strict'; define('content/passive', [
-	'es6lib',
-], function(
-	{
-		dom: { createElement, },
-		format: { QueryObject, },
-	}
-) {
+(() => { 'use strict'; define(function({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
+	'node_modules/es6lib/dom': { createElement, },
+	'node_modules/es6lib/format': { QueryObject, },
+}) {
 
 return function(main) {
 
@@ -51,4 +47,4 @@ return function(main) {
 	}));
 };
 
-});
+}); })();

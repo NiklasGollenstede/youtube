@@ -1,8 +1,26 @@
 {
+	"name": "youtubeoverhaul",
+	"title": "YouTube Overhaul",
+	"description": "",
+	"version": "0.4.0",
+	"license": "MPL-2.0",
 	"author": "Niklas Gollenstede",
+
+	"repository" : {
+		"type" : "git",
+		"url" : "https://github.com/NiklasGollenstede/youtube"
+	},
+
 	"dependencies": {
-		"sortablejs": "rubaxa/Sortable#1.4.2",
+		"fs-extra": "^0.30.0",
+		"web-ext": "1.0.1",
 		"es6lib": "NiklasGollenstede/es6lib",
+		"sortablejs": "rubaxa/Sortable#1.4.2",
 		"web-ext-utils": "NiklasGollenstede/web-ext-utils"
+	},
+
+	"scripts": {
+		"build": "node build.js",
+		"postinstall": "node build.js"
 	}
 }

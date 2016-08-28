@@ -1,8 +1,6 @@
-'use strict'; define('background/playlist', [
-], function(
-) {
-
-const noop = () => { };
+(() => { 'use strict'; define(function({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
+	exports,
+}) {
 
 class PlayList extends Array {
 
@@ -17,12 +15,11 @@ class PlayList extends Array {
 	 */
 	constructor({ values, index, loop, onSeek, onAdd, onDelete, } = { }) {
 		super(...(values || [ ]));
-		this.onSeek = noop;
 		this.index = index;
 		this.loop = !!loop;
-		this.onSeek = onSeek || noop;
-		this.onAdd = onAdd || noop;
-		this.onDelete = onDelete || noop;
+		this.onSeek = onSeek;
+		this.onAdd = onAdd;
+		this.onDelete = onDelete;
 	}
 
 	/**
@@ -35,7 +32,7 @@ class PlayList extends Array {
 		else { value <<= 0; }
 		const old = this._index;
 		this._index = value;
-		old !== value && this.onSeek(value, old);
+		old !== value && this.onSeek && this.onSeek(value, old);
 	}
 	get index() {
 		return this._index;
@@ -153,14 +150,14 @@ class PlayList extends Array {
 		const length = this.length;
 		super.push(...arguments);
 		for (let i = 0; i < arguments.length; ++i) {
-			this.onAdd(length + i, arguments[i]);
+			this.onAdd && this.onAdd(length + i, arguments[i]);
 		}
 		return this.length;
 	}
 
 	pop() {
 		const value = super.pop();
-		this.onDelete(this.length, value);
+		this.onDelete && this.onDelete(this.length, value);
 		this.index === this.length && this.next();
 		return value;
 	}
@@ -172,7 +169,7 @@ class PlayList extends Array {
 
 	shift() {
 		const value = super.shift();
-		this.onDelete(0, value);
+		this.onDelete && this.onDelete(0, value);
 		this.index -= 1;
 		return value;
 	}
@@ -180,7 +177,7 @@ class PlayList extends Array {
 	unshift() {
 		super.push(...arguments);
 		for (let i = 0; i < arguments.length; ++i) {
-			this.onAdd(i, arguments[i]);
+			this.onAdd && this.onAdd(i, arguments[i]);
 		}
 		return this.length;
 	}
@@ -189,10 +186,10 @@ class PlayList extends Array {
 		const removed = super.splice(...arguments);
 		remove = removed.length;
 		for (let i = 0; i < removed.length; ++i) {
-			this.onDelete(at + i, removed[i]);
+			this.onDelete && this.onDelete(at + i, removed[i]);
 		}
 		for (let i = 0; i < items.length; ++i) {
-			this.onAdd(at + i, items[i]);
+			this.onAdd && this.onAdd(at + i, items[i]);
 		}
 		this.index >= at && (this.index <= at + remove ? (this.index = at + items.length) : (this.index += items.length - remove));
 		return removed;
@@ -201,4 +198,4 @@ class PlayList extends Array {
 
 return (PlayList.PlayList = PlayList);
 
-});
+}); })();

@@ -1,11 +1,9 @@
-'use strict'; define('content/layout', [
-	'content/utils', 'es6lib',
-], function(
-	{ getVideoIdFromImageSrc, },
-	{
-		dom: { createElement, once, getParent, },
-	}
-) {
+(() => { 'use strict'; define(function({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
+	require,
+	'node_modules/web-ext-utils/chrome/': { extension, },
+	'node_modules/es6lib/dom': { createElement, once, getParent, },
+	utils: { getVideoIdFromImageSrc, },
+}) {
 
 const noop = document.createElement('p');
 
@@ -14,14 +12,12 @@ return class Layout {
 		this.main = main;
 		this.options = null;
 
-		this.fullscreenStyle = null;
-
 		const parents              = `img, .ytp-videowall-still,       .ytp-redesign-videowall-still,       .videowall-still,      .thumbnail-container`.split(/,\s+/);
 		this.animateThumbsTargets  = `img, .ytp-videowall-still-image, .ytp-redesign-videowall-still-image, .videowall-still-image, div#image`;
 		this.animateThumbsParents  = parents.join(', ');
 		this.animateThumbsChildren = parents.map(s => s +' *, '+ s).join(', ');
 		this.animateThumbsScaleIf  = `.yt-uix-simple-thumb-related *`;
-		this.main.addStyle(`
+		this.main.setStyle('thumb-zoom', `
 			.yt-uix-simple-thumb-related     .animated-thumb { transform: scaleY(1.366); } /* view, */
 			.yt-thumb-simple                 .animated-thumb { transform: scaleY(1.366) translateY(+0.17%); } /* home, */
 			.yt-thumb-clip                   .animated-thumb { transform: scaleY(1.016) translateY(-0.22%); } /* channels, */
@@ -61,11 +57,11 @@ return class Layout {
 		});
 		options.player.children.seamlessFullscreen.when({
 			true: () => {
-				!this.fullscreenStyle && (this.fullscreenStyle = this.main.addStyleLink(chrome.extension.getURL(this.main.redesign ? 'web/layout-new.css' : 'web/layout-old.css')));
+				this.main.setStyle('layout-main', require(this.main.redesign ? './layout-new.css' : './layout-old.css'));
 				this.main.addDomListener(window, 'wheel', this.fullscreenOnWheel);
 			},
 			false: () => {
-				this.fullscreenStyle && this.fullscreenStyle.remove(); this.fullscreenStyle = null;
+				this.main.setStyle('layout-main', '').remove();
 				this.main.removeDomListener(window, 'wheel', this.fullscreenOnWheel);
 			},
 		});
@@ -260,4 +256,4 @@ return class Layout {
 	}
 };
 
-});
+}); })();
