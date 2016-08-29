@@ -158,10 +158,26 @@ define(`
 {
     display: none !important;
 }
+/* description */
+#watch-description-text
+{
+    max-height: 800px; /* not !important */
+    transition-property: max-height;
+    transition-duration: 0.3s;
+}
 /* discussion */
 .watchpage #watch-discussion
 {
-    display: none !important;
+    padding: 5px !important;
+}
+.watchpage #watch-discussion
+{
+    max-height: 25px !important;
+    cursor: pointer !important;
+    transition-property: max-height;
+    transition-duration: 2s;
+    transition-timing-function: cubic-bezier(0, 1, 1, 1);
+    transition-delay: -1.2s;
 }
 /* related videos */
 .watchpage #watch7-sidebar

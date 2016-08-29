@@ -61,9 +61,13 @@ return class Layout {
 				this.main.addDomListener(window, 'wheel', this.fullscreenOnWheel);
 			},
 			false: () => {
-				this.main.setStyle('layout-main', '').remove();
+				this.main.setStyle('layout-main', '');
 				this.main.removeDomListener(window, 'wheel', this.fullscreenOnWheel);
 			},
+		});
+		options.comments.when({
+			true:  () => this.main.setStyle('show-comments', ''),
+			false:  () => this.main.setStyle('show-comments', `.watchpage #watch-discussion { display: none !important; }`),
 		});
 		options.player.children.seamlessFullscreen.children.showOnMouseRight.when({
 			true:  () => this.main.addDomListener   (window, 'mousemove', this.seamlessFullscreenOnMousemove),

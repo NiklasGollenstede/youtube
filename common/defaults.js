@@ -16,7 +16,7 @@ return Object.freeze([ // TODO: deepFreeze
 		children: [
 			{
 				name: "displayRatings",
-				title: "Display video ratings",
+				title: "Video ratings",
 				description: "Displays a video rating bar for every thumbnail and shows the view count and video age when the cursor hovers over the image. This needs to load a snippet of information from YouTube servers for every thumbnail and caches these to reduce the network load",
 				type: "bool",
 				default: true,
@@ -69,6 +69,11 @@ return Object.freeze([ // TODO: deepFreeze
 				name: "autoExpandLists",
 				title: "Automatically expand lists",
 				description: "Automatically click the \"Show/Load more\"-button when scrolling to the end of a list",
+				type: "bool",
+				default: true,
+			}, {
+				name: "comments",
+				title: "Show comments",
 				type: "bool",
 				default: true,
 			}, {

@@ -17,11 +17,25 @@ return function(main) {
 		false: () => main.removeDomListener(window, 'scroll', autoExpandListsOnWheel),
 	}));
 
-	// open search results in new tab, may require user to accept popups from youtube.com
+	let showingComments = false;
 	main.addDomListener(document, 'mousedown', event => {
-		if (event.button !== 1 || !event.target.matches('#search-btn')) { return; }
-		event.preventDefault(); event.stopPropagation();
-		window.open('/results?search_query='+ encodeURIComponent(event.target.parentNode.querySelector('#masthead-search-term').value), '_blank');
+		// expand comments
+		if (event.button === 0 && event.target.matches('.comment-section-header-renderer, .comment-section-header-renderer *')) {
+			event.preventDefault(); event.stopPropagation();
+			main.setStyle('show-comments', showingComments ? '' : `.watchpage #watch-discussion {
+				max-height: 20000px !important;
+				transition-duration: 0.8s;
+				transition-timing-function: cubic-bezier(1, 0, 1, 1);
+				transition-delay: 0s;
+			}`);
+			showingComments = !showingComments;
+		}
+
+		// open search results in new tab, may require user to accept popups from youtube.com
+		if (event.button === 1 && event.target.matches('#search-btn, #search-btn *')) {
+			event.preventDefault(); event.stopPropagation();
+			window.open('/results?search_query='+ encodeURIComponent(event.target.parentNode.querySelector('#masthead-search-term').value), '_blank');
+		}
 	}, true);
 
 	// add 'clear playlist' button
