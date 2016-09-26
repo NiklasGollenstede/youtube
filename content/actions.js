@@ -2,10 +2,10 @@
 	'node_modules/web-ext-utils/chrome/': { applications: { gecko, }, },
 	'node_modules/es6lib/concurrent': { async, spawn, sleep, },
 	'node_modules/es6lib/dom': { clickElement, createElement, CreationObserver, notify, once, saveAs, },
-	'node_modules/es6lib/format': { hhMmSsToSeconds, secondsToHhMmSs, numberToRoundString, timeToRoundString, QueryObject, },
 	'node_modules/es6lib/functional': { noop, Logger, log, },
 	'node_modules/es6lib/object': { copyProperties, },
 	'node_modules/es6lib/network': { HttpRequest, },
+	'node_modules/es6lib/string': { hhMmSsToSeconds, secondsToHhMmSs, numberToRoundString, timeToRoundString, QueryObject, },
 	Templates,
 }) {
 

@@ -34,13 +34,12 @@
 			"matches": [ "https://www.youtube.com/*", "https://gaming.youtube.com/*" ],
 			"js": [
 				"node_modules/es6lib/require.js",
-				"node_modules/es6lib/template/escape.js",
 				"node_modules/es6lib/namespace.js",
 				"node_modules/es6lib/object.js",
 				"node_modules/es6lib/functional.js",
 				"node_modules/es6lib/concurrent.js",
 				"node_modules/es6lib/dom.js",
-				"node_modules/es6lib/format.js",
+				"node_modules/es6lib/string.js",
 				"node_modules/es6lib/network.js",
 				"node_modules/es6lib/index.js",
 				"node_modules/web-ext-utils/chrome/index.js",
@@ -100,6 +99,9 @@
 			},
 			"description": "Play previous video in playlist"
 		}
+	},
+
+	"run_update": {
 	},
 
 	"incognito": "split"

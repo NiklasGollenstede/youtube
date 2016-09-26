@@ -3,7 +3,7 @@
 	'node_modules/es6lib/concurrent': { async, spawn, sleep, },
 	'node_modules/es6lib/dom': { once, },
 	'node_modules/es6lib/network': { HttpRequest, },
-	'node_modules/es6lib/template/escape': { decodeHtml, },
+	'node_modules/es6lib/string': { decodeHtml, },
 	utils: { getVideoIdFromImageSrc, },
 	Templates,
 }) {

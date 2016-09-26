@@ -2,7 +2,7 @@
 	'node_modules/web-ext-utils/chrome/': { extension, applications: { gecko, }, },
 	'node_modules/es6lib/concurrent': { async, spawn, sleep, },
 	'node_modules/es6lib/dom':  { createElement, DOMContentLoaded, RemoveObserver, getParent, },
-	'node_modules/es6lib/format': { QueryObject, },
+	'node_modules/es6lib/string': { QueryObject, },
 	'node_modules/es6lib/object': { Class, },
 	'node_modules/es6lib/network': { HttpRequest, },
 	'common/event-emitter': EventEmitter,

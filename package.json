@@ -12,9 +12,10 @@
 	},
 
 	"dependencies": {
-		"fs-extra": "^0.30.0",
-		"web-ext": "1.0.1",
+		"fs-extra": "0.30.0",
+		"zip-dir": "1.0.2",
 		"es6lib": "NiklasGollenstede/es6lib",
+		"regexpx": "NiklasGollenstede/regexpx",
 		"sortablejs": "rubaxa/Sortable#1.4.2",
 		"web-ext-utils": "NiklasGollenstede/web-ext-utils"
 	},

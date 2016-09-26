@@ -1,8 +1,8 @@
 (() => { 'use strict'; define(function({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
 	'node_modules/es6lib/concurrent': { async, sleep, },
-	'node_modules/es6lib/format': { hhMmSsToSeconds, timeToRoundString, },
 	'node_modules/es6lib/object': { Class, },
 	'node_modules/es6lib/network': { HttpRequest, },
+	'node_modules/es6lib/string': { hhMmSsToSeconds, timeToRoundString, },
 }) {
 
 let loaded = false;

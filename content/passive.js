@@ -1,6 +1,6 @@
 (() => { 'use strict'; define(function({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
 	'node_modules/es6lib/dom': { createElement, },
-	'node_modules/es6lib/format': { QueryObject, },
+	'node_modules/es6lib/string': { QueryObject, },
 }) {
 
 return function(main) {
@@ -24,7 +24,7 @@ return function(main) {
 			event.preventDefault(); event.stopPropagation();
 			main.setStyle('show-comments', showingComments ? '' : `.watchpage #watch-discussion {
 				max-height: 20000px !important;
-				transition-duration: 0.8s;
+				transition-duration: 0.5s;
 				transition-timing-function: cubic-bezier(1, 0, 1, 1);
 				transition-delay: 0s;
 			}`);

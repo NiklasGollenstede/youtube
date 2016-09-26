@@ -1,5 +1,5 @@
 define(function({
-	'node_modules/es6lib/format': { secondsToHhMmSs, },
+	'node_modules/es6lib/string': { secondsToHhMmSs, },
 	'node_modules/sortablejs/Sortable.min': Sortable,
 	'common/context-menu': ContextMenu,
 }) {
@@ -106,7 +106,7 @@ function init() {
 		const items = [
 			chrome.runtime.reload && { label: 'Restart', action: () => chrome.runtime.reload(), },
 			{ label: 'Show in tab', action: () => chrome.runtime.sendMessage({ name: 'openPlaylist', args: [ '', ], post: true, }), },
-			{ label: 'Open in panel', action: () => chrome.windows.create({ url: location.href, type: 'panel', width: 450, height: 600, }), },
+			{ label: 'Open in popup', action: () => chrome.windows.create({ url: location.href, type: 'popup', width: 450, height: 600, }), },
 			{ label: 'Settings', action: () => chrome.runtime.sendMessage({ name: 'openOptions', args: [ '', ], post: true, }), },
 		];
 		new ContextMenu({ x, y, items, });

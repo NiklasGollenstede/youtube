@@ -166,18 +166,21 @@ define(`
     transition-duration: 0.3s;
 }
 /* discussion */
-.watchpage #watch-discussion
+#watch-discussion
 {
     padding: 5px !important;
 }
-.watchpage #watch-discussion
+#watch-discussion
 {
     max-height: 25px !important;
-    cursor: pointer !important;
     transition-property: max-height;
-    transition-duration: 2s;
+    transition-duration: 1s;
     transition-timing-function: cubic-bezier(0, 1, 1, 1);
-    transition-delay: -1.2s;
+    transition-delay: -0.65s;
+}
+.comment-section-header-renderer
+{
+    cursor: pointer !important;
 }
 /* related videos */
 .watchpage #watch7-sidebar
