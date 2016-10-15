@@ -8,13 +8,14 @@
 	db,
 	Tab,
 	PanelHandler,
+	Playlist,
 }) {
 console.log('Ran updates', updated);
 
 window.Chrome = require('node_modules/web-ext-utils/chrome/');
 window.db = db; window.options = options;
 
-const playlist = window.playlist = new (yield require('./playlist'))({
+const playlist = window.playlist = new Playlist({
 	onSeek(index) {
 		console.log('onSeek', index);
 		panel.emit('playlist_seek', index);

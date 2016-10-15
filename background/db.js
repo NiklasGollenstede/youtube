@@ -27,7 +27,7 @@ try {
 
 	Transaction = class Transaction {
 		constructor(write, keys, tmp) {
-			this.keys = keys || defaultKeys;
+			this.keys = keys || allKeys;
 			this._ = db.transaction(this.keys, write ? 'readwrite' : 'readonly');
 			this.done = !tmp && getResult(this);
 		}
@@ -70,11 +70,11 @@ try {
 } catch(error) {
 	console.warn('indexedDB is unavailable, fall back to chrome.storage.local:', error);
 
-	const Storage = (yield require('node_modules/web-ext-utils/chrome/')).Storage.local;
+	const Storage = (yield require.async('node_modules/web-ext-utils/chrome/')).Storage.local;
 
 	Transaction = class Fallback {
 		constructor(write, keys, tmp) {
-			this.keys = keys || defaultKeys;
+			this.keys = keys || allKeys;
 			this.write = !!write;
 			this.done = !tmp && Promise.resolve();
 		}
@@ -137,7 +137,7 @@ return {
 	ids() {
 		return new Transaction(false, [ 'meta', ], true).ids();
 	},
-	clear(keys = this.keys) {
+	clear(keys = allKeys) {
 		return new Transaction(true, keys, true).clear(keys);
 	},
 	get(id, keys = defaultKeys) {
@@ -161,7 +161,7 @@ return {
 			Object.keys(data).forEach(key => {
 				if (key === 'id') { return; }
 				const value = data[key], old = current[key];
-				current[key] = value == null ? null : typeof types[key] === 'object' ? Object.assign(old || { }, value) : old + value;
+				current[key] = value == null ? null : typeof types[key] === 'object' ? Object.assign(old || { }, value) : value;
 			});
 			return current;
 		}, Object.keys(data))));

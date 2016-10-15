@@ -13,7 +13,7 @@ const transformVars = transformer => function urlToHtml(strings, ...vars) {
 
 const urlToHtml = transformVars(value => encodeHtml(decodeURI(value).replace(/\+/g, ' ')));
 
-const stringToHtml = transformVars(encodeHtml);
+const stringToHtml = transformVars(s => encodeHtml(s ? s +'' : ''));
 
 const Templates = ({
 

@@ -383,8 +383,13 @@ return Object.freeze([ // TODO: deepFreeze
 			}, {
 				name: "import",
 				title: "Import data",
-				description: "Imports JSON formatted data form clipboard into the cache data / user data storage",
+				description: "Imports JSON formatted data form clipboard into the cache data / user data storage. Overwrites conflicting data",
 				default: "Import",
+				type: "control",
+			}, {
+				name: "getSize",
+				title: "Show data size",
+				default: "Show size",
 				type: "control",
 			}, {
 				name: "clear",

@@ -107,6 +107,7 @@ return class Ratings {
 			}
 			const loaded = (yield loadRatingFromServer(id));
 			this.attatchRatingBar(element, Object.assign(stored, loaded));
+			!loaded.meta.title && (delete loaded.meta.title); !loaded.meta.published && (delete loaded.meta.published);
 			return Promise.all([
 				port.request('db', 'set', id, { rating: loaded.rating, }),
 				port.request('db', 'assign', id, 'meta', loaded.meta),

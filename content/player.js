@@ -2,15 +2,13 @@
 	'node_modules/web-ext-utils/chrome/': { extension, applications: { gecko, }, },
 	'node_modules/es6lib/concurrent': { async, spawn, sleep, },
 	'node_modules/es6lib/dom':  { createElement, DOMContentLoaded, RemoveObserver, getParent, },
-	'node_modules/es6lib/string': { QueryObject, },
 	'node_modules/es6lib/object': { Class, },
 	'node_modules/es6lib/network': { HttpRequest, },
+	'node_modules/es6lib/string': { QueryObject, },
 	'common/event-emitter': EventEmitter,
 	Templates,
 	'./player.js': playerJS,
-}) {
-
-	/* global WheelEvent */
+}) { /* globals WheelEvent */
 
 const fadeIn_factor = 1.4, fadeIn_margin = 0.05;
 

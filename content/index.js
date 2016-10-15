@@ -5,6 +5,7 @@
 	'node_modules/es6lib/object': { Class, setConst, copyProperties, },
 	'node_modules/es6lib/namespace': { IterableNameSpace, },
 	'node_modules/es6lib/string': { QueryObject, },
+	'common/event-emitter': EventEmitter,
 	Actions,
 	Control,
 	Layout,
@@ -19,7 +20,7 @@
  */
 
 const Main = new Class({
-	extends: { public: require('common/event-emitter'), },
+	extends: { public: EventEmitter, },
 
 	constructor: (Super, Private, Protected) => (function() {
 		Super.call(this);
