@@ -9,18 +9,20 @@ class PlayList extends Array {
 	 * @param  {Array}     options.values    Optional initial values.
 	 * @param  {integer}   options.index     Optional initial position.
 	 * @param  {bool}      options.loop      Optional initial value of this.loop. While this.loop is true, .next() and .pref() will wrap around instead of seeking past the end / before the beginning.
-	 * @param  {function}  options.onSeek    Optional function that will be called with (currentIndex) whenever this.index changes.
+	 * @param  {function}  options.onSeek    Optional function that will be called with (currentIndex) whenever this.index changes to a different value slot in this.
 	 * @param  {function}  options.onAdd     Optional function that will be called with (atIndex, newValue) whenever a value is added to this.
 	 * @param  {function}  options.onDelete  Optional function that will be called with (fromIndex, oldValue) whenever a value is removed from this.
 	 */
 	constructor({ values, index, loop, onSeek, onAdd, onDelete, } = { }) {
 		super(...(values || [ ]));
+		this._index = 0;
 		this.index = index;
 		this.loop = !!loop;
 		this.onSeek = onSeek;
 		this.onAdd = onAdd;
 		this.onDelete = onDelete;
 	}
+	static get [Symbol.species]() { return Array; }
 
 	/**
 	 * Points at the current value in this. (Or -1 or Infinity)
@@ -134,14 +136,12 @@ class PlayList extends Array {
 	}
 
 	/**
-	 * Sorts the values in this.
-	 * @param  {...}        ...  Same argument as [ ].sort().
-	 * @return {PlayList}        this.
+	 * Native array methods that change `this`. Modified to logically peserve .index and to call the event handlers.
 	 */
+
 	sort() {
 		const current = this.get();
-		const sorted = super.sort(...arguments);
-		this.splice(0, Infinity, ...sorted);
+		super.sort(...arguments);
 		this.index = super.lastIndexOf(current);
 		return this;
 	}
@@ -170,12 +170,12 @@ class PlayList extends Array {
 	shift() {
 		const value = super.shift();
 		this.onDelete && this.onDelete(0, value);
-		this.index -= 1;
+		this.index >= 0 && (this.index -= 1);
 		return value;
 	}
 
 	unshift() {
-		super.push(...arguments);
+		super.unshift(...arguments);
 		for (let i = 0; i < arguments.length; ++i) {
 			this.onAdd && this.onAdd(i, arguments[i]);
 		}

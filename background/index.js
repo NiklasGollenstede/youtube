@@ -21,7 +21,6 @@ const playlist = window.playlist = new Playlist({
 		panel.emit('playlist_seek', index);
 	},
 	onAdd(index, value) {
-		panel.lastSortCriterium = false;
 	},
 });
 

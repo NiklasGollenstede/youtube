@@ -64,7 +64,6 @@ class PanelHandler {
 		const tab = this.tabs.get(id);
 		if (!tab) { return; }
 		tab.info().then(info => this.emit('tab_open', info));
-		this.lastSortCriterium = false;
 	}
 
 	hasPanel() {
@@ -124,25 +123,28 @@ class PanelHandler {
 		this.commands.pause();
 		this.playlist.splice(0, Infinity);
 	}
-	playlist_sort({ by, direction, }) {
-		if (!(direction > 0 || direction < 0)) {
-			direction = this.lastSortCriterium === by ? -1 : 1;
-		}
-		console.log('playlist_sort', by, direction);
+	playlist_sort({ by, direction = 0, }) {
+		const before = direction === 0 && this.playlist.slice();
+		console.log('playlist_sort', by, direction, before);
 		const mapper = {
-			random: Math.random,
+			random:        tab => Math.random(),
 			position:      tab => tab.tab().then(info => (info.windowId << 16) + info.index),
 			viewsGlobal:   tab => db.get(tab.videoId, [ 'rating', ]).then(({ rating, }) => -rating.views),
 			viewsDuration: tab => db.get(tab.videoId, [ 'viewed', ]).then(({ viewed, }) => -(viewed || 0)),
 			viewsTimes:    tab => db.get(tab.videoId, [ 'viewed', 'meta', ]).then(({ viewed, meta, }) => -(viewed || 0) / (meta && meta.duration || Infinity)),
 		}[by];
-		const data = new WeakMap;
-		return Promise.all(this.playlist.map(tab => Promise.resolve(tab).then(mapper).catch(error => console.error(error)).then(value => data.set(tab, +value || 0))))
-		.then((values, index) => {
-			console.log('sorting by', data);
+		const data = new WeakMap; // Tab ==> number
+		return Promise.all(this.playlist.map(
+			tab => Promise.resolve(tab).then(mapper)
+			.catch(error => (console.error(error), 0))
+			.then(value => data.set(tab, +value || 0))
+		))
+		.then(() => {
 			this.playlist.sort((a, b) => (data.get(a) - data.get(b)) * direction);
+			if (before && this.playlist.every((tab, index) => tab === before[index])) {
+				this.playlist.reverse();
+			}
 			this.emit('playlist_replace', this.playlist.map(tab => tab.id));
-			this.lastSortCriterium = direction === 1 && by;
 		})
 		.catch(error => console.error('Sorting failed', error));
 	}
