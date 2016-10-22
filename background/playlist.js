@@ -142,6 +142,7 @@ class PlayList extends Array {
 	sort() {
 		const current = this.get();
 		super.sort(...arguments);
+		this.splice(0, Infinity, ...this); // trigger event handlers
 		this.index = super.lastIndexOf(current);
 		return this;
 	}

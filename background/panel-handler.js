@@ -124,7 +124,8 @@ class PanelHandler {
 		this.playlist.splice(0, Infinity);
 	}
 	playlist_sort({ by, direction = 0, }) {
-		const before = direction === 0 && this.playlist.slice();
+		const before = !direction && this.playlist.slice();
+		!(direction << 0) && (direction = 1);
 		console.log('playlist_sort', by, direction, before);
 		const mapper = {
 			random:        tab => Math.random(),

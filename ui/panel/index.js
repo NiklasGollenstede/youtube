@@ -105,9 +105,9 @@ function init() {
 		const { left: x, bottom: y, } = document.querySelector('#more').getBoundingClientRect();
 		const items = [
 			chrome.runtime.reload && { label: 'Restart', action: () => chrome.runtime.reload(), },
-			{ label: 'Show in tab', action: () => chrome.runtime.sendMessage({ name: 'openPlaylist', args: [ '', ], post: true, }), },
+			{ label: 'Show in tab', action: () => chrome.runtime.sendMessage([ 'openPlaylist', 0, [ ], ]), },
 			{ label: 'Open in popup', action: () => chrome.windows.create({ url: location.href, type: 'popup', width: 450, height: 600, }), },
-			{ label: 'Settings', action: () => chrome.runtime.sendMessage({ name: 'openOptions', args: [ '', ], post: true, }), },
+			{ label: 'Settings', action: () => chrome.runtime.sendMessage([ 'openOptions', 0, [ ], ]), },
 		];
 		new ContextMenu({ x, y, items, });
 	});
