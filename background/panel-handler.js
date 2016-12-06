@@ -123,28 +123,28 @@ class PanelHandler {
 		this.commands.pause();
 		this.playlist.splice(0, Infinity);
 	}
-	playlist_sort({ by, direction = 0, }) {
-		const before = !direction && this.playlist.slice();
-		!(direction << 0) && (direction = 1);
-		console.log('playlist_sort', by, direction, before);
-		const mapper = {
-			random:        tab => Math.random(),
+	playlist_sort({ by, direction = 0, }) { // TODO: test
+		const directed = !!(direction << 0);
+		direction = directed && direction < 0 ? -1 : 1;
+		console.log('playlist_sort', by, direction, directed);
+		const mapper = { // must return a signed 32-bit integer
+			random:        tab => Math.random() * 0xffffffff,
 			position:      tab => tab.tab().then(info => (info.windowId << 16) + info.index),
 			viewsGlobal:   tab => db.get(tab.videoId, [ 'rating', ]).then(({ rating, }) => -rating.views),
-			viewsDuration: tab => db.get(tab.videoId, [ 'viewed', ]).then(({ viewed, }) => -(viewed || 0)),
-			viewsTimes:    tab => db.get(tab.videoId, [ 'viewed', 'meta', ]).then(({ viewed, meta, }) => -(viewed || 0) / (meta && meta.duration || Infinity)),
+			viewsDuration: tab => db.get(tab.videoId, [ 'viewed', ]).then(({ viewed, }) => -(viewed || 0) * 256),
+			viewsTimes:    tab => db.get(tab.videoId, [ 'viewed', 'meta', ]).then(({ viewed, meta, }) => -(viewed || 0) / (meta && meta.duration || Infinity) * 256),
 		}[by];
+
 		const data = new WeakMap; // Tab ==> number
 		return Promise.all(this.playlist.map(
-			tab => Promise.resolve(tab).then(mapper)
+			(tab, index) => Promise.resolve(tab).then(mapper)
 			.catch(error => (console.error(error), 0))
-			.then(value => data.set(tab, +value || 0))
+			.then(value => data.set(tab, (value << 0) || 0) * 1024 + index) // add the previous index to make the sorting stable
 		))
 		.then(() => {
-			this.playlist.sort((a, b) => (data.get(a) - data.get(b)) * direction);
-			if (before && this.playlist.every((tab, index) => tab === before[index])) {
-				this.playlist.reverse();
-			}
+			const sorted = this.playlist.slice().sort((a, b) => (data.get(a) - data.get(b)) * direction); // sort a .slice() to avoid updates
+			const reverse = !directed && this.playlist.every((tab, index) => tab === sorted[index]); // reverse if nothing changed
+			this.playlist.splice(0, Infinity, ...(reverse ? sorted.reverse() : sorted)); // write change and trigger update
 			this.emit('playlist_replace', this.playlist.map(tab => tab.id));
 		})
 		.catch(error => console.error('Sorting failed', error));

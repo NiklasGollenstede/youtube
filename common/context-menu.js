@@ -89,38 +89,42 @@ class ContextMenu {
 		switch (event.type) {
 			case 'click': {
 				if (!event.target.matches || event.target.matches('.menu-anchor, .menu-anchor *')) { return; }
+				this.remove();
 			} break;
 			case 'keydown': {
 				switch (event.code) {
-					case 'Escape': break;
+					case 'Space': break;
+					case 'Escape': {
+						this.remove();
+					} break;
 					case 'Enter': {
 						this.active && this.active.click();
-					} return;
+					} break;
 					case 'ArrowDown': {
 						if (!this.active) {
 							this.setActive(this.root.querySelector(':scope>*>:first-child'));
 						} else {
 							this.setActive(this.active.nextSibling || this.active.parentNode.firstChild);
 						}
-					} return;
+					} break;
 					case 'ArrowUp': {
 						if (!this.active) {
 							this.setActive(this.root.querySelector(':scope>*>:last-child'));
 						} else {
 							this.setActive(this.active.previousSibling || this.active.parentNode.lastChild);
 						}
-					} return;
+					} break;
 					case 'ArrowRight': {
 						if (!this.active) {
 							this.setActive(this.root.querySelector(':scope>*>:first-child'));
 						} else {
 							this.active.matches('.menu-submenu') && this.setActive(this.active.querySelector(':scope>*>:first-child'));
 						}
-					} return;
+					} break;
 					case 'ArrowLeft': {
 						const active = this.active && this.active.parentNode.closest('.menu-item');
 						active && this.setActive(active);
-					} return;
+					} break;
 					default: return;
 				}
 			} break;
@@ -129,7 +133,6 @@ class ContextMenu {
 			} return;
 		}
 		event.stopPropagation(); event.preventDefault();
-		this.remove();
 	}
 }
 
