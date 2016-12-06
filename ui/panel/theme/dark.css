@@ -4,7 +4,7 @@
 ::-moz-selection {
 	background-color: black;
 }
-html, body {
+html, body, input {
 	background-color: #555;
 	color: white;
 	fill: white;
@@ -37,7 +37,9 @@ html, body {
 	background-color: #000;
 }
 
-#controls .button, .tab .remove {
+#controls .button,
+#searchbox input,
+.tab .remove {
 	background-color: #333;
 }
 .tab .remove:hover {

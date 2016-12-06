@@ -1,9 +1,11 @@
-define(function({
+(function(global) { 'use strict'; define(function({
 	'node_modules/es6lib/string': { secondsToHhMmSs, },
+	'node_modules/es6lib/functional': { fuzzyMatch, },
 	'node_modules/sortablejs/Sortable.min': Sortable,
 	'common/context-menu': ContextMenu,
+	require,
 }) {
-const chrome = window.browser || window.chrome, browser = chrome;
+const chrome = global.browser || global.chrome, browser = chrome;
 
 let defaultWindow, defaultTab, port, windowList, tabList, currentIndex = -1;
 
@@ -33,7 +35,7 @@ function init() {
 			this.playlist_seek(active);
 			this.state_change(state);
 			tabList.children[active] && (tabList.children[active].scrollIntoViewIfNeeded ? tabList.children[active].scrollIntoViewIfNeeded() : tabList.children[active].scrollIntoView());
-			initCSS();
+			setTimeout(initCSS, 100);
 		},
 		state_change(state) {
 			console.log('state_change', state);
@@ -195,6 +197,37 @@ document.addEventListener('contextmenu', function(event) {
 	event.preventDefault();
 });
 
+document.addEventListener('keydown', event => {
+	console.log('keydown', event);
+	if (event.key === 'f' && event.ctrlKey) {
+		const box = document.querySelector('#searchbox>input');
+		box.focus();
+		box.select();
+		console.log('focus', box);
+	} else {
+		return;
+	}
+	event.preventDefault(); event.stopPropagation();
+});
+
+document.addEventListener('input', function handler(event) {
+	if (event.target.matches('#searchbox>input')) {
+		const term = event.target.value.trim();
+		const lTerm = term.toLowerCase();
+		const tabs = Array.from(windowList.querySelectorAll('.tab'));
+		tabs.forEach(_=>_.classList.remove('found'));
+
+		if (term.length < 2) { windowList.classList.remove('searching'); return; }
+		else { windowList.classList.add('searching'); }
+
+		const found = tabs.filter(tab => fuzzyIncludes(tab.querySelector('.icon').title.toLowerCase(), lTerm) > 0.8);
+		term.length === 11 && found.push(...tabs.filter(_=>_.dataset.videoId === term));
+		found.forEach(_=>_.classList.add('found'));
+	} else {
+		return;
+	}
+});
+
 function seek(active) {
 	Array.prototype.forEach.call(tabList.querySelectorAll('.active'), tab => tab.classList.remove('active'));
 	tabList.children[active] && tabList.children[active].classList.add('active');
@@ -213,6 +246,15 @@ function highlight(element) {
 		easing: 'cubic-bezier(0, 0.3, 1, 0.7)',
 		duration: 70,
 		iterations: 8,
+	});
+	element.animate([
+		{ filter: 'contrast(0.5)', },
+		{ filter: 'contrast(2.0)', },
+	], {
+		direction: 'alternate',
+		easing: 'cubic-bezier(0, 0.3, 1, 0.7)',
+		duration: 140,
+		iterations: 4,
 	});
 }
 
@@ -332,6 +374,15 @@ function positionInParent(element) {
 	return Array.prototype.indexOf.call(element.parentNode.children, element);
 }
 
+function fuzzyIncludes(s1, s2, n) {
+	n = n > 2 && Number.parseInt(n) || 2;
+	const l1 = s1.length - n + 1;
+	const l2 = s2.length - n + 1;
+	const ll = Math.min(l1, l2);
+	const match = fuzzyMatch(s1, s2, n);
+	return match && ll ? match / 2 * (l1 + l2) / ll : 0;
+};
+
 function initCSS() {
 	// enable transitions
 	document.styleSheets[0].deleteRule(0);
@@ -346,7 +397,7 @@ function initCSS() {
 
 });
 
-(window.browser || window.chrome).tabs.getCurrent(tab => tab && (window.tabId = tab.id));
+(global.browser || global.chrome).tabs.getCurrent(tab => tab && (global.tabId = tab.id));
 
 !Element.prototype.matches && (Element.prototype.matches = Element.prototype.msMatchesSelector);
 !Element.prototype.closest && (Element.prototype.closest = function getParent(selector) {
@@ -354,3 +405,5 @@ function initCSS() {
 	while (element && (!element.matches || !element.matches(selector))) { element = element.parentNode; }
 	return element;
 });
+
+})((function() { /* jshint strict: false */ return this; })());
