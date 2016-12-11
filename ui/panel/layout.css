@@ -20,6 +20,8 @@ body {
 /* cursors */
 #controls .button, .tab .remove {
 	cursor: pointer;
+}
+#controls, .tab .remove {
 	-moz-user-select: none;
 	-webkit-user-select: none;
 }
@@ -111,12 +113,14 @@ body {
 
 /* search box */
 #searchbox {
-	padding: 3px;
+	padding: 3px 6px;
 }
 #searchbox>input {
 	padding: 3px;
 	font-size: 14px;
 	width: 100%;
+	border-width: 1px;
+	outline: none;
 }
 
 /* tab tiles */
@@ -220,7 +224,7 @@ input.toggleswitch:checked + * { display: none; }
 #left, #right,
 .button, .button *,
 .tab, .tab * {
-	transition-property: color, fill, background-color, border-color, width, height, padding, margin, transform, transform-origin, left, right, font-size;
+	transition-property: color, fill, background-color, border-color, width, height, padding, margin, transform, transform-origin, left, right;
 	transition-duration: 0.16s;
 }
 .tab {
@@ -293,7 +297,7 @@ input.toggleswitch:checked + * { display: none; }
 }
 @media (max-width: 275px) {
 	.tab .description {
-		font-size: 75%;
+		font-size: 5.12vw;
 	}
 }
 /* slowly hide window list */
@@ -322,5 +326,20 @@ input.toggleswitch:checked + * { display: none; }
 	}
 	#right {
 		width: 0;
+	}
+	.column {
+		border-left-width: 0px;
+		border-right-width: 0px;
+	}
+	.tab {
+		margin-left: 0px;
+		margin-right: 0px;
+		padding-left: 2px;
+		padding-right: 2px;
+	}
+	.tab .description {
+		left: 67px;
+		right: 3px;
+		font-size: 9.13px;
 	}
 }

@@ -1,8 +1,8 @@
-(() => { 'use strict'; define(function({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
+(function(gloal) { 'use strict'; define(function({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
 	exports,
 }) {
 
-const events = [ 'click', 'blur', 'resize', 'keydown', 'wheel', ];
+const events = [ 'click', /*'blur',*/ 'resize', 'keydown', 'wheel', ];
 
 let current = null;
 
@@ -45,28 +45,37 @@ class ContextMenu {
 		children.forEach(child => child && this.addItem(child, submenu));
 	}
 
-	addItem({ type, label, icon, children, value, action, 'default': _default, }, parent) {
-		const item = document.createElement('div');
-		item.classList.add('menu-item');
-		_default && item.classList.add('default');
+	addItem({ type, label, icon, children, value, checked, action, 'default': _default, }, parent) {
+		const item = document.createElement('div'); {
+			item.classList.add('menu-item');
+			_default && item.classList.add('default');
+		}
 		if (icon) {
 			typeof icon === 'string' && (icon = document.createTextNode(icon));
-			const _icon = document.createElement('div');
-			_icon.classList.add('icon');
+			const _icon = document.createElement('div'); {
+				_icon.classList.add('icon');
+			}
 			item.appendChild(_icon).appendChild(icon);
 			parent.classList.add('has-icon');
 		}
-		const _label = item.appendChild(document.createElement('div'));
-		_label.classList.add('label');
-		_label.textContent = label;
+		const _label = item.appendChild(document.createElement('div')); {
+			_label.classList.add('label');
+			_label.textContent = label;
+		}
+		if (typeof checked === 'boolean') { type = 'checkbox'; }
 		switch (type) {
-			case 'menu': this.addMenu(children, item); break;
-			case 'label': /* falls through */
-			default: {
+			case 'menu': {
+				this.addMenu(children, item);
+			} break;
+			case 'checkbox': {
+				item.classList.add('menu-checkbox');
+				checked && item.classList.add('checked');
+			} break;
+			/*case 'label':*/ default: {
 				item.classList.add('menu-label');
 			}
 		}
-		action && item.addEventListener('click', event => !event.button && action(event, value) === this.remove());
+		action && item.addEventListener('click', event => !event.button && action.call(arguments[0], event, value) === this.remove());
 		return parent.appendChild(item);
 	}
 
@@ -85,15 +94,16 @@ class ContextMenu {
 		this.active = item || null;
 	}
 
-	handleEvent(event) { // click
+	handleEvent(event) { // all events
 		switch (event.type) {
+			case 'blur': case 'resize': this.remove(); return; // hide menu but let propagate
 			case 'click': {
 				if (!event.target.matches || event.target.matches('.menu-anchor, .menu-anchor *')) { return; }
-				this.remove();
+				this.remove(); // hide menu and cancel click
 			} break;
 			case 'keydown': {
 				switch (event.code) {
-					case 'Space': break;
+					case 'Space': break; // ignore (and prevent scrolling)
 					case 'Escape': {
 						this.remove();
 					} break;
@@ -128,9 +138,8 @@ class ContextMenu {
 					default: return;
 				}
 			} break;
-			case 'wheel': {
-				event.stopPropagation(); event.preventDefault();
-			} return;
+			case 'wheel': break; // disable scrolling
+			default: return;
 		}
 		event.stopPropagation(); event.preventDefault();
 	}
@@ -138,4 +147,4 @@ class ContextMenu {
 
 return (ContextMenu.ContextMenu = ContextMenu);
 
-}); })();
+}); })((function() { /* jshint strict: false */ return this; })());

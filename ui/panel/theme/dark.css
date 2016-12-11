@@ -5,13 +5,16 @@
 	background-color: black;
 }
 html, body, input {
-	background-color: #555;
 	color: white;
 	fill: white;
 	background-color: black; /* inherited by context menu */
 	border-color: #333;
 }
-.column {
+#left {
+	border-color: #555;
+	background-color: #000;
+}
+#right {
 	border-color: #555;
 	background-color: #000;
 }
@@ -22,9 +25,11 @@ html, body, input {
 .placeholder {
 	background-color: #444;
 	border-color: #444;
+	/* box-shadow: none; */
 }
 .tab:hover{
 	background-color: #4D4D4D;
+	border-color: #4D4D4D;
 }
 .tab.active {
 	background-color: #000;
@@ -36,15 +41,19 @@ html, body, input {
 .description .duration {
 	background-color: #000;
 }
-
-#controls .button,
-#searchbox input,
 .tab .remove {
 	background-color: #333;
 }
 .tab .remove:hover {
 	color: #E54949;
 	fill: #E54949;
+}
+
+#controls .button {
+	color: #f7f7f7;
+	fill: #f7f7f7;
+	background-color: #333;
+	/* box-shadow: none; */
 }
 #controls .button:hover {
 	background-color: #555;
@@ -57,4 +66,14 @@ html, body, input {
 #controls .button.active {
 	color: #5959ED;
 	fill: #5959ED;
+}
+
+#searchbox input {
+	background-color: #333;
+
+
+
+}
+#searchbox input:focus {
+	border-color: #5959ED;
 }

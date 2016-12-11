@@ -105,12 +105,20 @@ function init() {
 	document.querySelector('#more').addEventListener('click', ({ button, }) => {
 		if (button) { return; }
 		const { left: x, bottom: y, } = document.querySelector('#more').getBoundingClientRect();
+		const url = new URL(location);
 		const items = [
 			chrome.runtime.reload
-			&& { icon: '⚡',	label: 'Restart', action: () => chrome.runtime.reload(), },
-			   { icon: '❐', 	label: 'Show in tab', action: () => chrome.runtime.sendMessage([ 'openPlaylist', 0, [ ], ]), },
-			   { icon: '◳', 	label: 'Open in popup', action: () => chrome.windows.create({ url: location.href, type: 'popup', width: 450, height: 600, }), },
-			   { icon: '⚙',	label: 'Settings', action: () => chrome.runtime.sendMessage([ 'openOptions', 0, [ ], ]), },
+			&&  { icon: '⚡',	label: 'Restart', action: () => chrome.runtime.reload(), },
+			    { icon: '◑',		label: 'Dark Theme', checked: url.searchParams.get('theme') !== 'light', action() {
+			    	const theme = this.checked ? 'light' : 'dark';
+			    	url.searchParams.set('theme', theme);
+			    	history.replaceState(null, '', url);
+					document.querySelector('#theme-style').href = `./theme/${ theme }.css`;
+					port.emit('set_theme', theme);
+			    }, },
+			    { icon: '❐', 	label: 'Show in tab', action: () => chrome.runtime.sendMessage([ 'openPlaylist', 0, [ ], ]), },
+			    { icon: '◳', 	label: 'Open in popup', action: () => chrome.windows.create({ url: location.href, type: 'popup', width: 450, height: 600, }), },
+			    { icon: '⚙', 	label: 'Settings', action: () => chrome.runtime.sendMessage([ 'openOptions', 0, [ ], ]), },
 		];
 		new ContextMenu({ x, y, items, });
 	});
@@ -185,7 +193,7 @@ document.addEventListener('contextmenu', function(event) {
 	if (_window) {
 		const windowId = _window.id.match(/^window-(.+)$/)[1];
 		const tabCount = _window.querySelectorAll('.tab').length;
-		items.push(
+		tabCount > 1 && items.push(
 			{ icon: '⋯',	 label: 'Add all '+ tabCount, action: () => port.emit('playlist_push', Array.prototype.map.call(_window.querySelectorAll('.tab'), _=>_.dataset.tabId)), },
 			{ icon: '❌',	 label: 'Close all '+ tabCount, action: () => confirm('Close all '+ tabCount +' tabs in this window?') && port.emit('window_close', +windowId), }
 		);
@@ -199,13 +207,16 @@ document.addEventListener('contextmenu', function(event) {
 
 document.addEventListener('keydown', event => {
 	console.log('keydown', event);
-	if (event.key === 'f' && event.ctrlKey) {
-		const box = document.querySelector('#searchbox>input');
-		box.focus();
-		box.select();
-		console.log('focus', box);
-	} else {
-		return;
+	switch (event.key) {
+		case 'f': {
+			if (!event.ctrlKey) { return; }
+			const box = document.querySelector('#searchbox>input');
+			box.focus(); box.select();
+		} break;
+		case ' ': {
+			port.emit('command_toggle');
+		} break;
+		default: return;
 	}
 	event.preventDefault(); event.stopPropagation();
 });
@@ -381,7 +392,7 @@ function fuzzyIncludes(s1, s2, n) {
 	const ll = Math.min(l1, l2);
 	const match = fuzzyMatch(s1, s2, n);
 	return match && ll ? match / 2 * (l1 + l2) / ll : 0;
-};
+}
 
 function initCSS() {
 	// enable transitions
@@ -405,5 +416,7 @@ function initCSS() {
 	while (element && (!element.matches || !element.matches(selector))) { element = element.parentNode; }
 	return element;
 });
+
+document.querySelector('#theme-style').href = `./theme/${ new URL(location).searchParams.get('theme') || 'dark' }.css`;
 
 })((function() { /* jshint strict: false */ return this; })());

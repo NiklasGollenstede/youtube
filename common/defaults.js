@@ -8,6 +8,24 @@ return Object.freeze([ // TODO: deepFreeze
 		type: "hidden",
 		default: true,
 	}, {
+		name: "panel",
+		title: "Panel options",
+		description: "",
+		type: "label",
+		default: true,
+		children: {
+			theme: {
+				title: 'Theme',
+				default: 'dark',
+				type: 'menulist',
+				options: [
+					{ value: 'dark',     label: `Dark`, },
+					{ value: 'light',    label: `Light`, },
+				],
+				restrict: { match: (/^dark$|^light$/), },
+			},
+		},
+	}, {
 		name: "content",
 		title: "Page options",
 		description: "",

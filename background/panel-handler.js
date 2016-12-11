@@ -1,5 +1,6 @@
-(() => { 'use strict'; define(function({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
-	'node_modules/web-ext-utils/chrome/': { Tabs, Windows, },
+(function(global) { 'use strict'; define(function({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
+	'node_modules/web-ext-utils/chrome/': { Tabs, Windows, browserAction, },
+	'common/options': options,
 	db,
 }) {
 
@@ -11,17 +12,19 @@ class PanelHandler {
 		this.commands = commands;
 		this.playlist = playlist;
 		this.onTabMoved = this.onTabMoved.bind(this);
+		this.onMessage = this.onMessage.bind(this);
 	}
 
 	add(port) {
 		console.log('panel', port);
 		this.init(port);
 
-		port.onMessage.addListener(({ type, value, }) => this[type](value));
 		port.onDisconnect.addListener(() => {
+			port.onMessage.removeListener(this.onMessage);
 			this.ports.delete(port);
 			this.ports.size === 0 && this.detach();
 		});
+		port.onMessage.addListener(this.onMessage);
 		this.ports.add(port);
 		this.ports.size === 1 && this.attach();
 	}
@@ -52,6 +55,11 @@ class PanelHandler {
 		this.is = false;
 		Tabs.onMoved    && Tabs.onMoved   .removeListener(this.onTabMoved);
 		Tabs.onAttached && Tabs.onAttached.removeListener(this.onTabMoved);
+	}
+
+	onMessage({ type, value, }) {
+		if (!(/_/.test(type))) { console.error(`Panel message handlers must include a '_'`); return; }
+		this[type](value);
 	}
 
 	emit(type, value) {
@@ -151,11 +159,19 @@ class PanelHandler {
 	}
 	command_play() { this.commands.play(); }
 	command_pause() { this.commands.pause(); }
+	command_toggle() { this.commands.toggle(); }
 	command_next() { this.commands.next(); }
 	command_prev() { this.commands.prev(); }
 	command_loop() { this.commands.loop(); }
+
+	set_theme(theme) {
+		options.children.panel.children.theme.value = theme;
+		browserAction.setPopup({ popup: `ui/panel/index.html?theme=${ theme }`});
+	}
 }
+
+options.children.panel.children.theme.whenChange(value => browserAction.setPopup({ popup: `ui/panel/index.html?theme=${ value }`}));
 
 return PanelHandler;
 
-}); })();
+}); })((function() { /* jshint strict: false */ return this; })());

@@ -42,8 +42,17 @@
 .menu-submenu {
 	position: relative;
 }
+.menu-checkbox>.label,
 .menu-submenu>.label {
 	margin-right: 8px;
+}
+.menu-checkbox>.label::after {
+	content: '☐';
+	position: absolute;
+	right: -15px;
+}
+.menu-checkbox.checked>.label::after {
+	content: '☑';
 }
 .menu-submenu>.label::after {
 	content: '❯';

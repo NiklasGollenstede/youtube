@@ -1,0 +1,80 @@
+::selection {
+	background-color: rgba(0, 0, 0, .12);
+}
+::-moz-selection {
+	background-color: rgba(0, 0, 0, .12);
+}
+html, body, input {
+	color: black;
+	fill: black;
+	background-color: #F2F2F2; /* inherited by context menu */
+	border-color: #ddd;
+}
+#left {
+	border-color: #F1F1F1;
+	background-color: #F1F1F1;
+}
+#right {
+	border-color: white;
+	background-color: white;
+}
+.window {
+	background-color: #e5e5e5;
+}
+.tab,
+.placeholder {
+	background-color: white;
+	border-color: white;
+	box-shadow: 0 1px 2px rgba(0,0,0,.1);
+}
+.tab:hover{
+	background-color: #e5e5e5;
+	border-color: #e5e5e5;
+}
+.tab.active {
+	background-color: #bbb;
+	border-color: red;
+}
+.tab.active:hover {
+	background-color: #ccc;
+}
+.description .duration {
+	background-color: rgba(0, 0, 0, .3);
+}
+.tab .remove {
+	background-color: rgba(0, 0, 0, .2);
+}
+.tab .remove:hover {
+	color: #E54949;
+	fill: #E54949;
+}
+
+#controls .button {
+	color: #333;
+	fill: #333;
+	background-color: white;
+	box-shadow: 0 1px 2px rgba(0,0,0,.1);
+}
+#controls .button:hover {
+	background-color: #e0e0e0;
+}
+#controls .button:active {
+	color: #5050E9;
+	fill: #5050E9;
+	transition-duration: 0.5s;
+}
+#controls .button.active {
+	color: #5959ED;
+	fill: #5959ED;
+}
+
+#searchbox input {
+	background-color: white;
+	border-color: #ccc;
+	border-style: solid;
+	box-shadow: inset 0 1px 2px #eee;
+}
+#searchbox input:focus {
+	border-color: #93b7fc;
+	box-shadow: 0 0 4px #93b7fc;
+}
