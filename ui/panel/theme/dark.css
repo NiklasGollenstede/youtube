@@ -70,8 +70,8 @@ html, body, input {
 
 #searchbox input {
 	background-color: #333;
-
-
+	border-color: #4e4e4e;
+	border-style: solid;
 
 }
 #searchbox input:focus {

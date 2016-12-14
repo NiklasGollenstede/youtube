@@ -11,8 +11,8 @@ html, body, input {
 	border-color: #ddd;
 }
 #left {
-	border-color: #F1F1F1;
-	background-color: #F1F1F1;
+	border-color: #dedede;
+	background-color: #dedede;
 }
 #right {
 	border-color: white;
@@ -28,8 +28,8 @@ html, body, input {
 	box-shadow: 0 1px 2px rgba(0,0,0,.1);
 }
 .tab:hover{
-	background-color: #e5e5e5;
-	border-color: #e5e5e5;
+	background-color: #eee;
+	border-color: #eee;
 }
 .tab.active {
 	background-color: #bbb;
@@ -50,13 +50,13 @@ html, body, input {
 }
 
 #controls .button {
-	color: #333;
-	fill: #333;
+	color: rgba(0,0,0,.8);
+	fill: rgba(0,0,0,.8);
 	background-color: white;
 	box-shadow: 0 1px 2px rgba(0,0,0,.1);
 }
 #controls .button:hover {
-	background-color: #e0e0e0;
+	background-color: #eee;
 }
 #controls .button:active {
 	color: #5050E9;
@@ -64,8 +64,8 @@ html, body, input {
 	transition-duration: 0.5s;
 }
 #controls .button.active {
-	color: #5959ED;
-	fill: #5959ED;
+	color: #1f75ff;
+	fill: #1f75ff;
 }
 
 #searchbox input {

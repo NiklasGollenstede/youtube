@@ -1,8 +1,9 @@
-(function(gloal) { 'use strict'; define(function({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
+(function(global) { 'use strict'; define(function({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
 	exports,
 }) {
 
-const events = [ 'click', /*'blur',*/ 'resize', 'keydown', 'wheel', ];
+const events = [ 'click', 'blur', 'keydown', 'wheel', ];
+location.protocol !== 'moz-extension:' && events.push('resize'); // for some reason Firefox fires a number of resize events in panels directly after the menu is opened
 
 let current = null;
 
@@ -11,7 +12,7 @@ class ContextMenu {
 		const root = this.root = document.createElement('div');
 		root.classList.add('menu-anchor');
 		this.active = null;
-		root.addEventListener('mousemove', ({ target, }) => (target = target.closest('.menu-item')) && this.setActive(target));
+		root.addEventListener('mousemove', ({ target, }) => (target = target.closest && target.closest('.menu-item')) && this.setActive(target));
 		root.addEventListener('mouseleave', () => this.setActive(null));
 		this.addMenu(items, root);
 		this.show();
@@ -35,7 +36,7 @@ class ContextMenu {
 	remove() {
 		this.root.remove();
 		events.forEach(type => window.removeEventListener(type, this, true));
-		current = null;
+		current === this && (current = null);
 	}
 
 	addMenu(children, item) {

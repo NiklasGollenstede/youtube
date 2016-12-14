@@ -34,25 +34,25 @@ const include = {
 	],
 	'node_modules': {
 		'es6lib': [
-			'template/escape.js',
-			'require.js',
-			'namespace.js',
-			'object.js',
-			'format.js',
-			'functional.js',
 			'concurrent.js',
 			'dom.js',
-			'network.js',
+			'functional.js',
 			'index.js',
+			'namespace.js',
+			'network.js',
+			'object.js',
+			'port.js',
+			'require.js',
+			'string.js',
 		],
 		'regexpx': [
 			'index.js',
 		],
 		'web-ext-utils': [
-			'utils.js',
 			'chrome/',
 			'options/',
 			'update/',
+			'utils.js',
 		],
 		'sortablejs': [
 			'Sortable.min.js',

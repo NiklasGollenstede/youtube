@@ -170,7 +170,7 @@ class PanelHandler {
 	}
 }
 
-options.children.panel.children.theme.whenChange(value => browserAction.setPopup({ popup: `ui/panel/index.html?theme=${ value }`}));
+options.children.panel.children.theme.whenChange(value => browserAction.setPopup({ popup: `/ui/panel/index.html?theme=${ value }`}));
 
 return PanelHandler;
 

@@ -109,12 +109,14 @@ function init() {
 		const items = [
 			chrome.runtime.reload
 			&&  { icon: '⚡',	label: 'Restart', action: () => chrome.runtime.reload(), },
-			    { icon: '◑',		label: 'Dark Theme', checked: url.searchParams.get('theme') !== 'light', action() {
+			    { icon: '◑',	label: 'Dark Theme', checked: url.searchParams.get('theme') !== 'light', action() {
 			    	const theme = this.checked ? 'light' : 'dark';
 			    	url.searchParams.set('theme', theme);
 			    	history.replaceState(null, '', url);
-					document.querySelector('#theme-style').href = `./theme/${ theme }.css`;
-					port.emit('set_theme', theme);
+			    	document.documentElement.classList.add('no-transitions');
+			    	document.querySelector('#theme-style').href = `./theme/${ theme }.css`;/*`*/
+			    	setTimeout(() => document.documentElement.classList.remove('no-transitions'), 70);
+			    	port.emit('set_theme', theme);
 			    }, },
 			    { icon: '❐', 	label: 'Show in tab', action: () => chrome.runtime.sendMessage([ 'openPlaylist', 0, [ ], ]), },
 			    { icon: '◳', 	label: 'Open in popup', action: () => chrome.windows.create({ url: location.href, type: 'popup', width: 450, height: 600, }), },
@@ -206,12 +208,16 @@ document.addEventListener('contextmenu', function(event) {
 });
 
 document.addEventListener('keydown', event => {
-	console.log('keydown', event);
 	switch (event.key) {
 		case 'f': {
 			if (!event.ctrlKey) { return; }
 			const box = document.querySelector('#searchbox>input');
 			box.focus(); box.select();
+		} break;
+		case 'Escape': {
+			if (event.ctrlKey || !event.target.matches || !event.target.matches('#searchbox>input')) { return; }
+			event.target.value = ''; event.target.blur();
+			windowList.classList.remove('searching');
 		} break;
 		case ' ': {
 			port.emit('command_toggle');
@@ -396,7 +402,7 @@ function fuzzyIncludes(s1, s2, n) {
 
 function initCSS() {
 	// enable transitions
-	document.styleSheets[0].deleteRule(0);
+	document.documentElement.classList.remove('no-transitions');
 
 	// hide scrollbars if ::-webkit-scrollbar doesn't apply
 	const element = document.body.appendChild(document.createElement('div'));

@@ -70,7 +70,7 @@ Runtime.onConnect.addListener(port => { switch (port.name) {
 
 // open or focus the options view in a tab.
 Messages.addHandler('openOptions', window.openOptions = () => showExtensionTab('/ui/options/index.html'));
-Messages.addHandler('openPlaylist', window.openPlaylist = () => showExtensionTab('/ui/panel/index.html'));
+Messages.addHandler('openPlaylist', window.openPlaylist = () => showExtensionTab('/ui/panel/index.html?theme='+ options.children.panel.children.theme.value, '/ui/panel/index.html'));
 
 // report location changes to the content scripts
 Tabs.onUpdated.addListener((id, { url, }) => url && Tab.instances.has(id) && Tab.instances.get(id).emit('navigated', { url, }));
