@@ -1,4 +1,4 @@
-(() => { 'use strict'; define(function({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
+(function(global) { 'use strict'; define(function({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
 	'node_modules/web-ext-utils/chrome/': { Storage, applications: { gecko, }, },
 	'node_modules/es6lib/concurrent': { async, spawn, sleep, },
 	'node_modules/es6lib/dom': { CreationObserver, DOMContentLoaded, createElement, getParent, },
@@ -49,7 +49,7 @@ const Main = new Class({
 		try { this.passive   = new Passive(this);   } catch(e) { error(e); }
 		try { this.control   = new Control(this);   } catch(e) { error(e); }
 
-		this.port.on(Symbol.for('destroyed'), self.destroy.bind(self));
+		this.port.once(Symbol.for('destroyed'), self.destroy.bind(self));
 		require.async('content/options').then(self.optionsLoaded.bind(self));
 	}),
 
@@ -127,7 +127,8 @@ const Main = new Class({
 		destroy() {
 			const self = Public(this);
 			console.log('Main.destroy');
-			Protected(this).destroy();
+			if (this.destroyed) { return; } this.destroyed = true;
+			Protected(this).destroy(); // destroy EventEmitter, emits Symbol.for('destroyed')
 			self.observer.removeAll();
 			Object.keys(self).forEach(key => delete self[key]);
 
@@ -161,7 +162,7 @@ if (window._main) {
 
 const main = window._main = new Main;
 
-}); })();
+});
 
 !Element.prototype.matches && (Element.prototype.matches = Element.prototype.msMatchesSelector);
 !Element.prototype.closest && (Element.prototype.closest = function getParent(selector) {
@@ -169,3 +170,5 @@ const main = window._main = new Main;
 	while (element && (!element.matches || !element.matches(selector))) { element = element.parentNode; }
 	return element;
 });
+
+})((function() { /* jshint strict: false */ return this; })());

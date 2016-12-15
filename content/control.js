@@ -1,4 +1,4 @@
-(() => { 'use strict'; define(function({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
+(function(global) { 'use strict'; define(function({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
 	'node_modules/es6lib/concurrent': { async, sleep, },
 	'node_modules/es6lib/object': { Class, },
 	'node_modules/es6lib/network': { HttpRequest, },
@@ -50,6 +50,13 @@ return function(main) {
 	});
 	[ 'paused', 'ended', ].forEach(event => player.on(event, displayViews));
 
+	player.on('buffering', time => {
+		if (time < 2.5 || time > 6) { return; }
+		console.log('forcing play on buffer');
+		player.play();
+		player.video.play();
+	});
+
 	// increase quality of the video poster
 	let lastVideoId;
 	player.on('unstarted', () => {
@@ -68,7 +75,7 @@ return function(main) {
 			return port.emit('player_removed');
 		}
 
-		(yield resolveBefore(player.loaded, cancel => main.once('navigated', cancel)));
+		(yield resolveBefore(player.promise('loaded', 'unloaded'), cancel => main.once('navigated', cancel)));
 		console.log('player loaded', videoId);
 		port.emit('mute_start');
 
@@ -126,4 +133,4 @@ function resolveBefore(promise, before) {
 	});
 }
 
-}); })();
+}); })((function() { /* jshint strict: false */ return this; })());

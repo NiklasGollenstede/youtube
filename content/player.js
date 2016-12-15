@@ -1,9 +1,10 @@
 (() => { 'use strict'; define(function({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
 	'node_modules/web-ext-utils/chrome/': { extension, applications: { gecko, }, },
-	'node_modules/es6lib/concurrent': { async, spawn, sleep, },
+	'node_modules/es6lib/concurrent': { async, spawn, sleep, Resolvable, PromiseCapability, },
 	'node_modules/es6lib/dom':  { createElement, DOMContentLoaded, RemoveObserver, getParent, },
-	'node_modules/es6lib/object': { Class, },
 	'node_modules/es6lib/network': { HttpRequest, },
+	'node_modules/es6lib/object': { Class, },
+	'node_modules/es6lib/port': Port,
 	'node_modules/es6lib/string': { QueryObject, },
 	'common/event-emitter': EventEmitter,
 	Templates,
@@ -14,86 +15,77 @@ const fadeIn_factor = 1.4, fadeIn_margin = 0.05;
 
 let Instance = null;
 
-const target = {
-	other: 'unsafe-player-proxy',
-	self: 'content-player-proxy',
-};
-
-// table of public members, which all (may) trigger an remote call, and the events they wait for to fulfill their returned promises
-// if a private method of the same name exists, that will be called first
+// table of public members, which all remotely call methods in ./player.js.js
 const methods = [
-	[ 'setQuality',         'qualityChanged',   ],
-	[ 'getQuality',         '_getQuality',      ],
-	[ 'setSpeed',           null,               ],
-	[ 'getSpeed',           '_getSpeed',        ],
-	[ 'play',               'playing',          ],
-	[ 'pause',              'paused',           ],
-	[ 'end',                'ended',            ],
-	[ 'stop',               'unstarted',        ],
-	[ 'start',              'playing',          ],
-	[ 'next',               'videoCued',        ],
-	[ 'previous',           'videoCued',        ],
-	[ 'seekTo',             null,               ],
-	[ 'togglePlayPause',    null,               ],
-	[ 'volume',             null,               ],
-	[ 'mute',               null,               ],
-	[ 'unMute',             null,               ],
-	[ 'toggleMute',         null,               ],
+	'setQuality',
+	'getQuality',
+	'setSpeed',
+	'getSpeed',
+	'play',
+	'pause',
+	'end',
+	'stop',
+	'start',
+	'next',
+	'previous',
+	'seekTo',
+	'togglePlayPause',
+	'volume',
+	'mute',
+	'unMute',
+	'toggleMute',
 
-	[ 'isMuted',            '_isMuted',         ],
-	[ 'getTime',            '_getTime',         ],
-	[ 'getLoaded',          '_getLoaded',       ],
-	[ 'showVideoInfo',      null,               ],
-	[ 'hideVideoInfo',      null,               ],
-
-	[ null,                 'buffering',        ],
-
-	[ null,                 'loaded',           ],
-	[ null,                 'unloaded',         ],
+	'isMuted',
+	'getTime',
+	'getLoaded',
+	'showVideoInfo',
+	'hideVideoInfo',
 ];
-
-function isTrusted({ data, origin, isTrusted, }) {
-	return (gecko || isTrusted) && (/^https:\/\/\w+\.youtube\.com$/).test(origin) && typeof data === 'object' && data.target === target.self;
-}
-function sendMessage(type, args = [ ]) {
-	return window.postMessage({ target: target.other, type, args, }, '*');
-}
 
 const Player = new Class({
 	extends: { public: EventEmitter, },
 
 	constructor: (Super, Private, Protected) => (function(main) {
-		if (Instance) { return Instance; }
+		if (Instance) { try { Private(Instance).destroy(); } catch (_) { } }
 		Super.call(this);
 		const self = Private(this), _this = Protected(this);
+
 		self.main = main;
-		self.promises = { }; // one pending Promise of each event in the 'methods' array above, to make sure all pending calls are resolved when an event occurs
-		self.queue = [ ]; // queue of calls meant for the player while it is not loaded yet
+		self.queue = [ ]; // [ name, args, promise, ] queue of calls meant for the player while it is not loaded yet
 		self.suspended = [ ]; // stack of players that already existed when a new one showed up
 		this.video = self.video = null; // the current <video> element
 		this.root = self.root = null; // the current root element of the html5-video-player
 		self.removePlayer = self.removePlayer.bind(self);
-		self.visibilityChange = self.visibilityChange.bind(self);
-		main.once(Symbol.for('destroyed'), () => self.destroy());
-		methods.forEach(([ method, event, ]) => event && self.setPromise(event, this));
-		self.create(this, _this);
+
+		// inject unsafe script
+		const getPort = new Resolvable;
+		const frame = self.commFrame = document.documentElement.appendChild(createElement('iframe', { style: { display: 'none', }, }));
+		frame.contentWindow.addEventListener('message', event => {
+			console.log('frame', event);
+			self.port = new Port(event.ports[0], Port.MessagePort);
+			self.port.addHandler('emit', _this.emitSync, _this);
+			getPort.resolve();
+			// frame.remove(); // removing the iframe would close the channel
+		});
+		document.documentElement.appendChild(createElement('script', { textContent: playerJS, })).remove();
+
+		Promise.all([ getPort, self.main.promise('observerCreated'), ]).then(() => {
+			self.main.observer.all('.html5-video-player', self.initPlayer.bind(self));
+			self.main.observer.all('#watch7-player-age-gate-content', self.loadExternalPlayer.bind(self, { reason: 'age', }));
+		});
+
 		Instance = this;
+		main.once(Symbol.for('destroyed'), () => self.destroy());
 	}),
 
 	public: Private => {
 		const members = { };
-		methods.forEach(([ method, event, ]) => {
-			if (!method) { return; }
+		methods.forEach(method => {
 			members[method] = function(...args) {
 				if (Instance !== this) { return new Error('"'+ method +'" called on dead Player'); }
 				const self = Private(this);
-				let value; if (self[method] && (value = self[method](...args))) { return value; } // call private method first. Only proceed if it returns falsy
-				if (self.queue) {
-					self.queue.push([ method, args, ]);
-				} else {
-					sendMessage(method, args);
-				}
-				return event && this[event];
+				if (self[method]) { return Promise.resolve(self[method](...args)); }
+				return self.request(method, ...args);
 			};
 		});
 		return members;
@@ -101,68 +93,46 @@ const Player = new Class({
 
 	private: (Private, Protected, Public) => ({
 
-		create(self, _this) {
-			this.main.once('observerCreated', () => {
-				// inject unsafe script
-				document.body.appendChild(createElement('script', {
-					textContent: playerJS,
-				})).remove();
-
-				this.main.observer.all('.html5-video-player', this.initPlayer.bind(this));
-				this.main.observer.all('#watch7-player-age-gate-content', this.loadExternalPlayer.bind(this, { reason: 'age', }));
-			});
-		},
-
 		destroy() {
-			const self = Public(this);
-			Instance = null;
-			const canceled = new Error('Player was destroyed');
-			Object.keys(this.promises).forEach(type => { this.promises[type].reject(canceled); self[type].catch(x=>x); });
-			sendMessage('destroy');
+			Instance === this && (Instance = null);
+			Protected(this).destroy(new Error('Player was destroyed'));
+			this.port && this.port.post('destroy');
 			this.removePlayer();
-			Protected(this).destroy();
+			this.commFrame.remove();
 		},
 
-		handleEvent(message) {
-			if (!isTrusted(message)) { return; }
-			const { type, arg, } = message.data;
-			if (!this.promises.hasOwnProperty(type)) { throw new Error('Unknown event type: "'+ type +'"'); }
-
-			console.log('player event', type, arg);
-
-			this.promises[type].resolve(arg);
-			this.setPromise(type);
-			!(/^_/).test(type) && Protected(this).emit(type, arg);
+		handleEvent(event) {
+			switch (event.type) {
+				case 'visibilitychange': {
+					if (document.hidden || !this.root) { return; }
+					this.root.dataset.visible = true;
+					this.main.removeDomListener(document, 'visibilitychange', this, false);
+				} break;
+			}
 		},
 
-		setPromise(type, self = Public(this)) {
-			return (self[type] = new Promise((resolve, reject) => {
-				this.promises[type] = { resolve, reject, };
-			}));
-		},
-
-		visibilityChange(event) {
-			if (document.hidden || !this.root) { return; }
-			this.root.dataset.visible = true;
-			this.main.removeDomListener(document, 'visibilitychange', this.visibilityChange, false);
+		request(name, ...args) {
+			if (!this.queue) {
+				return this.port.request(name, ...args);
+			}
+			const cap = new PromiseCapability;
+			this.queue.push([ name, args, cap, ]);
+			return cap.promise;
 		},
 
 		initPlayer(element) {
 			const self = Public(this), _this = Protected(this);
 			this.root && this.suspendPlayer();
-			sendMessage('initPlayer', [ element.ownerDocument !== document, ]);
-			window.addEventListener('message', this);
+			this.port.post('initPlayer', element.ownerDocument !== document);
 			this.root = self.root = element;
 			this.video = self.video = element.querySelector('video');
-			this.queue && this.queue.forEach(([ method, args, ]) => sendMessage(method, args));
+			this.queue && this.queue.forEach(([ method, args, { resolve, reject, } ]) => this.port.request(method, ...args).then(resolve, reject));
 			this.queue = null;
 			_this.emit('loaded', element);
-			this.promises.loaded.resolve(element);
-			this.setPromise('unloaded', self);
 			RemoveObserver.on(this.root, this.removePlayer);
 			if (!element.dataset.visible) {
 				if (!(element.dataset.visible = !document.hidden)) {
-					this.main.addDomListener(document, 'visibilitychange', this.visibilityChange, false);
+					this.main.addDomListener(document, 'visibilitychange', this, false);
 				}
 			}
 		},
@@ -170,12 +140,9 @@ const Player = new Class({
 		removePlayer() {
 			if (!this.root) { return; }
 			const self = Public(this), _this = Protected(this);
-			window.removeEventListener('message', this);
 			_this.emit('unloaded', this.root);
-			this.promises.unloaded.resolve(this.root);
-			this.setPromise('loaded', self);
 			RemoveObserver.off(this.root, this.removePlayer);
-			this.main.removeDomListener(document, 'visibilitychange', this.visibilityChange, false);
+			this.main.removeDomListener(document, 'visibilitychange', this, false);
 			!this.queue && (this.queue = [ ]);
 			this.root = self.root = null;
 			this.video = self.video = null;
@@ -233,8 +200,8 @@ const Player = new Class({
 
 		pause(smooth) {
 			const { video, main, } = this;
-			if (!video) { return false; }
-			if (video.paused) { return true; }
+			if (!video) { return this.request('pause'); }
+			if (video.paused) { return; }
 			if (!smooth) {
 				video.pause();
 			} else {
@@ -244,26 +211,23 @@ const Player = new Class({
 					video.currentTime = pos;
 				});
 			}
-			return true;
 		},
 
 		play(smooth) {
-			const { video, main, } = this;
-			if (!video) { return false; }
-			if (video.readyState !== 4) {
-				if (video.dataset.visible !== 'true') {
+			if (!this.video) { return this.request('play'); }
+			if (this.video.readyState !== 4) {
+				if (this.root.dataset.visible !== 'true') {
 					this.main.port.emit('focus_temporary');
 				} else {
 					const timer1 = setTimeout(() => this.main.port.emit('focus_temporary'), 2000);
-					const timer2 = setTimeout(() => createElement('a', { className: 'spf-link', href: location.href, }).click(), 5000);
-					Public(this).once('playing', () => clearTimeout(timer1) === clearTimeout(timer2));
+					// const timer2 = setTimeout(() => createElement('a', { className: 'spf-link', href: location.href, }).click(), 5000);
+					Public(this).once('playing', () => clearTimeout(timer1)/* === clearTimeout(timer2)*/);
 				}
-				return false;
+				return this.request('play');
 			}
-			if (!video.paused) { return true; }
-			video.play();
+			if (!this.video.paused) { return; }
+			this.video.play();
 			smooth && this.fadeVolume(fadeIn_factor);
-			return true;
 		},
 
 		fadeVolume(factor, done = x => x) {

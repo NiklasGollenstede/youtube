@@ -14,16 +14,6 @@ define(`
     display: none !important;
 }
 
-.draggborder
-{
-    background: linear-gradient(grey 0%,
-        grey 20%, transparent 20%,
-        transparent 40%, grey 40%,
-        grey 60%, transparent 60%
-    ) !important;
-    margin: 0 5px !important;
-}
-
 /*
 * non-fullscreen watchpage
 */
@@ -244,7 +234,7 @@ define(`
     min-width: 0px !important;
     max-width: none !important;
     width: auto !important;
-    top:0px !important;
+    top: 0px !important;
 }
 .watchpage .html5-main-video,
 .watchpage .html5-video-container,

@@ -111,7 +111,7 @@ body {
 
 /* search box */
 #searchbox {
-	padding: 3px 2px;
+	padding: 5px 2px 5px 2px;
 }
 #searchbox>input {
 	padding: 3px 6px;
@@ -185,9 +185,13 @@ body {
 }
 
 /*  windows (tab groups) */
+#windows { /* align tab tiles in the two columns when both are scrolled to the top or bottom */
+	margin-top: -5px;
+	height: calc(100% + 9px);
+}
 .window {
-	margin: 5px 2px;
-	padding: 4px 0px;
+	margin: 2px 2px 4px 2px;
+	padding: 4px 0px 1px 0px;
 }
 .window .header {
 	white-space: nowrap;

@@ -90,7 +90,7 @@ function init() {
 				element = createTab(tab);
 			}
 			const tabList = windowList.querySelector(`#window-${ tab.windowId } .tabs`) || windowList.appendChild(createWindow({ id: tab.windowId, title: tab.windowId, })).querySelector('.tabs');
-			const next = Array.prototype.find.call(tabList.children, ({ dataset: { index, }, }) => index > tab.index);
+			const next = Array.prototype.find.call(tabList.children, ({ dataset: { index, }, }) => index > tab.index); // TODO: the index of the other tabs in the list may be incorrect if they were shifted due to other tabs movement/open/close
 			tabList.insertBefore(element, next);
 		},
 		tab_close(tabId) {
@@ -175,7 +175,7 @@ document.addEventListener('contextmenu', function(event) {
 	if (_playlist) {
 		items.push(
 			{ icon: '⇵',	 label: 'Sort by',                      type: 'menu', children: [
-				{ icon:' ⌖',	 label: 'position',                     action: () => port.emit('playlist_sort', { by: 'position', }), },
+				{ icon:'⌖',		 label: 'position',                     action: () => port.emit('playlist_sort', { by: 'position', }), },
 				{ icon: '👓',	 label: 'views',                        type: 'menu', children: [
 					{ icon: '🌐',	 label: 'global',                       action: () => port.emit('playlist_sort', { by: 'viewsGlobal', }), },
 					{ icon: '⏱',	 label: 'yours in total duration',      action: () => port.emit('playlist_sort', { by: 'viewsDuration', }), },
@@ -200,7 +200,7 @@ document.addEventListener('contextmenu', function(event) {
 			{ icon: '❌',	 label: 'Close all '+ tabCount, action: () => confirm('Close all '+ tabCount +' tabs in this window?') && port.emit('window_close', +windowId), }
 		);
 	}
-	// ' 🔉 🔈 🔇 🔂 🔁 🔜 🌀 🔧 ⫶ 🔞 '; // some more icons, '\u2009' for alignment
+	// ' 🔉 🔈 🔇 🔂 🔁 🔜 🌀 🔧 ⫶ 🔞 '; // some more icons
 
 	if (!items.length) { return; }
 	new ContextMenu({ x, y, items, });

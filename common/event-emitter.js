@@ -1,10 +1,9 @@
 (() => { 'use strict'; define(function({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
+	'node_modules/es6lib/concurrent': { PromiseCapability, },
 	'node_modules/es6lib/object': { Class, setConst, },
 }) {
 
-
 const now = Promise.resolve();
-
 
 const EventEmitter = new Class({
 	constructor: (x, Private) => (function() {
@@ -29,14 +28,16 @@ const EventEmitter = new Class({
 			!on.size && delete self.on[name];
 			return this;
 		},
-		onceBefore(name, cancel, cb) {
+		promise(name, cancel) {
 			const self = Private(this);
+			cancel = cancel || EventEmitter.destroyed;
+			const { promise, resolve, reject, } = new PromiseCapability;
 			let canceled = false;
-			const good = value => { self.on[cancel].delete(bad); !canceled && cb(value); };
-			const bad = value => { self.on[name].delete(good); canceled = true; };
+			const good = value => { self.on[cancel].delete(bad); resolve(value); };
+			const bad = value => { self.on[name].delete(good); reject(value); };
 			self.add(name, good, true);
 			self.add(cancel, bad, true);
-			return cb;
+			return promise;
 		},
 	}),
 
@@ -77,13 +78,13 @@ const EventEmitter = new Class({
 			delete self.on[name];
 			return size;
 		},
-		destroy() {
+		destroy(error) {
 			const self = Private(this);
 			if (!self.on) { return; }
 			const on = self.on[EventEmitter.destroyed];
 			self.on = null;
 			on && on.forEach((once, cb) => {
-				try { return cb(); } catch (error) { console.error('EventEmitter.destroyed event handler threw:', error); }
+				try { return cb(error); } catch (error) { console.error('EventEmitter.destroyed event handler threw:', error); }
 			});
 		},
 	}),

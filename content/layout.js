@@ -91,7 +91,7 @@ return class Layout {
 		document.documentElement.classList[listId ? 'add' : 'remove']('playlist');
 		document.documentElement.classList[options.player.children.seamlessFullscreen.children.atStart.value ? 'add' : 'remove']('fullscreen');
 
-		player.loaded.then(element => {
+		player.promise('loaded', 'unloaded').then(element => {
 			// use cinema mode to make progress-bar a bit larger
 			options.player.children.cinemaMode.value && (element.querySelector('.ytp-size-button') || noop).click();
 

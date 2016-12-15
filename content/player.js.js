@@ -1,60 +1,40 @@
-(() => { 'use strict'; define(require => `(`+ (function() { 'use strict'; // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
+(() => { 'use strict'; define([ 'node_modules/es6lib/port', 'require', ], (Port, require) => `(`+ (function(Port) { 'use strict'; // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 console.log('unsafe loading');
 
-const target = {
-	other: 'content-player-proxy',
-	self: 'unsafe-player-proxy',
-};
-
-const methods = {
-	   setQuality:      (player, args) => player.setPlaybackQuality(...args),
-	   getQuality:      (player, args) => sendMessage('_getQuality', { available: player.getAvailableQualityLevels(), current: player.getPlaybackQuality(), }),
-	   setSpeed:        (player, args) => player.setPlaybackRate(...args),
-	   getSpeed:        (player, args) => sendMessage('_getSpeed', { available: player.getAvailablePlaybackRates(), current: player.getPlaybackRate(), }),
-	   play:            (player, args) => player.playVideo(...args),
-	   pause:           (player, args) => player.pauseVideo(...args),
-	   end:             (player, args) => player.seekTo(Number.MAX_VALUE),
-	   stop:            (player, args) => player.stopVideo(),
-	   start:           (player, args) => player.seekTo(0),
-	   next:            (player, args) => player.nextVideo(...args),
-	   previous:        (player, args) => player.previousVideo(...args),
-	   seekTo:          (player, args) => player.seekTo(...args),
-	   togglePlayPause: (player, args) => player[player.getPlayerState() == '1' ? 'pauseVideo' : 'playVideo'](),
-	   volume:          (player, args) => player.setVolume(...args),
-	   mute:            (player, args) => player.mute(...args),
-	   unMute:          (player, args) => player.unMute(...args),
-	   toggleMute:      (player, args) => player[player.isMuted() ? 'unMute' : 'mute'](...args),
-
-	   isMuted:         (player, args) => sendMessage('_isMuted', player.isMuted()),
-	   getTime:         (player, args) => sendMessage('_getTime', player.getCurrentTime()),
-	   getLoaded:       (player, args) => sendMessage('_getLoaded', player.getVideoLoadedFraction()),
-	   showVideoInfo:   (player, args) => player.showVideoInfo(...args),
-	   hideVideoInfo:   (player, args) => player.hideVideoInfo(...args),
-};
-
-function isTrusted({ data, origin, isTrusted, }) {
-	return /*isTrusted &&*/ (/^https:\/\/\w+\.youtube\.com$/).test(origin) && typeof data === 'object' && data.target === target.self;
-	// XXX: for some reason isTrusted is flase in Firefox (47)
-}
-function sendMessage(type, arg) {
-	return window.postMessage({ target: target.other, type, arg, }, '*');
-}
-
 let player;
 
-function onMessage(message) {
-	if (!isTrusted(message)) { return; }
-	const { type, args, } = message.data;
-	if (type === 'initPlayer') { return initPlayer(...args); }
-	if (type === 'destroy') { return destroy(...args); }
+const methods = {
+	setQuality      (value) { this.setPlaybackQuality(value);  return waitFor('qualityChanged'); },
+	getQuality      ()      { return { available: this.getAvailableQualityLevels(), current: this.getPlaybackQuality(), }; },
+	setSpeed        (value) { return this.setPlaybackRate(value); },
+	getSpeed        ()      { return { available: this.getAvailablePlaybackRates(), current: this.getPlaybackRate(), }; },
+	play            ()      { this.playVideo();                return waitFor('playing'); }, // TODO: if this.getPlayerState() === 5 (stopped) ...
+	pause           ()      { this.pauseVideo();               return waitFor('paused'); },
+	end             ()      { this.seekTo(Number.MAX_VALUE);   return waitFor('ended'); },
+	stop            ()      { this.stopVideo();                return waitFor('unstarted'); },
+	start           ()      { this.seekTo(0);                  return waitFor('playing'); },
+	next            ()      { this.nextVideo();                return waitFor('videoCued'); },
+	previous        ()      { this.previousVideo();            return waitFor('videoCued'); },
+	seekTo          (value) { return this.seekTo(value); },
+	togglePlayPause ()      { return player[this.getPlayerState() === 1 ? 'pauseVideo' : 'playVideo'](); },
+	volume          (value) { return this.setVolume(value); },
+	mute            ()      { return this.mute(); },
+	unMute          ()      { return this.unMute(); },
+	toggleMute      ()      { return player[this.isMuted() ? 'unMute' : 'mute'](); },
 
-	const method = type && methods[type];
-	if (!method) { throw new Error('Unknown event type: "'+ type +'"'); }
-	console.log('unsafe.js', type, ...args);
+	isMuted         ()      { return this.isMuted(); },
+	getTime         ()      { return this.getCurrentTime(); },
+	getLoaded       ()      { return this.getVideoLoadedFraction(); },
+	showVideoInfo   ()      { return this.showVideoInfo(); },
+	hideVideoInfo   ()      { return this.hideVideoInfo(); },
+};
 
-	method(player, args);
-}
+const { port1, port2, } = new MessageChannel;
+document.currentScript.previousSibling.contentWindow.postMessage(null, '*', [ port2, ]);
+const port = new Port(port1, Port.MessagePort);
+
+port.addHandlers([ initPlayer, destroy, ]);
 
 function initPlayer(isExternal) {
 	try {
@@ -70,37 +50,58 @@ function initPlayer(isExternal) {
 	console.log('player', player);
 	player.addEventListener('onStateChange', 'unsafeOnPlaybackStateChange');
 	player.addEventListener('onPlaybackQualityChange', 'unsafeOnPlaybackQualityChange');
+
+	Object.keys(methods).forEach(key => port.removeHandler(key));
+	port.addHandlers(methods, player);
 }
 
 function destroy() {
 	console.log('destroy unsave.js');
-	window.removeEventListener('message', onMessage);
+	try {
+		player && player.removeEventListener('onStateChange', 'unsafeOnPlaybackStateChange');
+		player && player.removeEventListener('onPlaybackQualityChange', 'unsafeOnPlaybackQualityChange');
+	} catch (error) { console.error(error); }
 	delete window.unsafeOnPlaybackStateChange;
 	delete window.unsafeOnPlaybackQualityChange;
-	player.removeEventListener('onStateChange', 'unsafeOnPlaybackStateChange');
-	player.removeEventListener('onPlaybackQualityChange', 'unsafeOnPlaybackQualityChange');
+	port.destroy();
 	player = null;
 }
 
-function unsafeOnPlaybackStateChange(state) {
-	const type = {
-		'-1': 'unstarted',
-		0: 'ended',
-		1: 'playing',
-		2: 'paused',
-		3: 'buffering',
-		5: 'videoCued',
-	}[state];
+const types = {
+	'-1': 'unstarted',
+	0: 'ended',
+	1: 'playing',
+	2: 'paused',
+	3: 'buffering',
+	5: 'videoCued',
+};
 
-	sendMessage(type, player.getCurrentTime());
+const waiting = {
+	qualityChanged: [ ],
+	unstarted: [ ],
+	ended: [ ],
+	playing: [ ],
+	paused: [ ],
+	buffering: [ ],
+	videoCued: [ ],
+};
+
+function waitFor(type) {
+	return new Promise(resolve => waiting[type].push(resolve));
+}
+
+function emit(type, value) {
+	waiting[type].forEach(func => func(value));
+	waiting[type] = [ ];
+	port.post('emit', type, value);
+}
+
+function unsafeOnPlaybackStateChange(state) {
+	emit(types[state], player.getCurrentTime());
 }
 
 function unsafeOnPlaybackQualityChange(quality) {
-	sendMessage('qualityChanged', quality);
+	emit('qualityChanged', quality);
 }
 
-window.addEventListener('message', onMessage);
-
-sendMessage('_scriptLoaded');
-
-}) +`)();//# sourceURL=${ require.toUrl('./require.js.js') }`); })();
+}) +`)((${ require.cache['node_modules/es6lib/port'].factory })());//# sourceURL=${ require.toUrl('./player.js.js') }`); })();
