@@ -48,7 +48,7 @@ const commands = window.commands = {
 	},
 };
 
-const panel = window.panel = new PanelHandler({ tabs: Tab.actives, playlist, commands, data: db, });
+const panel = window.panel = new PanelHandler({ tabs: Tab.actives, playlist, commands, });
 
 Commands && Commands.onCommand.addListener(command => ({
 	MediaPlayPause: commands.toggle,
@@ -73,7 +73,7 @@ Messages.addHandler('openOptions', window.openOptions = () => showExtensionTab('
 Messages.addHandler('openPlaylist', window.openPlaylist = () => showExtensionTab('/ui/panel/index.html?theme='+ options.children.panel.children.theme.value, '/ui/panel/index.html'));
 
 // report location changes to the content scripts
-Tabs.onUpdated.addListener((id, { url, }) => url && Tab.instances.has(id) && Tab.instances.get(id).emit('navigated', { url, }));
+Tabs.onUpdated.addListener((id, { url, }) => url && Tab.instances.has(id) && Tab.instances.get(id).port.post('page.navigated'));
 
 // load the content_scripts into all existing tabs
 const [ count, ] = (yield attachAllContentScripts({ cleanup: () => {

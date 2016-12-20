@@ -1,4 +1,4 @@
-(() => { 'use strict'; define(function({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
+(function() { 'use strict'; define(function({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
 	'node_modules/web-ext-utils/chrome/': { extension, applications: { gecko, }, },
 	'node_modules/es6lib/concurrent': { async, spawn, sleep, Resolvable, PromiseCapability, },
 	'node_modules/es6lib/dom':  { createElement, DOMContentLoaded, RemoveObserver, getParent, },
@@ -11,30 +11,27 @@
 	'./player.js': playerJS,
 }) { /* globals WheelEvent */
 
-const fadeIn_factor = 1.4, fadeIn_margin = 0.05;
-
 let Instance = null;
 
 // table of public members, which all remotely call methods in ./player.js.js
 const methods = [
-	'setQuality',
-	'getQuality',
-	'setSpeed',
-	'getSpeed',
 	'play',
 	'pause',
+	'togglePlayPause',
 	'end',
 	'stop',
 	'start',
 	'next',
 	'previous',
 	'seekTo',
-	'togglePlayPause',
 	'volume',
 	'mute',
 	'unMute',
 	'toggleMute',
-
+	'setQuality',
+	'getQuality',
+	'setSpeed',
+	'getSpeed',
 	'isMuted',
 	'getTime',
 	'getLoaded',
@@ -62,8 +59,10 @@ const Player = new Class({
 		const frame = self.commFrame = document.documentElement.appendChild(createElement('iframe', { style: { display: 'none', }, }));
 		frame.contentWindow.addEventListener('message', event => {
 			console.log('frame', event);
-			self.port = new Port(event.ports[0], Port.MessagePort);
-			self.port.addHandler('emit', _this.emitSync, _this);
+			self.port = new Port(event.ports[0], Port.MessagePort)
+			.addHandler('emit', _this.emitSync, _this)
+			.addHandler((/^tab\./), (name, ...args) => main.port[self.port.isRequest() ? 'request' : 'post'](name, ...args));
+			main.port.addHandler((/^player\./), (name, ...args) => self.port[main.port.isRequest() ? 'request' : 'post'](name.slice('player.'.length), ...args));
 			getPort.resolve();
 			// frame.remove(); // removing the iframe would close the channel
 		});
@@ -198,68 +197,6 @@ const Player = new Class({
 			)).catch(error =>console.error('failed to load related videos', error));
 		},
 
-		pause(smooth) {
-			const { video, main, } = this;
-			if (!video) { return this.request('pause'); }
-			if (video.paused) { return; }
-			if (!smooth) {
-				video.pause();
-			} else {
-				const pos = video.currentTime;
-				this.fadeVolume(1 / fadeIn_factor, () => {
-					video.pause();
-					video.currentTime = pos;
-				});
-			}
-		},
-
-		play(smooth) {
-			if (!this.video) { return this.request('play'); }
-			if (this.video.readyState !== 4) {
-				if (this.root.dataset.visible !== 'true') {
-					this.main.port.emit('focus_temporary');
-				} else {
-					const timer1 = setTimeout(() => this.main.port.emit('focus_temporary'), 2000);
-					// const timer2 = setTimeout(() => createElement('a', { className: 'spf-link', href: location.href, }).click(), 5000);
-					Public(this).once('playing', () => clearTimeout(timer1)/* === clearTimeout(timer2)*/);
-				}
-				return this.request('play');
-			}
-			if (!this.video.paused) { return; }
-			this.video.play();
-			smooth && this.fadeVolume(fadeIn_factor);
-		},
-
-		fadeVolume(factor, done = x => x) {
-			if (!this.fadeProps) {
-				const { video, main, } = this;
-				const old = video.volume;
-				const fadeProps = this.fadeProps = { factor, done, };
-				let i = factor > 1 ? fadeIn_margin : 1;
-				const iterate = () => {
-					i *= fadeProps.factor;
-					if (i > 1 || i <= fadeIn_margin) {
-						main.port.off('ping', iterate);
-						main.port.emit('ping_stop');
-						video.volume = old;
-						this.fadeProps = null;
-						fadeProps.done.call();
-					} else {
-						video.volume = old * i;
-					}
-				};
-				main.port.emit('ping_start');
-				main.port.on('ping', iterate);
-				iterate();
-			} else {
-				this.fadeProps.factor = factor;
-				this.fadeProps.done = done;
-			}
-		},
-
-		togglePlayPause(smooth) {
-			return this.video.paused ? this.play(smooth) : this.pause(smooth);
-		},
 	}),
 });
 

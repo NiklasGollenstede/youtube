@@ -61,7 +61,7 @@ const include = {
 };
 
 const outputJson = promisify(require('fs-extra').outputJson);
-for (let component of (yield FS.readdir(resolve(__dirname, `update`)))) {
+for (let component of (yield FS.readdir(resolve(__dirname, `update`)).catch(() => 0)) || [ ]) {
 	const names = (yield FS.readdir(resolve(__dirname, `update/${ component }`)))
 	.filter(_=>_ !== 'versions.json')
 	.map(path => basename(path).slice(0, -3));

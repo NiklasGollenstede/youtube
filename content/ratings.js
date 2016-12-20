@@ -96,7 +96,7 @@ return class Ratings {
 			if (this.totalLifetime < 0) {
 				return this.attatchRatingBar(element, (yield loadRatingFromServer(id)));
 			}
-			const stored = (yield port.request('db', 'get', id, [ 'meta', 'rating', 'viewed', ]));
+			const stored = (yield port.request('db.get', id, [ 'meta', 'rating', 'viewed', ]));
 			let now = Date.now(), age;
 			if (
 				stored.meta && stored.rating
@@ -109,8 +109,8 @@ return class Ratings {
 			this.attatchRatingBar(element, Object.assign(stored, loaded));
 			!loaded.meta.title && (delete loaded.meta.title); !loaded.meta.published && (delete loaded.meta.published);
 			return Promise.all([
-				port.request('db', 'set', id, { rating: loaded.rating, }),
-				port.request('db', 'assign', id, 'meta', loaded.meta),
+				port.request('db.set', id, { rating: loaded.rating, }),
+				port.request('db.assign', id, 'meta', loaded.meta),
 			]);
 		}, this)
 		.catch(error => console.error(error) === delete element.dataset.rating);

@@ -13,10 +13,7 @@ return function(main) {
 	let reportState = false;
 
 	[ 'playing', 'paused', 'ended', ]
-	.forEach(event => player.on(event, time => reportState && port.emit('player_'+ event, time)));
-
-	port.on('play', () => console.log('control play') === player.play(true));
-	port.on('pause', () => console.log('control pause') === player.pause(true));
+	.forEach(event => player.on(event, time => reportState && port.post('tab.player_'+ event, time)));
 
 	const setQuality = async(function*() {
 		let quality, _try = 0; while (
@@ -39,7 +36,7 @@ return function(main) {
 
 	// update the private view count
 	const displayViews = () => sleep(300)
-	.then(() => port.request('db', 'get', main.videoId, [ 'meta', 'viewed', ]))
+	.then(() => port.request('db.get', main.videoId, [ 'meta', 'viewed', ]))
 	.then(({ meta: { duration, }, viewed, }) => {
 		viewed = viewed || 0;
 		const views = document.querySelector('.watch-view-count');
@@ -69,15 +66,16 @@ return function(main) {
 
 	// set initial video quality and playback state according to the options and report to the background script
 	main.on('navigated', async(function*() {
+		reportState = false;
 		const { videoId, } = main;
 		if (!videoId) {
 			console.log('player removed');
-			return port.emit('player_removed');
+			return port.post('tab.player_removed');
 		}
 
 		(yield resolveBefore(player.promise('loaded', 'unloaded'), cancel => main.once('navigated', cancel)));
 		console.log('player loaded', videoId);
-		port.emit('mute_start');
+		port.post('tab.mute_start');
 
 		// play, stop or pause
 		const should = main.options.player.children.onStart.value;
@@ -92,34 +90,28 @@ return function(main) {
 				main.options.player.children.onStart.children.stop.value
 				&& (yield player.getLoaded()) < 0.5
 			) {
-				(yield player.stop());
 				player.once('unstarted', setQuality);
+				(yield player.stop());
 			} else {
 				(yield setQuality());
 			}
 		}
 
-		port.emit('mute_stop');
+		port.post('tab.mute_stop');
 
 		const duration = hhMmSsToSeconds(player.root.querySelector('.ytp-time-duration').textContent); // TODO: this may use the duration of an ad
 		const titleElement = document.querySelector('#eow-title, .video-title span, .video-title');
 		const title = titleElement && titleElement.textContent.trim();
 		const info = { }; title && (info.title = title); duration && (info.duration = duration);
-		console.log('sending data', info);
-		(yield port.request('db', 'assign', main.videoId, 'meta', info));
+		(yield port.request('db.assign', main.videoId, 'meta', info));
 
 		console.log('control done', title, duration, player.root.querySelector('.ytp-time-duration').textContent, main.videoId);
-		port.emit('player_created', main.videoId);
-		play && port.emit('player_playing', player.video.currentTime || 0);
+		port.post('tab.player_created', main.videoId);
+		play && port.post('tab.player_playing', player.video.currentTime || 0);
 		reportState = true;
 		(yield displayViews());
 
 	}, error => console.error(error)));
-
-	main.on('navigate', ({ url, }) => {
-		console.log('navigate to', url);
-		reportState = false;
-	});
 
 	player.on('ended', checkbox => (checkbox = document.querySelector('#autoplay-checkbox')) && checkbox.checked && checkbox.click());
 };
@@ -128,8 +120,8 @@ function resolveBefore(promise, before) {
 	return new Promise((resolve, reject) => {
 		promise.then(resolve);
 		typeof before === 'function'
-		? before(() => reject(new Error(`Operation was cancelled`)))
-		: setTimeout(() => reject(new Error(`Operation was cancelled after ${ before }ms`)), before);
+		? before(() => reject(new Error(`Operation was canceled`)))
+		: setTimeout(() => reject(new Error(`Operation was canceled after ${ before }ms`)), before);
 	});
 }
 

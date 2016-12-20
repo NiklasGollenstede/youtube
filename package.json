@@ -14,6 +14,7 @@
 	"dependencies": {
 		"fs-extra": "0.30.0",
 		"zip-dir": "1.0.2",
+
 		"es6lib": "NiklasGollenstede/es6lib",
 		"regexpx": "NiklasGollenstede/regexpx",
 		"sortablejs": "rubaxa/Sortable#1.4.2",

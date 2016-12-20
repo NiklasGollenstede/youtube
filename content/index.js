@@ -1,22 +1,22 @@
 (function(global) { 'use strict'; define(function({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
-	'node_modules/web-ext-utils/chrome/': { Storage, applications: { gecko, }, },
+	'node_modules/web-ext-utils/chrome/': { Storage, runtime, applications: { gecko, }, },
 	'node_modules/es6lib/concurrent': { async, spawn, sleep, },
 	'node_modules/es6lib/dom': { CreationObserver, DOMContentLoaded, createElement, getParent, },
-	'node_modules/es6lib/object': { Class, setConst, copyProperties, },
 	'node_modules/es6lib/namespace': { IterableNameSpace, },
+	'node_modules/es6lib/object': { Class, setConst, copyProperties, },
+	'node_modules/es6lib/port': Port,
 	'node_modules/es6lib/string': { QueryObject, },
 	'common/event-emitter': EventEmitter,
 	Actions,
 	Control,
 	Layout,
 	Passive,
-	Port,
 	Player,
 	Ratings,
 }) {
 
 /**
- * Event sequence: optionsLoaded (navigate|navigated)* observerCreated navigated (navigate|navigated)* <destroyed>
+ * Event sequence: optionsLoaded navigated* observerCreated navigated+ <destroyed>
  */
 
 const Main = new Class({
@@ -40,16 +40,16 @@ const Main = new Class({
 		this.observer = null;
 		self.update(this);
 
-		function error(error) { console.error('Failed to load module:', error); }
-		try { this.port      = new Port(this);      } catch(e) { error(e); }
+		this.port = new Port(runtime.connect({ name: 'tab', }), Port.web_ext_Port);
 		try { this.actions   = new Actions(this);   } catch(e) { error(e); }
 		try { this.player    = new Player(this);    } catch(e) { error(e); }
 		try { this.layout    = new Layout(this);    } catch(e) { error(e); }
 		try { this.ratings   = new Ratings(this);   } catch(e) { error(e); }
 		try { this.passive   = new Passive(this);   } catch(e) { error(e); }
 		try { this.control   = new Control(this);   } catch(e) { error(e); }
+		function error(error) { console.error('Failed to load module:', error); }
 
-		this.port.once(Symbol.for('destroyed'), self.destroy.bind(self));
+		this.port.ended.then(self.destroy.bind(self));
 		require.async('content/options').then(self.optionsLoaded.bind(self));
 	}),
 
@@ -90,13 +90,6 @@ const Main = new Class({
 			_this.emitSync('navigated', null);
 		},
 
-		navigate({ detail, }) {
-			const self = Public(this), _this = Protected(this);
-			this.update(self);
-			console.log('navigate', detail.url);
-			_this.emitSync('navigate', detail);
-		},
-
 		navigated() {
 			const self = Public(this), _this = Protected(this);
 			this.update(self);
@@ -113,7 +106,7 @@ const Main = new Class({
 			console.log('is redesign', self.redesign);
 			console.log('options loaded', self.options);
 			DOMContentLoaded.then(this.loaded.bind(this));
-			self.port.on('navigated', ({ url, }) => this.navigate({ detail: { url, }, }) === this.navigated());
+			self.port.addHandler('page.navigated', this.navigated, this);
 			_this.emitSync('optionsLoaded', self.options);
 			_this.clear('optionsLoaded');
 		},
