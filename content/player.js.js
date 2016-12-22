@@ -1,12 +1,12 @@
-(function() { 'use strict'; define([ 'node_modules/es6lib/port', 'require', ], (Port, require) => `(`+ (function(Port) { 'use strict'; // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
+(function() { 'use strict'; define([ 'node_modules/es6lib/port', 'require', ], (Port, require) => `(function(global) { 'use strict'; (`+ (function(Port) { // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 const fadeIn_factor = 1.4, fadeIn_margin = 0.05;
 
 let player, video;
 
 const methods = {
-	play            : play,  // (smooth){ this.playVideo();                return waitFor('playing'); },
-	pause           : pause, // (smooth){ this.pauseVideo();               return waitFor('paused'); },
+	play            : play,
+	pause           : pause,
 	togglePlayPause ()      { return (this.getPlayerState() === 1 ? pause : play).apply(this, arguments); },
 	end             ()      { this.seekTo(Number.MAX_VALUE);   return waitFor('ended'); },
 	stop            ()      { this.stopVideo();                return waitFor('unstarted', 'videoCued'); },
@@ -106,7 +106,7 @@ function unsafeOnPlaybackQualityChange(quality) {
 }
 
 function pause(smooth) {
-	if (video.paused) { return; }
+	if (video.paused) { return this.getCurrentTime(); }
 	if (!smooth) {
 		this.pauseVideo();
 	} else {
@@ -129,7 +129,7 @@ function play(smooth) {
 		if (!video.paused) { console.log('playing anyway'); return; }
 		video.play();
 		smooth && fadeVolume(fadeIn_factor);
-		return; // waitFor('playing');
+		return waitFor('playing');
 	}
 
 	if (this.getPlayerState() === 5) { // the player is stopped, just calling play will likely get it stuck buffering at ~4s
@@ -171,4 +171,4 @@ function fadeVolume(factor, done = _=>_) {
 	}
 }
 
-}) +`)((${ require.cache['node_modules/es6lib/port'].factory })());//# sourceURL=${ require.toUrl('./player.js.js') }`); })();
+}) +`)((${ require.cache['node_modules/es6lib/port'].factory })()); })((function() { /* jshint strict: false */ return this; })()); //# sourceURL=${ require.toUrl('./player-injected.js') }`); })();

@@ -1,5 +1,5 @@
-(() => { 'use strict'; define(function({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
-	'node_modules/es6lib/concurrent': { sleep, },
+(function() { 'use strict'; define(function({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
+	'node_modules/es6lib/concurrent': { sleep, spawn, },
 	'node_modules/es6lib/network': { HttpRequest, },
 	'node_modules/es6lib/port': Port,
 	'node_modules/web-ext-utils/chrome/': { Tabs, Windows, Storage, applications: { gecko, blink, }, },
@@ -144,16 +144,25 @@ class Tab {
 		if (this.muteCount > 0) { return; }
 		return Tabs.update(+this.id, { muted: false, });
 	}
-	focus_temporary() {
-		if (!blink) { return; }
-		console.log('focus_temporary', this);
-		this.tab().then(({ index, windowId, active, pinned, }) => {
-			Windows.create({ tabId: this.id, state: 'minimized', })
-			.then(() => Tabs.move(this.id, { index, windowId, }))
-			.then(() => Tabs.update(this.id, { active, pinned, }))
-			.then(() => Tabs.move(this.id, { index, windowId, }));
-		});
-	}
+	focus_temporary() { return spawn(function*() {
+		const { index, windowId, active, pinned, } = (yield this.tab());
+		console.log('focus_temporary', { index, windowId, active, pinned, });
+		if (active) { return; } // moving the tab won't do anything positive
+
+		if (gecko && !(yield Windows.get(windowId)).focused) { // the tab would be focused anyway once it starts playing, and in firefox this keeps panels open
+			(yield Tabs.update(this.id, { active: true, }));
+			return;
+		}
+
+		(yield Windows.create({ tabId: this.id, state: 'minimized', })); // move into own window ==> focuses
+		gecko && (yield sleep(1)); // firefox at least up to version 51 needs these
+		(yield Tabs.move(this.id, { index, windowId, })); // move back into original window
+		gecko && (yield sleep(1)); // firefox at least up to version 51 needs these
+		(yield Tabs.update(this.id, { active, pinned, })); // need to pin again if it was pinned
+		gecko && (yield sleep(1)); // firefox at least up to version 51 needs these
+		(yield Tabs.move(this.id, { index, windowId, })); // move to the correct position within (the pinned tabs of) the window
+
+	}.bind(this));	}
 }
 Tab.remoteMethods = Object.getOwnPropertyNames(Tab.prototype).filter(key => (/_/).test(key)).map(key => Tab.prototype[key]);
 Tab.instances = new Map;

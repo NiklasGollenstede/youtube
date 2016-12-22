@@ -58,11 +58,10 @@ const Player = new Class({
 		const getPort = new Resolvable;
 		const frame = self.commFrame = document.documentElement.appendChild(createElement('iframe', { style: { display: 'none', }, }));
 		frame.contentWindow.addEventListener('message', event => {
-			console.log('frame', event);
 			self.port = new Port(event.ports[0], Port.MessagePort)
 			.addHandler('emit', _this.emitSync, _this)
-			.addHandler((/^tab\./), (name, ...args) => main.port[self.port.isRequest() ? 'request' : 'post'](name, ...args));
-			main.port.addHandler((/^player\./), (name, ...args) => self.port[main.port.isRequest() ? 'request' : 'post'](name.slice('player.'.length), ...args));
+			.addHandler((/^tab\./), (name, ...args) => { console.log('forwarding', name); return main.port[self.port.isRequest() ? 'request' : 'post'](name, ...args); });
+			main.port.addHandler((/^player\./), (name, ...args) => { console.log('forwarding', name); self.port[main.port.isRequest() ? 'request' : 'post'](name.slice('player.'.length), ...args); });
 			getPort.resolve();
 			// frame.remove(); // removing the iframe would close the channel
 		});
@@ -84,7 +83,8 @@ const Player = new Class({
 				if (Instance !== this) { return new Error('"'+ method +'" called on dead Player'); }
 				const self = Private(this);
 				if (self[method]) { return Promise.resolve(self[method](...args)); }
-				return self.request(method, ...args);
+				console.log('player request', method, ...args);
+				return self.request(method, ...args).then(value => { console.log('player resolve', method, value); return value; });
 			};
 		});
 		return members;

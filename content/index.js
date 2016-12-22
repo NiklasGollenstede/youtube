@@ -93,7 +93,7 @@ const Main = new Class({
 		navigated() {
 			const self = Public(this), _this = Protected(this);
 			this.update(self);
-			console.log('navigated', location.href, self);
+			// console.log('navigated', location.href, self);
 			_this.emitSync('navigated', null);
 		},
 
@@ -104,7 +104,7 @@ const Main = new Class({
 			self.redesign = !!document.querySelector('ytd-app, ytg-app');
 			self.redesign && document.documentElement.classList.add('redesign');
 			console.log('is redesign', self.redesign);
-			console.log('options loaded', self.options);
+			// console.log('options loaded', self.options);
 			DOMContentLoaded.then(this.loaded.bind(this));
 			self.port.addHandler('page.navigated', this.navigated, this);
 			_this.emitSync('optionsLoaded', self.options);

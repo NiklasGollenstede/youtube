@@ -208,6 +208,7 @@ document.addEventListener('contextmenu', function(event) {
 });
 
 document.addEventListener('keydown', event => {
+	const inInput = event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA';
 	switch (event.key) {
 		case 'f': {
 			if (!event.ctrlKey) { return; }
@@ -215,11 +216,12 @@ document.addEventListener('keydown', event => {
 			box.focus(); box.select();
 		} break;
 		case 'Escape': {
-			if (event.ctrlKey || !event.target.matches || !event.target.matches('#searchbox>input')) { return; }
+			if (event.ctrlKey || !inInput || !event.target.matches('#searchbox>input')) { return; }
 			event.target.value = ''; event.target.blur();
 			windowList.classList.remove('searching');
 		} break;
 		case ' ': {
+			if (inInput) { return; }
 			port.emit('command_toggle');
 		} break;
 		default: return;
@@ -234,10 +236,11 @@ document.addEventListener('input', function handler(event) {
 		const tabs = Array.from(windowList.querySelectorAll('.tab'));
 		tabs.forEach(_=>_.classList.remove('found'));
 
-		if (term.length < 2) { windowList.classList.remove('searching'); return; }
+		if (term.length < 3) { windowList.classList.remove('searching'); return; }
 		else { windowList.classList.add('searching'); }
 
-		const found = tabs.filter(tab => fuzzyIncludes(tab.querySelector('.icon').title.toLowerCase(), lTerm) > 0.8);
+		// looking for trigrams makes it quite unlikely to match just anything, but a typo will have quite an impact
+		const found = tabs.filter(tab => fuzzyIncludes(tab.querySelector('.icon').title.toLowerCase(), lTerm, 3) > 0.6);
 		term.length === 11 && found.push(...tabs.filter(_=>_.dataset.videoId === term));
 		found.forEach(_=>_.classList.add('found'));
 	} else {
