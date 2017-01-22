@@ -108,7 +108,7 @@ function init() {
 		const url = new URL(location);
 		const items = [
 			chrome.runtime.reload
-			&&  { icon: '⚡',	label: 'Restart', action: () => chrome.runtime.reload(), },
+			&&  { icon: '⚡',	label: 'Restart', action: () => confirm('Are you sure you want to restart this extension? It may take a while') && chrome.runtime.reload(), },
 			    { icon: '◑',	label: 'Dark Theme', checked: url.searchParams.get('theme') !== 'light', action() {
 			    	const theme = this.checked ? 'light' : 'dark';
 			    	url.searchParams.set('theme', theme);
@@ -125,31 +125,6 @@ function init() {
 		new ContextMenu({ x, y, items, });
 	});
 }
-
-// focus tab (windows) or play tab on dblclick
-document.addEventListener('dblclick', function({ target, button, }) {
-	if (button || !target.matches || !target.matches('.description, .description :not(.remove)')) { return; }
-
-	target = target.closest('.tab');
-	if (target.matches('#playlist *')) {
-		port.emit('playlist_seek', positionInParent(target));
-	} else if (target.matches('#windows *')) {
-		port.emit('tab_focus', +target.dataset.tabId);
-	}
-	window.getSelection().removeAllRanges();
-});
-
-// remove tab on leftcklick on ".remove"
-document.addEventListener('click', function({ target, button, }) {
-	if (button || !target.matches || !target.matches('.tab .remove, .tab .remove *')) { return; }
-
-	target = target.closest('.tab');
-	if (target.matches('#playlist *')) {
-		port.emit('playlist_delete', positionInParent(target));
-	} else if (target.matches('#windows *')) {
-		port.emit('tab_close', +target.dataset.tabId);
-	}
-});
 
 // show context menus
 document.addEventListener('contextmenu', function(event) {
@@ -207,6 +182,37 @@ document.addEventListener('contextmenu', function(event) {
 	event.preventDefault();
 });
 
+// focus tab (windows) or play tab on dblclick
+document.addEventListener('dblclick', function({ target, button, }) {
+	if (button || !target.matches || !target.matches('.description, .description :not(.remove)')) { return; }
+
+	target = target.closest('.tab');
+	if (target.matches('#playlist *')) {
+		port.emit('playlist_seek', positionInParent(target));
+	} else if (target.matches('#windows *')) {
+		port.emit('tab_focus', +target.dataset.tabId);
+	}
+	window.getSelection().removeAllRanges();
+});
+
+// remove tab on leftcklick on ".remove"
+document.addEventListener('click', function({ target, button, }) {
+	if (button || !target.matches) { return; }
+
+	if (target.matches('.tab .remove, .tab .remove *')) {
+		const tab = target.closest('.tab');
+		if (tab.matches('#playlist *')) {
+			port.emit('playlist_delete', positionInParent(tab));
+		} else if (tab.matches('#windows *')) {
+			port.emit('tab_close', +tab.dataset.tabId);
+		}
+	} else if (target.matches('#searchbox .remove, #searchbox .remove *')) {
+		const box = document.querySelector('#searchbox>input');
+		box.value = ''; box.blur();
+		document.body.classList.remove('searching');
+	}
+});
+
 document.addEventListener('keydown', event => {
 	const inInput = event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA';
 	switch (event.key) {
@@ -216,9 +222,9 @@ document.addEventListener('keydown', event => {
 			box.focus(); box.select();
 		} break;
 		case 'Escape': {
-			if (event.ctrlKey || !inInput || !event.target.matches('#searchbox>input')) { return; }
+			if (event.ctrlKey || !event.target.matches('#searchbox>input')) { return; }
 			event.target.value = ''; event.target.blur();
-			windowList.classList.remove('searching');
+			document.body.classList.remove('searching');
 		} break;
 		case ' ': {
 			if (inInput) { return; }
@@ -233,11 +239,11 @@ document.addEventListener('input', function handler(event) {
 	if (event.target.matches('#searchbox>input')) {
 		const term = event.target.value.trim();
 		const lTerm = term.toLowerCase();
-		const tabs = Array.from(windowList.querySelectorAll('.tab'));
+		const tabs = Array.from(document.body.querySelectorAll('.tab'));
 		tabs.forEach(_=>_.classList.remove('found'));
 
-		if (term.length < 3) { windowList.classList.remove('searching'); return; }
-		else { windowList.classList.add('searching'); }
+		if (term.length < 3) { document.body.classList.remove('searching'); return; }
+		else { document.body.classList.add('searching'); }
 
 		// looking for trigrams makes it quite unlikely to match just anything, but a typo will have quite an impact
 		const found = tabs.filter(tab => fuzzyIncludes(tab.querySelector('.icon').title.toLowerCase(), lTerm, 3) > 0.6);

@@ -16,10 +16,10 @@ body {
 }
 
 /* cursors */
-#controls .button, .tab .remove {
+#controls .button, .tab .remove, #searchbox .remove {
 	cursor: pointer;
 }
-#controls, .tab .remove {
+#controls, .tab .remove, #searchbox .remove {
 	-moz-user-select: none;
 	-webkit-user-select: none;
 }
@@ -111,14 +111,24 @@ body {
 
 /* search box */
 #searchbox {
+	position: relative;
 	padding: 5px 2px 5px 2px;
 }
 #searchbox>input {
-	padding: 3px 6px;
+	padding: 3px 22px 3px 6px;
 	font-size: 14px;
 	width: 100%;
 	border-width: 1px;
 	outline: none;
+}
+.header #searchbox .remove {
+	position: absolute;
+	right: 8px;
+	top: 50%;
+	transform: translateY(-50%);
+}
+body:not(.searching) #searchbox .remove {
+	display: none;
 }
 
 /* tab tiles */
@@ -171,7 +181,7 @@ body {
 	padding: 0px 2px;
 	border-radius: 2px;
 }
-.tab .remove {
+.tab .remove, #searchbox .remove {
 	position: absolute;
 	right: 0px;
 	top: 0px;
@@ -252,6 +262,12 @@ input.toggleswitch:checked + * { display: none; }
 	#right .tab .description {
 		display: none;
 	}
+	#searchbox input {
+		padding-right: 6px;
+	}
+	#searchbox .remove {
+		display: none;
+	}
 }
 /* smaller thumbnails in window list */
 @media (max-width: 370px) {
@@ -287,7 +303,7 @@ input.toggleswitch:checked + * { display: none; }
 	.tab .title {
 		margin-right: 0;
 	}
-	.tab .remove,
+	.tab .remove, #searchbox .remove,
 	.tab .duration {
 		transform: scale(0);
 	}

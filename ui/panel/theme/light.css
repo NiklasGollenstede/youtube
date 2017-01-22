@@ -41,10 +41,10 @@ html, body, input {
 .description .duration {
 	background-color: rgba(0, 0, 0, .3);
 }
-.tab .remove {
+.remove {
 	background-color: rgba(0, 0, 0, .2);
 }
-.tab .remove:hover {
+.remove:hover {
 	color: #E54949;
 	fill: #E54949;
 }
