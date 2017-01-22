@@ -395,14 +395,14 @@ return Object.freeze([ // TODO: deepFreeze
 			{
 				name: "export",
 				title: "Export all collected data",
-				description: "Copies the all cache data and user data to clipboard (as JSON)",
-				default: [ "all", "viewed only", ],
+				description: "Export all cache and user data (as JSON)",
+				default: [ "all to file", "all to clipboard", "viewed to file", "viewed to clipboard", ],
 				type: "control",
 			}, {
 				name: "import",
 				title: "Import data",
-				description: "Imports JSON formatted data form clipboard into the cache data / user data storage. Overwrites conflicting data",
-				default: "Import",
+				description: "Imports JSON formatted data into the cache data / user data storage. Overwrites conflicting data",
+				default: [ "from file", "from clipboard", ],
 				type: "control",
 			}, {
 				name: "getSize",

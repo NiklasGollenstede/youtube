@@ -194,14 +194,6 @@ Tab.getThumbUrl = !db.isIDB
 	};
 })();
 
-function toJson(value) {
-	return JSON.stringify(value, (key, value) => {
-		if (!value || typeof value !== 'object') { return value; }
-		if (value instanceof Error) { return '$_ERROR_$'+ JSON.stringify({ name: value.name, message: value.message, stack: value.stack, }); }
-		return value;
-	});
-}
-
 return Tab;
 
 }); })();
