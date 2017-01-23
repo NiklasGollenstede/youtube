@@ -68,12 +68,12 @@ function destroy() {
 }
 
 const typeMap = new Map([
-	[ -1, 'unstarted', ],  [ 'unstarted', -1, ],
-	[  0, 'ended', ],      [ 'ended',      0, ],
-	[  1, 'playing', ],    [ 'playing',    1, ],
-	[  2, 'paused', ],     [ 'paused',     2, ],
-	[  3, 'buffering', ],  [ 'buffering',  3, ],
-	[  5, 'videoCued', ],  [ 'videoCued',  5, ],
+	[ -1, 'unstarted', ], [ 'unstarted', -1, ],
+	[  0, 'ended',     ], [ 'ended',      0, ],
+	[  1, 'playing',   ], [ 'playing',    1, ],
+	[  2, 'paused',    ], [ 'paused',     2, ],
+	[  3, 'buffering', ], [ 'buffering',  3, ],
+	[  5, 'videoCued', ], [ 'videoCued',  5, ],
 ]);
 
 const waiting = {
@@ -119,10 +119,10 @@ function pause(smooth) {
 	return waitFor('paused');
 }
 
-function play(smooth) {
+function play(smooth, recursing) {
 
-	if (this.dataset.visible !== 'true') { // YouTube won't start playing if the tab was never visible
-		return port.request('tab.focus_temporary').then(() => play.call(this, smooth));
+	if (!recursing && this.dataset.visible !== 'true') { // YouTube won't start playing if the tab was never visible
+		return port.request('tab.focus_temporary').then(() => play.call(this, smooth, true));
 	}
 
 	if (video.readyState === 4) { // video is ready to play

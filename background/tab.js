@@ -12,15 +12,18 @@ class Tab {
 	constructor({ port, playlist, panel, commands, }) {
 		console.log('tab', port);
 		this.id = port.sender.tab.id;
+		this.private = port.sender.tab.incognito;
+		this.db = this.private ? db.inMemory : db;
 		if (Tab.instances.has(this.id)) { throw new Error('Tab with id '+ this.id +' already exists'); }
 		Tab.instances.set(this.id, this);
 		this.playlist = playlist;
 		this.panel = panel;
 		this.commands = commands;
 		this.videoId = null;
+		this._thumbUrl = null;
 		this.port = new Port(port, Port.web_ext_Port)
 		.addHandlers('tab.', Tab.remoteMethods, this)
-		.addHandlers('db.', db);
+		.addHandlers('db.', this.db);
 		this.port.ended.then(() => this.destructor());
 
 		this.muteCount = 0;
@@ -50,8 +53,8 @@ class Tab {
 		const videoId = this.videoId, tabId = this.id;
 		return Promise.all([
 			this.tab().catch(error => console.error(error)),
-			db.get(videoId, [ 'meta', ]).catch(error => console.error(error)),
-			Tab.getThumbUrl(videoId),
+			this.db.get(videoId, [ 'meta', ]).catch(error => console.error(error)),
+			this.getThumbUrl(),
 		]).then(([
 			{ windowId = 'other', index = -1, } = { },
 			{ meta: { title = '<unknown>', duration = 0, } = { }, } = { },
@@ -74,9 +77,9 @@ class Tab {
 	stoppedPlaying(time) {
 		if (!this.playing) { return; }
 		if (time !== undefined && false) { // TODO: when seeking, this is already the new time
-			db.increment(this.videoId, 'viewed', time - this.playing.from);
+			this.db.increment(this.videoId, 'viewed', time - this.playing.from);
 		} else {
-			db.increment(this.videoId, 'viewed', (Date.now() - this.playing.at) / 1000);
+			this.db.increment(this.videoId, 'viewed', (Date.now() - this.playing.at) / 1000);
 		}
 		this.playing = false;
 	}
@@ -84,7 +87,7 @@ class Tab {
 		this.playing && this.stoppedPlaying(time);
 		const now = Date.now();
 		this.playing = { from: time, at: now, };
-		db.assign(this.videoId, 'private', { lastPlayed: now, });
+		this.db.assign(this.videoId, 'private', { lastPlayed: now, });
 	}
 
 	player_created(vId) {
@@ -163,36 +166,31 @@ class Tab {
 		(yield Tabs.move(this.id, { index, windowId, })); // move to the correct position within (the pinned tabs of) the window
 
 	}.bind(this));	}
+
+	getThumbUrl() {
+		if (this._thumbUrl) { return this._thumbUrl; }
+		if (!this.private && !this.db.isIDB) {
+			return (this._thumbUrl = `https://i.ytimg.com/vi/${ this.videoId }/default.jpg`);
+		}
+		return (this._thumbUrl = db.get(this.videoId, [ 'thumb', ])
+		.then(({ thumb: blob, }) => {
+			if (blob) { return (this._thumbUrl = URL.createObjectURL(blob)); }
+			const url = `https://i.ytimg.com/vi/${ this.videoId }/default.jpg`;
+			HttpRequest(url, { responseType: 'blob', })
+			.then(({ response: blob, }) => {
+				db.set(this.videoId, { thumb: blob, });
+				return (this._thumbUrl = URL.createObjectURL(blob));
+			}).catch(error => {
+				console.error('Failed to fetch thumbnail:', error);
+				return (this._thumbUrl = null);
+			});
+			return url;
+		}));
+	}
 }
 Tab.remoteMethods = Object.getOwnPropertyNames(Tab.prototype).filter(key => (/_/).test(key)).map(key => Tab.prototype[key]);
 Tab.instances = new Map;
 Tab.actives = new Map;
-Tab.getThumbUrl = !db.isIDB
-? videoId => `https://i.ytimg.com/vi/${ videoId }/default.jpg`
-: (() => {
-	const cache = new Map;
-	return videoId => {
-		if (cache.has(videoId)) { return cache.get(videoId); }
-		const soon = db.get(videoId, [ 'thumb', ])
-		.then(({ thumb: blob, }) => {
-			if (blob) { return useBlob(blob); }
-			const url = `https://i.ytimg.com/vi/${ videoId }/default.jpg`;
-			HttpRequest(url, { responseType: 'blob', })
-			.then(({ response: blob, }) => useBlob(blob, true))
-			.catch(error => (console.error('Failed to fetch thumbnail:', error), cache.delete(videoId)));
-			return url;
-		});
-		cache.set(videoId, soon);
-		return soon;
-
-		function useBlob(blob, save) {
-			save && db.set(videoId, { thumb: blob,});
-			const url = URL.createObjectURL(blob);
-			cache.set(videoId, url);
-			return url;
-		}
-	};
-})();
 
 return Tab;
 

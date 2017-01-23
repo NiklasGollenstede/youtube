@@ -1,4 +1,4 @@
-(() => { 'use strict'; define(function*({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
+(function() { 'use strict'; define(function*({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
 	exports,
 }) {
 
@@ -15,9 +15,27 @@ const allKeys = defaultKeys.concat([
 	'thumb', // Blob
 ]);
 
-let db, Transaction;
+class TransactionBase {
+	constructor(write, keys, tmp) {
+		this.keys = keys || allKeys;
+		this.write = !!write;
+		this.done = !tmp && Promise.resolve();
+	}
+	get isIDB() { return false; }
+	modify(id, modifier, keys = this.keys) {
+		return this.get(id, keys).then(modifier).then(this.set.bind(this, id));
+	}
+	increment(id, key, by = 1) {
+		return this.modify(id, data => ({ [key]: (data[key] || 0) + (by || 0), }), [ key, ]);
+	}
+	assign(id, key, props) {
+		return this.modify(id, data => ({ [key]: typeof data[key] !== 'object' ? props : Object.assign(data[key], props), }), [ key, ]);
+	}
+}
+
+let Transaction;
 try {
-	db = window.indexedDB.open('videoInfo', 6); // throws in firefox if cookies are disabled
+	let db = window.indexedDB.open('videoInfo', 6); // throws in firefox if cookies are disabled
 	db.onupgradeneeded = ({ target: { result: db, }, }) => {
 		const existing = db.objectStoreNames;
 		const includes = existing.includes ? 'includes' : 'contains';
@@ -25,9 +43,9 @@ try {
 	};
 	db = (yield getResult(db)); // throws in firefox if ???
 
-	Transaction = class Transaction {
+	Transaction = class Transaction extends TransactionBase {
 		constructor(write, keys, tmp) {
-			this.keys = keys || allKeys;
+			super(write, keys, true);
 			this._ = db.transaction(this.keys, write ? 'readwrite' : 'readonly');
 			this.done = !tmp && getResult(this);
 		}
@@ -59,12 +77,6 @@ try {
 				}, reject);
 			}).catch(this._.onerror);
 		}
-		increment(id, key, by = 1) {
-			return this.modify(id, data => ({ [key]: (data[key] || 0) + (by || 0), }), [ key, ]);
-		}
-		assign(id, key, props) {
-			return this.modify(id, data => ({ [key]: typeof data[key] !== 'object' ? props : Object.assign(data[key], props), }), [ key, ]);
-		}
 	};
 
 } catch(error) {
@@ -72,13 +84,7 @@ try {
 
 	const Storage = (yield require.async('node_modules/web-ext-utils/chrome/')).Storage.local;
 
-	Transaction = class Fallback {
-		constructor(write, keys, tmp) {
-			this.keys = keys || allKeys;
-			this.write = !!write;
-			this.done = !tmp && Promise.resolve();
-		}
-		get isIDB() { return false; }
+	Transaction = class Fallback extends TransactionBase {
 		ids() {
 			return Storage.get().then(data => {
 				const ids = new Set;
@@ -115,19 +121,32 @@ try {
 			Object.keys(data).forEach(key => key !== 'id' && (_data[id +'$'+ key] = data[key]));
 			return Storage.set(_data);
 		}
-		modify(id, modifier, keys = this.keys) {
-			return this.get(id, keys).then(modifier).then(this.set.bind(this, id));
-		}
-		increment(id, key, by = 1) {
-			return this.modify(id, data => ({ [key]: (data[key] || 0) + (by || 0), }), [ key, ]);
-		}
-		assign(id, key, props) {
-			return this.modify(id, data => ({ [key]: typeof data[key] !== 'object' ? props : Object.assign(data[key], props), }), [ key, ]);
-		}
 	};
 }
 
-return {
+const memStore = { }; allKeys.forEach(key => memStore[key] = { });
+class InMemory extends TransactionBase {
+	ids() {
+		return new Promise(_=>_(Object.keys[memStore.meta]));
+	}
+	clear(keys = this.keys) {
+		allKeys.forEach(key => memStore[key] = { });
+		return Promise.resolve();
+	}
+	get(id, keys = this.keys) {
+		const data = { id, };
+		keys.forEach(key => id in memStore[key] && (data[key] = memStore[key][id]));
+		return Promise.resolve(data);
+	}
+	set(id, data = id) {
+		if (!this.write) { return Promise.reject('Transaction is readonly'); }
+		(id === data) && (id = data.id);
+		Object.keys(data).forEach(key => key !== 'id' && (memStore[key][id] = data[key]));
+		return Promise.resolve();
+	}
+}
+
+const makeDb = Transaction => ({
 	transaction(write, keys) {
 		return new Transaction(write, keys);
 	},
@@ -186,7 +205,11 @@ return {
 		}
 		return null;
 	},
-};
+});
+
+const db = makeDb(Transaction);
+db.inMemory = makeDb(InMemory);
+return db;
 
 function get(transaction, id, keys, resolve, reject) {
 	const data = { id, }; let missing = keys.length;

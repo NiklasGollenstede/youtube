@@ -7,9 +7,11 @@
 }) {
 
 window.options = options;
-const { db, } = extension.getBackgroundPage();
+const { db, } = extension.getBackgroundPage() || { };
 
-const onCommand = (function({ name, }, button) { return spawn(function*() {
+const onCommand = (function({ name, parent, }, button) { return spawn(function*() {
+	if (!db && parent.name === 'storage') { throw new Error(`Database is not available, please make sure to open the settings in a not-private window!`); }
+
 	switch (name) {
 		case 'export': {
 			const data = !db.isIDB ? db : db.transaction();
@@ -33,7 +35,7 @@ const onCommand = (function({ name, }, button) { return spawn(function*() {
 			let string = '';
 			if (button.endsWith('file')) {
 				const file = (yield loadFile({ accept: 'application/json, text/json, .json', }))[0];
-				if (!file) { return; console.log('empty selection'); }
+				if (!file) { console.log('empty selection'); return; }
 				string = (yield readBlob(file));
 			} else {
 				string = prompt('Please paste your JSON data below', '');
@@ -85,7 +87,10 @@ const onCommand = (function({ name, }, button) { return spawn(function*() {
 			throw new Error('Unhandled command "'+ name +'"');
 		}
 	}
-}, null, null, true).catch(error => { alert('The operation failed with '+ (error && (error.name +': '+ error.message))); throw error; }); });
+}, null, null, true).catch(error => {
+	alert('The operation failed with '+ (error && (error.name +': '+ error.message)));
+	throw error; });
+});
 
 new Editor({
 	options,
