@@ -172,6 +172,12 @@ define(`
 {
     cursor: pointer !important;
 }
+.watchpage .show-comments #watch-discussion {
+    max-height: 256000px !important;
+    transition-duration: 0.5s;
+    transition-timing-function: cubic-bezier(1, 0, 1, 1);
+    transition-delay: 0s;
+}
 /* related videos */
 .watchpage #watch7-sidebar
 {

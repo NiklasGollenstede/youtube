@@ -1,0 +1,261 @@
+<div>
+<svg
+	width="2"
+	height="2"
+	style="transform: scale(300); transform-origin: 0 0"
+>
+
+<path
+	id="pMain"
+	stroke="blue"
+	fill="blue"
+	stroke-width="0"
+/>
+<path
+	display="none"
+	id="pPause"
+	d="
+		M 0.280000,1.000000
+		L 0.280000,0.307180
+		L 0.800000,0.307180
+		L 0.800000,1.692820
+		L 0.280000,1.692820
+		Z
+
+		M 1.720000,1.000000
+		L 1.720000,1.692820
+		L 1.200000,1.692820
+		L 1.200000,0.307180
+		L 1.720000,0.307180
+		Z
+	"
+/>
+
+<path
+	display="none"
+	id="pPend"
+	d="
+		M 0.200000,1.000000
+		L 0.600000,0.307180
+		L 1.000000,0.307180
+		L 1.000000,1.692820
+		L 0.600000,1.692820
+		Z
+
+		M 1.800000,1.000000
+		L 1.400000,1.692820
+		L 1.000000,1.692820
+		L 1.000000,0.307180
+		L 1.400000,0.307180
+		Z
+	"
+/>
+
+<path
+	display="none"
+	id="pPlay"
+	d="
+		M 0.200000,1.000000
+		L 0.200000,0.200000
+		L 1.000000,0.600000
+		L 1.000000,1.400000
+		L 0.200000,1.800000
+		Z
+
+		M 1.800000,1.000000
+		L 1.800000,1.000000
+		L 1.000000,1.400000
+		L 1.000000,0.600000
+		L 1.800000,1.000000
+		Z
+	"
+/>
+
+<animate
+	id="aTransit"
+	xlink:href="#pMain"
+	attributeName="d"
+	attributeType="XML"
+	dur=".3"
+	begin="indefinite"
+/>
+
+<animateTransform
+	id="aRotate"
+	xlink:href="#pMain"
+	attributeName="transform"
+	type="rotate"
+	from="0 1 1"
+	to="60 1 1"
+	dur=".8"
+	repeatCount="indefinite"
+	begin="indefinite"
+	additive="sum"
+/>
+
+<set
+	id="aSet"
+	attributeName="d"
+	begin="indefinite"
+/>
+
+</svg>
+</div>
+
+<script type="text/javascript">
+	const $ = s => document.querySelector(s);
+	const Button = {
+		element: $('#pMain'),
+		paths: {
+			play: (`
+				M 0.200000,1.000000
+				L 0.200000,0.200000
+				L 1.000000,0.600000
+				L 1.000000,1.400000
+				L 0.200000,1.800000
+				Z
+
+				M 1.800000,1.000000
+				L 1.800000,1.000000
+				L 1.000000,1.400000
+				L 1.000000,0.600000
+				L 1.800000,1.000000
+			Z`),
+			pause: (`
+				M 0.280000,1.000000
+				L 0.280000,0.307180
+				L 0.800000,0.307180
+				L 0.800000,1.692820
+				L 0.280000,1.692820
+				Z
+
+				M 1.720000,1.000000
+				L 1.720000,1.692820
+				L 1.200000,1.692820
+				L 1.200000,0.307180
+				L 1.720000,0.307180
+			Z`),
+			pending: (`
+				M 0.200000,1.000000
+				L 0.600000,0.307180
+				L 1.000000,0.307180
+				L 1.000000,1.692820
+				L 0.600000,1.692820
+				Z
+
+				M 1.800000,1.000000
+				L 1.400000,1.692820
+				L 1.000000,1.692820
+				L 1.000000,0.307180
+				L 1.400000,0.307180
+			Z`),
+		},
+		set path(value) {
+			this.element.setAttribute('d', value);
+		},
+		init() {
+			this.path = this.paths.play;
+			this._state = 'play';
+			this.animation = null;
+			return this;
+		},
+		get state() {
+			return this._state;
+		},
+		set state(value) {
+			if (this._state === value) { return; }
+			if (this.animation) { return (this._nextState = value); }
+			this._transit(this._state, value);
+		},
+		_nextStep() {
+			if (this._nextState) { this._transit(this._state, this._nextState); }
+			else if (this._state === 'pending') { this.spin(); }
+		},
+		_transit(from, to) {
+			this._state = to;
+
+			this.animation = this.element.animate([
+				{ p: this.paths[from], },
+				{ p: this.paths[to], },
+				// { opacity: 0, },
+				// { opacity: 1, },
+			], {
+				duration: 1000,
+			});
+			this.animation.onfinished = () => this._nextStep();
+		},
+		_spin() {
+			this.animation = this.element.animate({
+				transform: 'rotate(60deg)',
+			}, {
+				duration: 1000,
+			});
+			this.animation = this.element.animate();
+			this.animation.onfinished = () => this._nextStep();
+		},
+	};
+
+	Button.init();
+	Button.state = 'pending';
+</script>
+
+<script type="text/javascript">/*
+	const $ = s => document.querySelector(s);
+	const button = $('#pMain');
+	const aTransit = $('#aTransit');
+	const sRotate = $('#aRotate');
+	const dPlay = button.dPlay = $('#pPlay').getAttribute('d');
+	const dPend = button.dPend = $('#pPend').getAttribute('d');
+	const dPause = button.dPause = $('#pPause').getAttribute('d');
+	button.transitTo = function(target) {
+		current = button.getAttribute('d');
+		aTransit.setAttribute('from', current);
+		aTransit.setAttribute('to', target);
+		button.setAttribute('d', target);
+		aTransit.beginElement();
+	};*/
+</script>
+
+<script type="text/javascript">
+	/*button.setAttribute('d', dPause);
+	button.animate([
+		{ d: dPause, },
+		{ d: dPend, },
+		//...
+	], {
+		duration: 1000,
+		iterations: 1,
+		delay: 0,
+	});*/
+</script>
+
+<script type="text/javascript">/*
+	copy = (ss, st, as, at = as) => $(st).setAttribute(at, $(ss).getAttribute(as));
+	copy('#pPause', '#aTransit', 'd', 'from');
+	copy('#pPend', '#aTransit', 'd', 'to');
+	$('#aTransit').beginElement();
+	copy('#pPend', '#pMain', 'd');
+	setTimeout(() => {
+		$('#aRotate').beginElement();
+		setTimeout(() => {
+			$('#aRotate').endElement();
+			copy('#pPend', '#aTransit', 'd', 'from');
+			copy('#pPlay', '#aTransit', 'd', 'to');
+			$('#aTransit').beginElement();
+			copy('#pPlay', '#pMain', 'd');
+		}, 1600);
+	}, 300);*/
+</script>
+<script type="text/javascript">
+/*
+	function circle(p, r = 1) {
+		return [
+			(Math.cos(p * Math.PI / 180) * r  + 1).toFixed(6),
+			(Math.sin(p * Math.PI / 180) * r  + 1).toFixed(6),
+		];
+	}
+	hex  = r => 'M'+ [ 000, 060, 090, 120, 180, 240, 270, 300, ].map(p => circle(p, r).join()).join('\nL ') +'\nZ';
+	hexR = r => 'M'+ [ 000, 060, 090, 270, 300, ].map(p => circle(p, r).join()).join('\nL ') +'\nZ';
+	hexL = r => 'M'+ [ 180, 240, 270, 090, 120, ].map(p => circle(p, r).join()).join('\nL ') +'\nZ';
+	*/
+</script>

@@ -1,4 +1,4 @@
-(() => { 'use strict'; define(function({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
+(function() { 'use strict'; define(function({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
 	'node_modules/es6lib/dom': { createElement, },
 	'node_modules/es6lib/string': { QueryObject, },
 }) {
@@ -8,7 +8,12 @@ return function(main) {
 	// auto load more list entries when scrolling to the bottom of a list
 	function autoExpandListsOnWheel(event) {
 		if ((window.scrollY + window.innerHeight) >= document.getElementById('content').offsetHeight) { // close to the bottom
-			const button = document.querySelector('#watch-more-related-button, .load-more-button, .yt-uix-load-more, .browse-items-load-more-button');
+			const button =
+			   document.querySelector('#watch-more-related-button') // more related videos
+			|| document.querySelector('.yt-uix-load-more') // more channel videos
+			|| document.querySelector('.browse-items-load-more-button')
+			|| document.querySelector('.load-more-button') // more comments or channel videos
+			;
 			button && button.style.display !== 'none' && button.click();
 		}
 	}
@@ -17,18 +22,11 @@ return function(main) {
 		false: () => main.removeDomListener(window, 'scroll', autoExpandListsOnWheel),
 	}));
 
-	let showingComments = false;
 	main.addDomListener(document, 'mousedown', event => {
 		// expand comments
 		if (event.button === 0 && event.target.matches('.comment-section-header-renderer, .comment-section-header-renderer *')) {
 			event.preventDefault(); event.stopPropagation();
-			main.setStyle('show-comments', showingComments ? '' : `.watchpage #watch-discussion {
-				max-height: 20000px !important;
-				transition-duration: 0.5s;
-				transition-timing-function: cubic-bezier(1, 0, 1, 1);
-				transition-delay: 0s;
-			}`);
-			showingComments = !showingComments;
+			document.body.classList.toggle('show-comments');
 		}
 
 		// open search results in new tab, may require user to accept popups from youtube.com

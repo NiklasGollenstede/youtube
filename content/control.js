@@ -55,7 +55,7 @@ return function(main) {
 	// increase quality of the video poster
 	let posters = new Map;
 	player.on('unstarted', _async(function*() {
-		const blob = posters.get(main.videoId) || (yield HttpRequest(`https://i.ytimg.com/vi/${ main.videoId }/maxresdefault.jpg`, { responseType: 'blob', })).blob;
+		const blob = posters.get(main.videoId) || (yield HttpRequest(`https://i.ytimg.com/vi/${ main.videoId }/maxresdefault.jpg`, { responseType: 'blob', })).response;
 		posters.set(main.videoId, blob);
 		main.setStyle('hd-poster', String.raw`.ytp-thumbnail-overlay-image {
 			background-image: url("${ URL.createObjectURL(blob) }") !important;

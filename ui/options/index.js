@@ -89,8 +89,8 @@ const onCommand = (function({ name, parent, }, button) { return spawn(function*(
 	}
 }, null, null, true).catch(error => {
 	alert('The operation failed with '+ (error && (error.name +': '+ error.message)));
-	throw error; });
-});
+	throw error;
+}); });
 
 new Editor({
 	options,

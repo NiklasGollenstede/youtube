@@ -33,8 +33,8 @@ const EventEmitter = new Class({
 			cancel = cancel || EventEmitter.destroyed;
 			const { promise, resolve, reject, } = new PromiseCapability;
 			let canceled = false;
-			const good = value => { self.on[cancel].delete(bad); resolve(value); };
-			const bad = value => { self.on[name].delete(good); reject(value); };
+			const good = value => { self.on && self.on[cancel].delete(bad); resolve(value); };
+			const bad = value => { self.on && self.on[name].delete(good); reject(value); };
 			self.add(name, good, true);
 			self.add(cancel, bad, true);
 			return promise;

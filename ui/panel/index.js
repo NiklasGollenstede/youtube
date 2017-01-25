@@ -109,7 +109,7 @@ function init() {
 		const items = [
 			chrome.runtime.reload
 			&&  { icon: '⚡',	label: 'Restart', action: () => confirm('Are you sure you want to restart this extension? It may take a while') && chrome.runtime.reload(), },
-			    { icon: '◑',	label: 'Dark Theme', checked: url.searchParams.get('theme') !== 'light', action() {
+			    { icon: '◑',	label: 'Dark Theme', checked: ('searchParams' in URL.prototype) && url.searchParams.get('theme') !== 'light', action() {
 			    	const theme = this.checked ? 'light' : 'dark';
 			    	url.searchParams.set('theme', theme);
 			    	history.replaceState(null, '', url);
@@ -411,7 +411,7 @@ function fuzzyIncludes(s1, s2, n) {
 
 function initCSS() {
 	// enable transitions
-	document.documentElement.classList.remove('no-transitions');
+	setTimeout(() => document.documentElement.classList.remove('no-transitions'), 100);
 
 	// hide scrollbars if ::-webkit-scrollbar doesn't apply
 	const element = document.body.appendChild(document.createElement('div'));
@@ -432,6 +432,6 @@ function initCSS() {
 	return element;
 });
 
-document.querySelector('#theme-style').href = `./theme/${ new URL(location).searchParams.get('theme') || 'dark' }.css`;
+document.querySelector('#theme-style').href = `./theme/${ ('searchParams' in URL.prototype) && new URL(location).searchParams.get('theme') || 'dark' }.css`;
 
 })((function() { /* jshint strict: false */ return this; })());
