@@ -1,4 +1,4 @@
-(function() { 'use strict'; define([ 'node_modules/es6lib/port', 'require', ], (Port, require) => `(function(global) { 'use strict'; (`+ (function(Port) { // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
+(function(global) { 'use strict'; define([ 'node_modules/es6lib/port', 'require', ], (Port, require) => `(function(global) { 'use strict'; (`+ (function(Port) { // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 const fadeIn_factor = 1.4, fadeIn_margin = 0.05;
 
@@ -7,26 +7,26 @@ let player, video;
 const methods = {
 	play            : play,
 	pause           : pause,
-	togglePlayPause ()      { return (this.getPlayerState() === 1 ? pause : play).apply(this, arguments); },
-	end             ()      { this.seekTo(Number.MAX_VALUE);   return waitFor('ended'); },
-	stop            ()      { this.stopVideo();                return waitFor('unstarted', 'videoCued'); },
-	start           ()      { this.seekTo(0);                  return waitFor('playing'); },
-	next            ()      { this.nextVideo();                return waitFor('videoCued'); },
-	previous        ()      { this.previousVideo();            return waitFor('videoCued'); },
-	seekTo          (value) { return this.seekTo(value); },
-	volume          (value) { return this.setVolume(value); },
-	mute            ()      { return this.mute(); },
-	unMute          ()      { return this.unMute(); },
-	toggleMute      ()      { return player[this.isMuted() ? 'unMute' : 'mute'](); },
-	setQuality      (value) { this.setPlaybackQuality(value);  return waitFor('qualityChanged'); },
-	getQuality      ()      { return { available: this.getAvailableQualityLevels(), current: this.getPlaybackQuality(), }; },
-	setSpeed        (value) { return this.setPlaybackRate(value); },
-	getSpeed        ()      { return { available: this.getAvailablePlaybackRates(), current: this.getPlaybackRate(), }; },
-	isMuted         ()      { return this.isMuted(); },
-	getTime         ()      { return this.getCurrentTime(); },
-	getLoaded       ()      { return this.getVideoLoadedFraction(); },
-	showVideoInfo   ()      { return this.showVideoInfo(); },
-	hideVideoInfo   ()      { return this.hideVideoInfo(); },
+	togglePlayPause : ()    => { return (player.getPlayerState() === 1 ? pause : play)(...arguments); },
+	end             : ()    => { player.seekTo(Number.MAX_VALUE);   return waitFor('ended'); },
+	stop            : ()    => { player.stopVideo();                return waitFor('unstarted', 'videoCued'); },
+	start           : ()    => { player.seekTo(0);                  return waitFor('playing'); },
+	next            : ()    => { player.nextVideo();                return waitFor('videoCued'); },
+	previous        : ()    => { player.previousVideo();            return waitFor('videoCued'); },
+	seekTo          : value => { return player.seekTo(value); },
+	volume          : value => { return player.setVolume(value); },
+	mute            : ()    => { return player.mute(); },
+	unMute          : ()    => { return player.unMute(); },
+	toggleMute      : ()    => { return player[player.isMuted() ? 'unMute' : 'mute'](); },
+	setQuality      : value => { player.setPlaybackQuality(value);  return waitFor('qualityChanged'); },
+	getQuality      : ()    => { return { available: player.getAvailableQualityLevels(), current: player.getPlaybackQuality(), }; },
+	setSpeed        : value => { return player.setPlaybackRate(value); },
+	getSpeed        : ()    => { return { available: player.getAvailablePlaybackRates(), current: player.getPlaybackRate(), }; },
+	isMuted         : ()    => { return player.isMuted(); },
+	getTime         : ()    => { return player.getCurrentTime(); },
+	getLoaded       : ()    => { return player.getVideoLoadedFraction(); },
+	showVideoInfo   : ()    => { return player.showVideoInfo(); },
+	hideVideoInfo   : ()    => { return player.hideVideoInfo(); },
 };
 
 const { port1, port2, } = new MessageChannel;
@@ -52,7 +52,7 @@ function initPlayer(isExternal) {
 	player.addEventListener('onPlaybackQualityChange', 'unsafeOnPlaybackQualityChange');
 
 	Object.keys(methods).forEach(key => port.removeHandler(key));
-	port.addHandlers(methods, player);
+	port.addHandlers(methods);
 }
 
 function destroy() {
@@ -106,13 +106,13 @@ function unsafeOnPlaybackQualityChange(quality) {
 }
 
 function pause(smooth) {
-	if (video.paused) { return this.getCurrentTime(); }
+	if (video.paused) { return player.getCurrentTime(); }
 	if (!smooth) {
-		this.pauseVideo();
+		player.pauseVideo();
 	} else {
 		const pos = video.currentTime;
 		fadeVolume(1 / fadeIn_factor, () => {
-			this.pauseVideo();
+			player.pauseVideo();
 			video.currentTime = pos;
 		});
 	}
@@ -121,25 +121,25 @@ function pause(smooth) {
 
 function play(smooth, recursing) {
 
-	if (!recursing && this.dataset.visible !== 'true') { // YouTube won't start playing if the tab was never visible
-		return port.request('tab.focus_temporary').then(() => play.call(this, smooth, true));
+	if (!recursing && player.dataset.visible !== 'true') { // YouTube won't start playing if the tab was never visible
+		return port.request('tab.focus_temporary').then(() => play.call(player, smooth, true));
 	}
 
 	if (video.readyState === 4) { // video is ready to play
-		if (!video.paused) { console.log('playing anyway'); return; }
+		if (!video.paused) { console.log('playing anyway'); return player.getCurrentTime(); }
 		video.play();
 		smooth && fadeVolume(fadeIn_factor);
 		return waitFor('playing');
 	}
 
-	if (this.getPlayerState() === 5) { // the player is stopped, just calling play will likely get it stuck buffering at ~4s
+	if (player.getPlayerState() === 5) { // the player is stopped, just calling play will likely get it stuck buffering at ~4s
 		console.log('reloading video');
 		player.loadVideoById(new URL(player.getVideoUrl()).searchParams.get('v')); // reload the current video
 		return waitFor('playing');
 	}
 
 	// the video is most likely genuinely buffering and will play
-	this.playVideo();
+	player.playVideo();
 
 	//	const timer1 = setTimeout(() => this.main.port.emit('focus_temporary'), 2000);
 	//	waitFor('playing').then(() => clearTimeout(timer1));
@@ -171,4 +171,4 @@ function fadeVolume(factor, done = _=>_) {
 	}
 }
 
-}) +`)((${ require.cache['node_modules/es6lib/port'].factory })()); })((function() { /* jshint strict: false */ return this; })()); //# sourceURL=${ require.toUrl('./player-injected.js') }`); })();
+}) +`)((${ require.cache['node_modules/es6lib/port'].factory })()); })((function() { /* jshint strict: false */ return this; })()); //# sourceURL=${ require.toUrl('./player-injected.js') }`); })(this);

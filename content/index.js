@@ -1,9 +1,8 @@
-(function(global) { 'use strict'; define(function({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
-	'node_modules/web-ext-utils/chrome/': { Storage, runtime, applications: { gecko, }, },
-	'node_modules/es6lib/concurrent': { async, spawn, sleep, },
-	'node_modules/es6lib/dom': { CreationObserver, DOMContentLoaded, createElement, getParent, },
+(function(global) { 'use strict'; define(({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
+	'node_modules/web-ext-utils/chrome/': { runtime, applications: { gecko, }, },
+	'node_modules/es6lib/dom': { CreationObserver, DOMContentLoaded, createElement, },
 	'node_modules/es6lib/namespace': { IterableNameSpace, },
-	'node_modules/es6lib/object': { Class, setConst, copyProperties, },
+	'node_modules/es6lib/object': { Class, },
 	'node_modules/es6lib/port': Port,
 	'node_modules/es6lib/string': { QueryObject, },
 	'common/event-emitter': EventEmitter,
@@ -13,7 +12,7 @@
 	Passive,
 	Player,
 	Ratings,
-}) {
+}) => {
 
 /**
  * Event sequence: optionsLoaded navigated* observerCreated navigated+ <destroyed>
@@ -22,7 +21,7 @@
 const Main = new Class({
 	extends: { public: EventEmitter, },
 
-	constructor: (Super, Private, Protected) => (function() {
+	constructor: (Super, Private) => (function Main() {
 		Super.call(this);
 		const self = Private(this);
 
@@ -53,7 +52,7 @@ const Main = new Class({
 		require.async('content/options').then(self.optionsLoaded.bind(self));
 	}),
 
-	public: (Private, Protected, Public) => ({
+	public: (Private) => ({
 		setStyle(id, css) {
 			const self = Private(this);
 			const style = self.styles.querySelector('#'+ id)
@@ -130,7 +129,7 @@ const Main = new Class({
 			try { this.optionsRoot.destroy(); } catch (e) { }
 
 			// remove all listeners
-			[ this.nodesCapture, this.nodesBubble ]
+			[ this.nodesCapture, this.nodesBubble, ]
 			.forEach(nodes => nodes.forEach((_node, node) => {
 				Object.keys(_node).forEach(type => {
 					const _type = _node[type];
@@ -153,15 +152,13 @@ if (window._main) {
 	else { return; }
 }
 
-const main = window._main = new Main;
+window._main = new Main;
 
-});
+}); })(this);
 
 !Element.prototype.matches && (Element.prototype.matches = Element.prototype.msMatchesSelector);
-!Element.prototype.closest && (Element.prototype.closest = function getParent(selector) {
+!Element.prototype.closest && (Element.prototype.closest = function getParent(selector) { 'use strict';
 	let element = this;
 	while (element && (!element.matches || !element.matches(selector))) { element = element.parentNode; }
 	return element;
 });
-
-})((function() { /* jshint strict: false */ return this; })());

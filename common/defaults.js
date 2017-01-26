@@ -1,6 +1,6 @@
-(() => { 'use strict'; define(function({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
+(function(global) { 'use strict'; define(({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
 	'node_modules/regexpx/': { RegExpX, },
-}) {
+}) => {
 
 return Object.freeze([ // TODO: deepFreeze
 	{
@@ -116,14 +116,14 @@ return Object.freeze([ // TODO: deepFreeze
 						default: [ "hd1080", "hd720", ],
 						maxLength: 10,
 						options: [
-							{ value: "hd2160",	label:   "2160p | UHD 4k" },
-							{ value: "hd1440",	label:   "1440p | Quad HD" },
-							{ value: "hd1080",	label:   "1080p | Full HD" },
-							{ value: "hd720",	label: "   720p | HD ready" }, /* The three '\u2009' indent the <option>'s text to align the '|'s */
-							{ value: "large",	label: "   480p | large" },
-							{ value: "medium",	label: "   360p | medium" },
-							{ value: "small",	label: "   240p | small" },
-							{ value: "tiny",	label: "   144p | tiny" },
+							{ value: "hd2160",	label:   "2160p | UHD 4k", },
+							{ value: "hd1440",	label:   "1440p | Quad HD", },
+							{ value: "hd1080",	label:   "1080p | Full HD", },
+							{ value: "hd720",	label: "   720p | HD ready", }, /* The three '\u2009' indent the <option>'s text to align the '|'s */
+							{ value: "large",	label: "   480p | large", },
+							{ value: "medium",	label: "   360p | medium", },
+							{ value: "small",	label: "   240p | small", },
+							{ value: "tiny",	label: "   144p | tiny", },
 						],
 					}, {
 						name: "zoomFactor",
@@ -267,7 +267,7 @@ return Object.freeze([ // TODO: deepFreeze
 						title: "Open related Videos",
 						description: "Choose the modifier key to press alongside any of the number keys (top row) to load the corresponding video from the related videos list",
 						type: "menulist",
-						default: [ "" ],
+						default: [ "", ],
 						options: [
 							{ value: "<disabled>",   label: "[disabled]", },
 							{ value: "",             label: "[none]", },
@@ -436,4 +436,4 @@ function keybordKey(arg) {
 	}, arg);
 }
 
-}); })();
+}); })(this);

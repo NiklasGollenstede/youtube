@@ -1,7 +1,7 @@
-(function() { 'use strict'; define(function({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
+(function(global) { 'use strict'; define(({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
 	'node_modules/es6lib/dom': { createElement, },
 	'node_modules/es6lib/string': { QueryObject, },
-}) {
+}) => {
 
 return function(main) {
 
@@ -37,15 +37,15 @@ return function(main) {
 	}, true);
 
 	// add 'clear playlist' button
-	main.once('observerCreated', () => main.observer.all('#watch-appbar-playlist', function(playlist) {
+	main.once('observerCreated', () => main.observer.all('#watch-appbar-playlist', playlist => {
 		let container;
 		if ((container = playlist.querySelector('.appbar-playlist-controls .yt-uix-clickcard-target'))) {
 			if (container.querySelector('.close-playlist-button')) { return; }
-			let query = new QueryObject(window.location.search);
+			const query = new QueryObject(window.location.search);
 			delete query.list;
 			delete query.index;
 
-			let close = container.appendChild(createElement('a', {
+			container.appendChild(createElement('a', {
 				className: 'yt-uix-button-player-controls yt-uix-button-empty yt-uix-button-has-icon no-icon-markup yt-uix-playlistlike yt-uix-tooltip spf-link close-playlist-button',
 				title: 'Clear playlist',
 				style: { transform: 'rotate(45deg)', },
@@ -59,4 +59,4 @@ return function(main) {
 	}));
 };
 
-}); })();
+}); })(this);

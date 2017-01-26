@@ -1,9 +1,8 @@
-(() => { 'use strict'; define(function({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
-	require,
-	'node_modules/web-ext-utils/chrome/': { extension, },
+(function(global) { 'use strict'; define(({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
 	'node_modules/es6lib/dom': { createElement, once, getParent, },
 	utils: { getVideoIdFromImageSrc, },
-}) {
+	require,
+}) => {
 
 const noop = document.createElement('p');
 
@@ -83,7 +82,7 @@ return class Layout {
 	navigated() {
 		const { options, videoId, listId, player, } = this.main;
 		if (!videoId || location.host !== 'www.youtube.com') {
-			return document.documentElement.classList.remove('watchpage');
+			return void document.documentElement.classList.remove('watchpage');
 		}
 
 		// add watchpage, playlist and fullscreen css hints
@@ -100,7 +99,7 @@ return class Layout {
 
 			// remove title overlay of external player
 			const title = element.querySelector('.ytp-chrome-top');
-			title && title.remove() === element.querySelector('.ytp-gradient-top').remove();
+			if (title) { title.remove(); element.querySelector('.ytp-gradient-top').remove(); }
 
 			// remove "Recommended for you" stuff
 			if (options.hideRecommended.value) {
@@ -260,4 +259,4 @@ return class Layout {
 	}
 };
 
-}); })();
+}); })(this);

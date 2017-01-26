@@ -1,16 +1,15 @@
-(() => { 'use strict'; define(function*({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
+(function(global) { 'use strict'; define(async ({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
 	require,
-	'node_modules/es6lib/concurrent': { _async, },
-	'node_modules/es6lib/port': Port,
+	'node_modules/es6lib/port': _, // for chrome/Messages
 	'node_modules/web-ext-utils/update/': updated,
-	'node_modules/web-ext-utils/chrome/': { Commands, Runtime, Tabs, Windows, Storage, Extension, Messages, applications: { }, },
+	'node_modules/web-ext-utils/chrome/': { Commands, Runtime, Tabs, Messages, },
 	'node_modules/web-ext-utils/utils': { attachAllContentScripts, showExtensionTab, },
 	'common/options': options,
 	db,
 	Tab,
 	PanelHandler,
 	Playlist,
-}) {
+}) => {
 console.log('Ran updates', updated);
 
 window.Chrome = require('node_modules/web-ext-utils/chrome/');
@@ -21,8 +20,7 @@ const playlist = window.playlist = new Playlist({
 		console.log('onSeek', index);
 		panel.emit('playlist_seek', index);
 	},
-	onAdd(index, value) {
-	},
+	// onAdd(index, value) { },
 });
 
 const commands = window.commands = {
@@ -76,11 +74,11 @@ Messages.addHandler('openPlaylist', window.openPlaylist = () => showExtensionTab
 Tabs.onUpdated.addListener((id, { url, }) => url && Tab.instances.has(id) && Tab.instances.get(id).port.post('page.navigated'));
 
 // load the content_scripts into all existing tabs
-const [ count, ] = (yield attachAllContentScripts({ cleanup: () => {
+const [ count, ] = (await attachAllContentScripts({ cleanup: () => {
 	delete window.require;
 	delete window.define;
 }, }));
 
 console.log(`attached to ${ count } tabs`);
 
-}); })();
+}); })(this);

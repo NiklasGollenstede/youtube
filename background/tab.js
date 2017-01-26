@@ -1,12 +1,10 @@
-(function() { 'use strict'; define(function({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
-	'node_modules/es6lib/concurrent': { sleep, spawn, },
+(function(global) { 'use strict'; define(({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
+	'node_modules/es6lib/concurrent': { sleep, },
 	'node_modules/es6lib/network': { HttpRequest, },
 	'node_modules/es6lib/port': Port,
-	'node_modules/web-ext-utils/chrome/': { Tabs, Windows, Storage, applications: { gecko, blink, }, },
+	'node_modules/web-ext-utils/chrome/': { Tabs, Windows, applications: { gecko, blink, }, },
 	db,
-}) {
-
-const resolved = Promise.resolve();
+}) => {
 
 class Tab {
 	constructor({ port, playlist, panel, commands, }) {
@@ -50,7 +48,7 @@ class Tab {
 	}
 
 	info() {
-		const videoId = this.videoId, tabId = this.id;
+		const { videoId, id: tabId, } = this;
 		return Promise.all([
 			this.tab().catch(error => console.error(error)),
 			this.db.get(videoId, [ 'meta', ]).catch(error => console.error(error)),
@@ -74,13 +72,13 @@ class Tab {
 		Tab.actives.forEach(tab => tab.playing && tab !== exclude && tab.pause());
 	}
 
-	stoppedPlaying(time) {
+	stoppedPlaying(/*time*/) {
 		if (!this.playing) { return; }
-		if (time !== undefined && false) { // TODO: when seeking, this is already the new time
-			this.db.increment(this.videoId, 'viewed', time - this.playing.from);
-		} else {
+		//	if (time !== undefined && false) { // TODO: when seeking, this is already the new time
+		//		this.db.increment(this.videoId, 'viewed', time - this.playing.from);
+		//	} else {
 			this.db.increment(this.videoId, 'viewed', (Date.now() - this.playing.at) / 1000);
-		}
+		//	}
 		this.playing = false;
 	}
 	startedPlaying(time) {
@@ -135,37 +133,36 @@ class Tab {
 	reply_after(ms) {
 		return sleep(ms);
 	}
-	mute_start() {
+	async mute_start() {
 		console.log('mute_start', this.id);
 		this.muteCount++;
 		if (this.muteCount !== 1) { return; }
-		return Tabs.update(+this.id, { muted: true, });
+		return void (await Tabs.update(+this.id, { muted: true, }));
 	}
-	mute_stop() {
+	async mute_stop() {
 		console.log('mute_stop', this.id);
 		if (this.muteCount > 0) { this.muteCount--; }
 		if (this.muteCount > 0) { return; }
-		return Tabs.update(+this.id, { muted: false, });
+		return void (await Tabs.update(+this.id, { muted: false, }));
 	}
-	focus_temporary() { return spawn(function*() {
-		const { index, windowId, active, pinned, } = (yield this.tab());
+	async focus_temporary() {
+		const { index, windowId, active, pinned, } = (await this.tab());
 		console.log('focus_temporary', { index, windowId, active, pinned, });
 		if (active) { return; } // moving the tab won't do anything positive
 
-		if (gecko && !(yield Windows.get(windowId)).focused) { // the tab would be focused anyway once it starts playing, and in firefox this keeps panels open
-			(yield Tabs.update(this.id, { active: true, }));
+		if (gecko && !(await Windows.get(windowId)).focused) { // the tab would be focused anyway once it starts playing, and in firefox this keeps panels open
+			(await Tabs.update(this.id, { active: true, }));
 			return;
 		}
 
-		(yield Windows.create({ tabId: this.id, state: 'minimized', })); // move into own window ==> focuses
-		gecko && (yield sleep(1)); // firefox at least up to version 51 needs these
-		(yield Tabs.move(this.id, { index, windowId, })); // move back into original window
-		gecko && (yield sleep(1)); // firefox at least up to version 51 needs these
-		(yield Tabs.update(this.id, { active, pinned, })); // need to pin again if it was pinned
-		gecko && (yield sleep(1)); // firefox at least up to version 51 needs these
-		(yield Tabs.move(this.id, { index, windowId, })); // move to the correct position within (the pinned tabs of) the window
-
-	}.bind(this));	}
+		(await Windows.create({ tabId: this.id, state: 'minimized', })); // move into own window ==> focuses
+		gecko && (await sleep(1)); // firefox at least up to version 51 needs these
+		(await Tabs.move(this.id, { index, windowId, })); // move back into original window
+		gecko && (await sleep(1)); // firefox at least up to version 51 needs these
+		(await Tabs.update(this.id, { active, pinned, })); // need to pin again if it was pinned
+		gecko && (await sleep(1)); // firefox at least up to version 51 needs these
+		(await Tabs.move(this.id, { index, windowId, })); // move to the correct position within (the pinned tabs of) the window
+	}
 
 	getThumbUrl() {
 		if (this._thumbUrl) { return this._thumbUrl; }
@@ -194,4 +191,4 @@ Tab.actives = new Map;
 
 return Tab;
 
-}); })();
+}); })(this);

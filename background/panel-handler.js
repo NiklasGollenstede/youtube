@@ -1,8 +1,8 @@
-(function(global) { 'use strict'; define(function({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
+(function(global) { 'use strict'; define(({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
 	'node_modules/web-ext-utils/chrome/': { Tabs, Windows, browserAction, },
 	'common/options': options,
 	db,
-}) {
+}) => {
 
 class PanelHandler {
 	constructor({ tabs, commands, playlist, }) {
@@ -136,7 +136,7 @@ class PanelHandler {
 		direction = directed && direction < 0 ? -1 : 1;
 		console.log('playlist_sort', by, direction, directed);
 		const mapper = { // must return a signed 32-bit integer
-			random:        tab => Math.random() * 0xffffffff,
+			random:        _   => Math.random() * 0xffffffff,
 			position:      tab => tab.tab().then(info => (info.windowId << 16) + info.index),
 			viewsGlobal:   tab => db.get(tab.videoId, [ 'rating', ]).then(({ rating, }) => -rating.views),
 			viewsDuration: tab => db.get(tab.videoId, [ 'viewed', ]).then(({ viewed, }) => -(viewed || 0) * 256),
@@ -166,12 +166,12 @@ class PanelHandler {
 
 	set_theme(theme) {
 		options.children.panel.children.theme.value = theme;
-		browserAction.setPopup({ popup: `ui/panel/index.html?theme=${ theme }`});
+		browserAction.setPopup({ popup: `ui/panel/index.html?theme=${ theme }`, });
 	}
 }
 
-options.children.panel.children.theme.whenChange(value => browserAction.setPopup({ popup: `/ui/panel/index.html?theme=${ value }`}));
+options.children.panel.children.theme.whenChange(value => browserAction.setPopup({ popup: `/ui/panel/index.html?theme=${ value }`, }));
 
 return PanelHandler;
 
-}); })((function() { /* jshint strict: false */ return this; })());
+}); })(this);

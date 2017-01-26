@@ -1,12 +1,10 @@
-(() => { 'use strict'; define(function({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
+(function(global) { 'use strict'; define(({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
 	'node_modules/web-ext-utils/chrome/': { applications: { gecko, edgeHTML, }, },
-	'node_modules/es6lib/concurrent': { async, spawn, sleep, },
-	'node_modules/es6lib/dom': { once, },
 	'node_modules/es6lib/network': { HttpRequest, },
 	'node_modules/es6lib/string': { decodeHtml, },
 	utils: { getVideoIdFromImageSrc, },
 	Templates,
-}) {
+}) => {
 
 const CSS = {
 	static: () => (`/* template strings confuse the syntax highlighting in Chrome and Firefox */
@@ -37,9 +35,9 @@ const CSS = {
 	`),
 };
 
-const getInt = (string, regexp) => parseInt((string.match(regexp) || [0,'0'])[1].replace(/[\,\.]*/g, ''), 10);
-const getString = (string, regexp) => decodeHtml((string.match(regexp) || [0,''])[1]);
-const getTime = (string, regexp) => +new Date((string.match(regexp) || [0,''])[1]);
+const getInt = (string, regexp) => parseInt((string.match(regexp) || [0,'0',])[1].replace(/[\,\.]*/g, ''), 10);
+const getString = (string, regexp) => decodeHtml((string.match(regexp) || [0,'',])[1]);
+const getTime = (string, regexp) => +new Date((string.match(regexp) || [0,'',])[1]);
 
 const loadRatingFromServer = id => HttpRequest('https://www.youtube.com/watch?v='+ id).then(({ response, }) => ({
 	id,
@@ -72,11 +70,11 @@ return class Ratings {
 		main.once('observerCreated', () => {
 			const ratingOptions = main.options.displayRatings.children;
 			main.setStyle('ratings-static', CSS.static());
-			[ 'barHeight', 'likesColor', 'dislikesColor' ].forEach(
+			[ 'barHeight', 'likesColor', 'dislikesColor', ].forEach(
 				option => ratingOptions[option].whenChange(value => main.setStyle('ratings-'+ option, CSS[option](value)))
 			);
 			[ 'totalLifetime', 'relativeLifetime', ].forEach(
-				option => ratingOptions[option].whenChange(value => this[option] = value)
+				option => ratingOptions[option].whenChange(value => (this[option] = value))
 			);
 			main.options.displayRatings.when({
 				true: this.enable,
@@ -87,33 +85,35 @@ return class Ratings {
 		main.addDomListener(window, 'click', () => Array.prototype.forEach.call(document.querySelectorAll('.yt-uix-tooltip-tip'), item => item.remove()));
 	}
 
-	loadAndDisplayRating(element) {
+	async loadAndDisplayRating(element) {
 		const id = getVideoIdFromImageSrc(element);
 		if (!id || element.dataset.rating) { return; }
 		element.dataset.rating = true;
 		const { port, } = this.main;
-		spawn(function*() {
+		try {
 			if (this.totalLifetime < 0) {
-				return this.attatchRatingBar(element, (yield loadRatingFromServer(id)));
+				return void this.attatchRatingBar(element, (await loadRatingFromServer(id)));
 			}
-			const stored = (yield port.request('db.get', id, [ 'meta', 'rating', 'viewed', ]));
-			let now = Date.now(), age;
+			const stored = (await port.request('db.get', id, [ 'meta', 'rating', 'viewed', ]));
+			const now = Date.now(); let age;
 			if (
 				stored.meta && stored.rating
 				&& (age = now - stored.rating.timestamp) < this.totalLifetime * 36e5
 				&& age < (now - stored.meta.published) * (this.relativeLifetime / 100)
 			) {
-				return this.attatchRatingBar(element, stored);
+				return void this.attatchRatingBar(element, stored);
 			}
-			const loaded = (yield loadRatingFromServer(id));
+			const loaded = (await loadRatingFromServer(id));
 			this.attatchRatingBar(element, Object.assign(stored, loaded));
 			!loaded.meta.title && (delete loaded.meta.title); !loaded.meta.published && (delete loaded.meta.published);
-			return Promise.all([
+			(await Promise.all([
 				port.request('db.set', id, { rating: loaded.rating, }),
 				port.request('db.assign', id, 'meta', loaded.meta),
-			]);
-		}, this)
-		.catch(error => console.error(error) === delete element.dataset.rating);
+			]));
+		} catch (error) {
+			console.error(error);
+			delete element.dataset.rating;
+		}
 	}
 
 	attatchRatingBar(image, { rating: { likes, dislikes, views, }, meta: { published, duration, }, viewed, })  {
@@ -151,4 +151,4 @@ return class Ratings {
 	}
 };
 
-}); })();
+}); })(this);

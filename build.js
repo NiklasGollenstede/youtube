@@ -1,15 +1,13 @@
-'use strict'; /* globals __dirname, process */ // license: MPL-2.0
+/*eslint strict: ["error", "global"]*/ 'use strict'; /* globals __dirname, process */ // license: MPL-2.0
 
 const {
 	concurrent: { spawn, promisify, },
-	functional: { log, },
 	fs: { FS, },
-	process: { execute, },
 } = require('es6lib');
 
 spawn(function*() {
 
-const { join, relative, resolve, dirname, basename, } = require('path');
+const { join, resolve, basename, } = require('path');
 
 const [ _package, _manifest, ] = (yield Promise.all([ FS.readFile('package.json', 'utf8'), FS.readFile('manifest.json', 'utf8'), ])).map(JSON.parse);
 [ 'title', 'version', 'author', ]
@@ -61,7 +59,7 @@ const include = {
 };
 
 const outputJson = promisify(require('fs-extra').outputJson);
-for (let component of (yield FS.readdir(resolve(__dirname, `update`)).catch(() => 0)) || [ ]) {
+for (const component of (yield FS.readdir(resolve(__dirname, `update`)).catch(() => 0)) || [ ]) {
 	const names = (yield FS.readdir(resolve(__dirname, `update/${ component }`)))
 	.filter(_=>_ !== 'versions.json')
 	.map(path => basename(path).slice(0, -3));
@@ -70,13 +68,12 @@ for (let component of (yield FS.readdir(resolve(__dirname, `update`)).catch(() =
 
 const paths = [ ];
 (function addPaths(prefix, module) {
-	if (Array.isArray(module)) { return paths.push(...module.map(file => join(prefix, file))); }
+	if (Array.isArray(module)) { return void paths.push(...module.map(file => join(prefix, file))); }
 	Object.keys(module).forEach(key => addPaths(join(prefix, key), module[key]));
 })('.', include);
 
 const copy = promisify(require('fs-extra').copy);
-const remove = promisify(require('fs-extra').remove);
-(yield Promise.all(paths.map(path => copy(path, join('build', path)).catch(error => console.error('Skipping missing file/folder "'+ path +'"')))));
+(yield Promise.all(paths.map(path => copy(path, join('build', path)).catch(() => console.error('Skipping missing file/folder "'+ path +'"')))));
 
 
 (yield promisify(require('zip-dir'))('./build', { filter: path => !(/\.(?:zip|xpi)$/).test(path), saveTo: `./build/${ outputName }.zip`, }));

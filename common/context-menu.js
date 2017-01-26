@@ -1,6 +1,5 @@
-(function(global) { 'use strict'; define(function({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
-	exports,
-}) {
+(function(global) { 'use strict'; define(({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
+}) => {
 
 const events = [ 'click', 'blur', 'keydown', 'wheel', ];
 location.protocol !== 'moz-extension:' && events.push('resize'); // for some reason Firefox fires a number of resize events in panels directly after the menu is opened
@@ -85,12 +84,12 @@ class ContextMenu {
 		(function remove(item) {
 			if (!item) { return; }
 			item.classList.remove('active');
-			return remove(item.parentNode.closest('.menu-item'));
+			remove(item.parentNode.closest('.menu-item'));
 		})(this.active);
 		(function add(item) {
 			if (!item) { return; }
 			item.classList.add('active');
-			return add(item.parentNode.closest('.menu-item'));
+			add(item.parentNode.closest('.menu-item'));
 		})(item);
 		this.active = item || null;
 	}
@@ -148,4 +147,4 @@ class ContextMenu {
 
 return (ContextMenu.ContextMenu = ContextMenu);
 
-}); })((function() { /* jshint strict: false */ return this; })());
+}); })(this);

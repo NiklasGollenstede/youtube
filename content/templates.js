@@ -1,7 +1,6 @@
-(() => { 'use strict'; define(function({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
+(function(global) { 'use strict'; define(({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
 	'node_modules/es6lib/string': { secondsToHhMmSs, numberToRoundString, timeToRoundString, encodeHtml, },
-	utils: { getVideoIdFromImageSrc, },
-}) {
+}) => {
 
 const transformVars = transformer => function urlToHtml(strings, ...vars) {
 	const ret = Array(vars.length);
@@ -16,23 +15,6 @@ const urlToHtml = transformVars(value => encodeHtml(decodeURI(value).replace(/\+
 const stringToHtml = transformVars(s => encodeHtml(s ? s +'' : ''));
 
 const Templates = ({
-
-	commentsIframe: (videoId, onLoad) => (stringToHtml`
-<iframe
-	id="external_comments"
-	data-video-id="${ videoId }"
-	class="yt-card yt-card-has-padding"
-	type="text/html"
-	frameborder="0"
-	style="
-		position: relative;
-		height: 100%;
-		width: 100%;
-		margin-bottom: 0px !important;
-	"
-	src="https://www.youtube.com/all_comments?v=${ videoId }"
-/>`
-	),
 
 	youtubeIframe: videoId => (stringToHtml`
 <iframe
@@ -61,7 +43,7 @@ const Templates = ({
 </div>
 `	),
 
-	relatedVideoListItem: ({ id, title, author, length_seconds, video_id, list, playlist_length, playlist_title, playlist_author }) => (
+	relatedVideoListItem: ({ id, title, author, length_seconds, video_id, list, playlist_length, playlist_title, playlist_author, }) => (
 			id ? (urlToHtml`
 <li class="video-list-item related-list-item">
 	<div class="content-wrapper">
@@ -146,4 +128,4 @@ const Templates = ({
 
 return (Templates.Templates = Templates);
 
-}); })();
+}); })(this);

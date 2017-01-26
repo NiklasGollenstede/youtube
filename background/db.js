@@ -1,6 +1,5 @@
-(function() { 'use strict'; define(function*({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
-	exports,
-}) {
+(function(global) { 'use strict'; define(async ({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
+}) => {
 
 const types = {
 	id: 'string',
@@ -41,7 +40,7 @@ try {
 		const includes = existing.includes ? 'includes' : 'contains';
 		allKeys.forEach(store => !existing[includes](store) && db.createObjectStore(store, { }));
 	};
-	db = (yield getResult(db)); // throws in firefox if ???
+	db = (await getResult(db)); // throws in firefox if ???
 
 	Transaction = class Transaction extends TransactionBase {
 		constructor(write, keys, tmp) {
@@ -82,7 +81,7 @@ try {
 } catch(error) {
 	console.warn('indexedDB is unavailable, fall back to chrome.storage.local:', error);
 
-	const Storage = (yield require.async('node_modules/web-ext-utils/chrome/')).Storage.local;
+	const Storage = (await require.async('node_modules/web-ext-utils/chrome/')).Storage.local;
 
 	Transaction = class Fallback extends TransactionBase {
 		ids() {
@@ -96,7 +95,7 @@ try {
 			});
 		}
 		clear(keys = this.keys) {
-			if (!this.write) { return Promise.reject('Transaction is readonly'); }
+			if (!this.write) { return Promise.reject(new Error('Transaction is readonly')); }
 			return Storage.get().then(_data => {
 				const entries = [ ];
 				Object.keys(_data).forEach(key => {
@@ -110,12 +109,12 @@ try {
 			keys = keys.map(key => id +'$'+ key);
 			return Storage.get(keys).then(_data => {
 				const data = { id, };
-				Object.keys(_data).forEach(key => data[key.replace(/^.*?\$/, '')] = _data[key]);
+				Object.keys(_data).forEach(key => (data[key.replace(/^.*?\$/, '')] = _data[key]));
 				return data;
 			});
 		}
 		set(id, data = id) {
-			if (!this.write) { return Promise.reject('Transaction is readonly'); }
+			if (!this.write) { return Promise.reject(new Error('Transaction is readonly')); }
 			(id === data) && (id = data.id);
 			const _data = { };
 			Object.keys(data).forEach(key => key !== 'id' && (_data[id +'$'+ key] = data[key]));
@@ -124,13 +123,15 @@ try {
 	};
 }
 
-const memStore = { }; allKeys.forEach(key => memStore[key] = { });
+const memStore = { }; allKeys.forEach(key => (memStore[key] = { }));
 class InMemory extends TransactionBase {
 	ids() {
 		return new Promise(_=>_(Object.keys[memStore.meta]));
 	}
 	clear(keys = this.keys) {
-		allKeys.forEach(key => memStore[key] = { });
+		keys === allKeys
+		? allKeys.forEach(key => (memStore[key] = { }))
+		: allKeys.forEach(key => keys.forEach(sub => delete memStore[key][sub]));
 		return Promise.resolve();
 	}
 	get(id, keys = this.keys) {
@@ -139,7 +140,7 @@ class InMemory extends TransactionBase {
 		return Promise.resolve(data);
 	}
 	set(id, data = id) {
-		if (!this.write) { return Promise.reject('Transaction is readonly'); }
+		if (!this.write) { return Promise.reject(new Error('Transaction is readonly')); }
 		(id === data) && (id = data.id);
 		Object.keys(data).forEach(key => key !== 'id' && (memStore[key][id] = data[key]));
 		return Promise.resolve();
@@ -191,7 +192,7 @@ const makeDb = Transaction => ({
 			return { key: 'id', message: `The 'id' must be a YouTube video id (string)`, };
 		}
 
-		for (let key of Object.keys(data)) {
+		for (const key of Object.keys(data)) {
 			const should = types[key], value = data[key];
 			if (!should) { return { message: `Should not have a property '${ key }'`, }; }
 			if (typeof should === 'string') {
@@ -199,7 +200,7 @@ const makeDb = Transaction => ({
 				continue;
 			}
 			if (typeof value !== 'object') { return { key, message: `'${ key }' should be an object but is a ${ typeof value }`, }; }
-			for (let sub of Object.keys(value)) {
+			for (const sub of Object.keys(value)) {
 				if (typeof value[sub] !== should[sub]) { return { key, sub, message: `The type of '${ key }.${ sub}' should be '${ should[sub] }' but is '${ typeof value[sub] }'`, }; }
 			}
 		}
@@ -214,7 +215,7 @@ return db;
 function get(transaction, id, keys, resolve, reject) {
 	const data = { id, }; let missing = keys.length;
 	keys.forEach(key => {
-		if (key === 'id') { return --missing; }
+		if (key === 'id') { return void --missing; }
 		const get = transaction.objectStore(key).get(id);
 		get.onerror = error => (missing = Infinity) === error.stopPropagation() === reject(error);
 		get.onsuccess = () => (data[key] = get.result) === (--missing <= 0 && resolve(data));
@@ -224,7 +225,7 @@ function get(transaction, id, keys, resolve, reject) {
 function set(transaction, id, data, resolve, reject) {
 	const keys = Object.keys(data); let missing = keys.length;
 	keys.forEach(key => {
-		if (key === 'id') { return --missing; }
+		if (key === 'id') { return void --missing; }
 		const put = transaction.objectStore(key).put(data[key], id);
 		put.onerror = error => (missing = Infinity) === error.stopPropagation() === reject(error);
 		put.onsuccess = () => (--missing <= 0 && resolve(data));
@@ -242,4 +243,4 @@ function getResult(request) {
 	});
 }
 
-}); })();
+}); })(this);

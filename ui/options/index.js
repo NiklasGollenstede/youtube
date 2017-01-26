@@ -1,22 +1,22 @@
-(function(global) { 'use strict'; define(function({  // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
+(function(global) { 'use strict'; define(({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
 	'node_modules/web-ext-utils/options/editor': Editor,
-	'node_modules/es6lib/concurrent': { _async, spawn, sleep, },
 	'node_modules/es6lib/dom': { loadFile, saveAs, readBlob, writeToClipboard, },
-	'node_modules/web-ext-utils/chrome/': { Tabs, Windows, Storage, extension, Runtime, applications: { gecko, blink, }, },
+	'node_modules/web-ext-utils/chrome/': { extension, applications: { blink, }, },
 	'common/options': options,
-}) {
+}) => {
 
+(window.browser || window.chrome).tabs.getCurrent(tab => tab && (window.tabId = tab.id));
 window.options = options;
 const { db, } = extension.getBackgroundPage() || { };
 
-const onCommand = (function({ name, parent, }, button) { return spawn(function*() {
+async function onCommand({ name, parent, }, button) { try {
 	if (!db && parent.name === 'storage') { throw new Error(`Database is not available, please make sure to open the settings in a not-private window!`); }
 
 	switch (name) {
 		case 'export': {
 			const data = !db.isIDB ? db : db.transaction();
-			const ids = (yield data.ids());
-			let infos = (yield Promise.all(ids.map(id => data.get(id))));
+			const ids = (await data.ids());
+			let infos = (await Promise.all(ids.map(id => data.get(id))));
 			if (button.startsWith('viewed only')) {
 				infos = infos.filter(_=>_.viewed || _.private);
 				infos.forEach(info => delete info.rating);
@@ -25,7 +25,7 @@ const onCommand = (function({ name, parent, }, button) { return spawn(function*(
 			if (button.endsWith('file')) {
 				saveAs(new Blob([ json, ], { type: 'application/json', }), 'data.json');
 			} else if (blink) { // prompt has a limited output length in chromium
-				(yield writeToClipboard({ 'application/json': json, 'text/plain': json, }));
+				(await writeToClipboard({ 'application/json': json, 'text/plain': json, }));
 				alert('The JSON data has been put into your clipboard');
 			} else { // writeToClipboard doesn't work in Firefox
 				prompt('Please copy the JSON from the field below', json);
@@ -34,9 +34,9 @@ const onCommand = (function({ name, parent, }, button) { return spawn(function*(
 		case 'import': {
 			let string = '';
 			if (button.endsWith('file')) {
-				const file = (yield loadFile({ accept: 'application/json, text/json, .json', }))[0];
+				const file = (await loadFile({ accept: 'application/json, text/json, .json', }))[0];
 				if (!file) { console.log('empty selection'); return; }
-				string = (yield readBlob(file));
+				string = (await readBlob(file));
 			} else {
 				string = prompt('Please paste your JSON data below', '');
 			}
@@ -48,19 +48,19 @@ const onCommand = (function({ name, parent, }, button) { return spawn(function*(
 				const error = db.validate(info);
 				if (error) { throw new TypeError(`The object at index ${ index } is invalid: ${ error.message }`); }
 			});
-			(yield db.import(infos));
+			(await db.import(infos));
 			alert(`Imported ${ infos.length } items`);
 		} break;
 		case 'getSize': {
 			const data = !db.isIDB ? db : db.transaction();
-			const ids = (yield data.ids());
-			const infos = (yield Promise.all(ids.map(id => data.get(id))));
-			const thumbs = (yield Promise.all(ids.map(id => data.get(id, [ 'thumb', ]))))
+			const ids = (await data.ids());
+			const infos = (await Promise.all(ids.map(id => data.get(id))));
+			const thumbs = (await Promise.all(ids.map(id => data.get(id, [ 'thumb', ]))))
 			.map(_=>_.thumb).filter(_=>_);
 			const size = thumbs.reduce((size, blob) => size + blob.size, 0);
 			const json = JSON.stringify(infos);
 
-			const round = (yield require.async('node_modules/es6lib/string')).numberToRoundString;
+			const round = (await require.async('node_modules/es6lib/string')).numberToRoundString;
 
 			alert(`
 				Total #: ${ ids.length }
@@ -70,9 +70,9 @@ const onCommand = (function({ name, parent, }, button) { return spawn(function*(
 			`.split(/^/gm).map(_=>_.trim()).join('\n'));
 		} break;
 		case 'clear': {
-			if (prompt('If you really mean to delete all your user data type "yes" below') !== 'yes') { return alert('Canceled. Nothing was deleted'); }
-			(yield db.clear());
-			if ((yield db.ids()).length === 0) {
+			if (prompt('If you really mean to delete all your user data type "yes" below') !== 'yes') { return void alert('Canceled. Nothing was deleted'); }
+			(await db.clear());
+			if ((await db.ids()).length === 0) {
 				alert('Done. It\'s all gone ...');
 			} else {
 				throw new TypeError(`Failed to delete all data`);
@@ -87,10 +87,10 @@ const onCommand = (function({ name, parent, }, button) { return spawn(function*(
 			throw new Error('Unhandled command "'+ name +'"');
 		}
 	}
-}, null, null, true).catch(error => {
+} catch (error) {
 	alert('The operation failed with '+ (error && (error.name +': '+ error.message)));
 	throw error;
-}); });
+} }
 
 new Editor({
 	options,
@@ -98,8 +98,4 @@ new Editor({
 	onCommand,
 });
 
-}); // end define
-
-(window.browser || window.chrome).tabs.getCurrent(tab => tab && (window.tabId = tab.id));
-
-})();
+}); })(this);

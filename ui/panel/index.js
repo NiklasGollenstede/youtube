@@ -1,11 +1,11 @@
-(function(global) { 'use strict'; define(function({
+(function(global) { 'use strict'; define(({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
 	'node_modules/es6lib/string': { secondsToHhMmSs, },
 	'node_modules/es6lib/functional': { fuzzyMatch, },
 	'node_modules/sortablejs/Sortable.min': Sortable,
 	'common/context-menu': ContextMenu,
-	require,
-}) {
-const chrome = global.browser || global.chrome, browser = chrome;
+}) => {
+const browser = global.browser || global.chrome;
+browser.tabs.getCurrent(tab => tab && (global.tabId = tab.id));
 
 let defaultWindow, defaultTab, port, windowList, tabList, currentIndex = -1;
 
@@ -18,7 +18,7 @@ function init() {
 	tabList = document.querySelector('#playlist .tabs');
 	defaultWindow.remove(); defaultTab.remove();
 
-	port = chrome.runtime.connect({ name: 'panel', });
+	port = browser.runtime.connect({ name: 'panel', });
 	port.emit = function(type, value) { this.postMessage({ type, value, }); };
 
 	port.onMessage.addListener(({ type, value, }) => ({
@@ -107,27 +107,27 @@ function init() {
 		const { left: x, bottom: y, } = document.querySelector('#more').getBoundingClientRect();
 		const url = new URL(location);
 		const items = [
-			chrome.runtime.reload
-			&&  { icon: '⚡',	label: 'Restart', action: () => confirm('Are you sure you want to restart this extension? It may take a while') && chrome.runtime.reload(), },
+			browser.runtime.reload
+			&&  { icon: '⚡',	label: 'Restart', action: () => confirm('Are you sure you want to restart this extension? It may take a while') && browser.runtime.reload(), },
 			    { icon: '◑',	label: 'Dark Theme', checked: ('searchParams' in URL.prototype) && url.searchParams.get('theme') !== 'light', action() {
-			    	const theme = this.checked ? 'light' : 'dark';
-			    	url.searchParams.set('theme', theme);
-			    	history.replaceState(null, '', url);
-			    	document.documentElement.classList.add('no-transitions');
-			    	document.querySelector('#theme-style').href = `./theme/${ theme }.css`;/*`*/
-			    	setTimeout(() => document.documentElement.classList.remove('no-transitions'), 70);
-			    	port.emit('set_theme', theme);
+				    const theme = this.checked ? 'light' : 'dark';
+				    url.searchParams.set('theme', theme);
+				    history.replaceState(null, '', url);
+				    document.documentElement.classList.add('no-transitions');
+				    document.querySelector('#theme-style').href = `./theme/${ theme }.css`;/*`*/
+				    setTimeout(() => document.documentElement.classList.remove('no-transitions'), 70);
+				    port.emit('set_theme', theme);
 			    }, },
-			    { icon: '❐', 	label: 'Show in tab', action: () => chrome.runtime.sendMessage([ 'openPlaylist', 0, [ ], ]), },
-			    { icon: '◳', 	label: 'Open in popup', action: () => chrome.windows.create({ url: location.href, type: 'popup', width: 450, height: 600, }), },
-			    { icon: '⚙', 	label: 'Settings', action: () => chrome.runtime.sendMessage([ 'openOptions', 0, [ ], ]), },
+			    { icon: '❐', 	label: 'Show in tab', action: () => browser.runtime.sendMessage([ 'openPlaylist', 0, [ ], ]), },
+			    { icon: '◳', 	label: 'Open in popup', action: () => browser.windows.create({ url: location.href, type: 'popup', width: 450, height: 600, }), },
+			    { icon: '⚙', 	label: 'Settings', action: () => browser.runtime.sendMessage([ 'openOptions', 0, [ ], ]), },
 		];
 		new ContextMenu({ x, y, items, });
 	});
 }
 
 // show context menus
-document.addEventListener('contextmenu', function(event) {
+document.addEventListener('contextmenu', event => {
 	const { target, clientX: x, clientY: y, } = event;
 	if (!target.matches) { return; }
 	const items = [ ];
@@ -164,7 +164,7 @@ document.addEventListener('contextmenu', function(event) {
 	if (target.matches('.window .header .title')) {
 		const box = windowList.querySelector('#'+ target.htmlFor);
 		items.push(
-			{ icon: '⇳',	 label: (box.checked ? 'Expand' : 'Collapse') +' tab list', action: () => box.checked = !box.checked, default: true, }
+			{ icon: '⇳',	 label: (box.checked ? 'Expand' : 'Collapse') +' tab list', action: () => (box.checked = !box.checked), default: true, }
 		);
 	}
 	if (_window) {
@@ -183,7 +183,7 @@ document.addEventListener('contextmenu', function(event) {
 });
 
 // focus tab (windows) or play tab on dblclick
-document.addEventListener('dblclick', function({ target, button, }) {
+document.addEventListener('dblclick', ({ target, button, }) => {
 	if (button || !target.matches || !target.matches('.description, .description :not(.remove)')) { return; }
 
 	target = target.closest('.tab');
@@ -196,7 +196,7 @@ document.addEventListener('dblclick', function({ target, button, }) {
 });
 
 // remove tab on leftcklick on ".remove"
-document.addEventListener('click', function({ target, button, }) {
+document.addEventListener('click', ({ target, button, }) => {
 	if (button || !target.matches) { return; }
 
 	if (target.matches('.tab .remove, .tab .remove *')) {
@@ -421,17 +421,13 @@ function initCSS() {
 	element.remove();
 }
 
-});
-
-(global.browser || global.chrome).tabs.getCurrent(tab => tab && (global.tabId = tab.id));
+}); })(this);
 
 !Element.prototype.matches && (Element.prototype.matches = Element.prototype.msMatchesSelector);
-!Element.prototype.closest && (Element.prototype.closest = function getParent(selector) {
+!Element.prototype.closest && (Element.prototype.closest = function getParent(selector) { 'use strict';
 	let element = this;
 	while (element && (!element.matches || !element.matches(selector))) { element = element.parentNode; }
 	return element;
 });
 
 document.querySelector('#theme-style').href = `./theme/${ ('searchParams' in URL.prototype) && new URL(location).searchParams.get('theme') || 'dark' }.css`;
-
-})((function() { /* jshint strict: false */ return this; })());

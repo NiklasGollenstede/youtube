@@ -1,12 +1,12 @@
-(() => { 'use strict'; define(function({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
+(function(global) { 'use strict'; define(({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
 	'node_modules/es6lib/concurrent': { PromiseCapability, },
 	'node_modules/es6lib/object': { Class, setConst, },
-}) {
+}) => {
 
 const now = Promise.resolve();
 
 const EventEmitter = new Class({
-	constructor: (x, Private) => (function() {
+	constructor: (x, Private) => (function EventEmitter() {
 		const self = Private(this);
 		self.on = { };
 	}),
@@ -32,7 +32,6 @@ const EventEmitter = new Class({
 			const self = Private(this);
 			cancel = cancel || EventEmitter.destroyed;
 			const { promise, resolve, reject, } = new PromiseCapability;
-			let canceled = false;
 			const good = value => { self.on && self.on[cancel].delete(bad); resolve(value); };
 			const bad = value => { self.on && self.on[name].delete(good); reject(value); };
 			self.add(name, good, true);
@@ -64,7 +63,7 @@ const EventEmitter = new Class({
 				once && on.delete(cb);
 			});
 			!on.size && delete self.on[name];
-			return cbs.map(cb => { try { return cb(value); } catch (error) {
+			return cbs.map(cb => { try { return cb(value); } catch (error) { // TODO: this should still catch async errors
 				console.error('"'+ name +'" event handler threw:', error);
 				return null;
 			} });
@@ -73,7 +72,7 @@ const EventEmitter = new Class({
 			const self = Private(this);
 			const on = self.on && self.on[name];
 			if (!on) { return 0; }
-			const size = on.size;
+			const { size, } = on;
 			on.clear();
 			delete self.on[name];
 			return size;
@@ -84,7 +83,7 @@ const EventEmitter = new Class({
 			const on = self.on[EventEmitter.destroyed];
 			self.on = null;
 			on && on.forEach((once, cb) => {
-				try { return cb(error); } catch (error) { console.error('EventEmitter.destroyed event handler threw:', error); }
+				try { cb(error); } catch (error) { console.error('EventEmitter.destroyed event handler threw:', error); }
 			});
 		},
 	}),
@@ -95,11 +94,11 @@ const EventEmitter = new Class({
 			let on = this.on[key];
 			if (!on) { on = this.on[key] = new Map; }
 			on.set(value, once);
-		}
+		},
 	}),
 });
 setConst(EventEmitter, 'destroyed', Symbol.for('destroyed'));
 
 return (EventEmitter.EventEmitter = EventEmitter);
 
-}); })();
+}); })(this);

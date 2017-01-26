@@ -1,11 +1,8 @@
-(function(global) { 'use strict'; define(function({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
+(function(global) { 'use strict'; define(({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
 	'node_modules/es6lib/concurrent': { _async, sleep, },
-	'node_modules/es6lib/object': { Class, },
 	'node_modules/es6lib/network': { HttpRequest, },
 	'node_modules/es6lib/string': { hhMmSsToSeconds, timeToRoundString, },
-}) {
-
-let loaded = false;
+}) => {
 
 return function(main) {
 	const { player, port, } = main;
@@ -15,22 +12,22 @@ return function(main) {
 	[ 'playing', 'paused', 'ended', ]
 	.forEach(event => player.on(event, time => reportState && port.post('tab.player_'+ event, time)));
 
-	const setQuality = _async(function*() {
+	async function setQuality() {
 		let quality, _try = 0; while (
-			!(quality = (yield player.getQuality()))
+			!(quality = (await player.getQuality()))
 			|| quality.current === 'unknown'
 		) {
 			if (++_try > 30) { return; }
-			(yield sleep(33 + 10 * _try));
+			(await sleep(33 + 10 * _try));
 		}
 		const wanted = (main.options.player.children.defaultQualities.values.current).find(level => quality.available.includes(level));
 		if (!wanted || wanted === "auto") { return; }
 		if (wanted !== quality.current) {
-			(yield player.setQuality(wanted));
+			(await player.setQuality(wanted));
 		} else {
 			player.setQuality(wanted);
 		}
-	});
+	}
 
 	// update the private view count
 	const displayViews = () => sleep(300)
@@ -53,25 +50,25 @@ return function(main) {
 	});
 
 	// increase quality of the video poster
-	let posters = new Map;
-	player.on('unstarted', _async(function*() {
-		const blob = posters.get(main.videoId) || (yield HttpRequest(`https://i.ytimg.com/vi/${ main.videoId }/maxresdefault.jpg`, { responseType: 'blob', })).response;
+	const posters = new Map;
+	player.on('unstarted', async () => {
+		const blob = posters.get(main.videoId) || (await HttpRequest(`https://i.ytimg.com/vi/${ main.videoId }/maxresdefault.jpg`, { responseType: 'blob', })).response;
 		posters.set(main.videoId, blob);
 		main.setStyle('hd-poster', String.raw`.ytp-thumbnail-overlay-image {
 			background-image: url("${ URL.createObjectURL(blob) }") !important;
 		}`);
-	}), error => console.info('failed to load poster', error));
+	});
 
 	// set initial video quality and playback state according to the options and report to the background script
-	main.on('navigated', _async(function*() {
+	main.on('navigated', async () => {
 		reportState = false;
 		const { videoId, } = main;
 		if (!videoId) {
 			console.log('player removed');
-			return port.post('tab.player_removed');
+			return void port.post('tab.player_removed');
 		}
 
-		(yield resolveBefore(player.promise('loaded', 'unloaded'), main.promise('navigated')));
+		(await resolveBefore(player.promise('loaded', 'unloaded'), main.promise('navigated')));
 		console.log('player loaded', videoId);
 		port.post('tab.mute_start');
 
@@ -82,19 +79,19 @@ return function(main) {
 		|| should === 'focused' && document.hasFocus();
 		if (play) {
 			console.log('control at load play');
-			(yield setQuality());
-			(yield player.play()) < 20 && (yield player.seekTo(0));
+			(await setQuality());
+			(await player.play()) < 20 && (await player.seekTo(0));
 		} else if (
 			main.options.player.children.onStart.children.stop.value
-			&& (yield player.getLoaded()) < 0.5
+			&& (await player.getLoaded()) < 0.5
 		) {
 			console.log('control at load stop');
 			player.once('playing', setQuality);
-			(yield player.stop());
+			(await player.stop());
 		} else {
 			console.log('control at load pause');
-			(yield setQuality());
-			(yield player.pause()) < 20 && (yield player.seekTo(0));
+			(await setQuality());
+			(await player.pause()) < 20 && (await player.seekTo(0));
 		}
 
 		port.post('tab.mute_stop');
@@ -103,15 +100,15 @@ return function(main) {
 		const titleElement = document.querySelector('#eow-title, .video-title span, .video-title');
 		const title = titleElement && titleElement.textContent.trim();
 		const info = { }; title && (info.title = title); duration && (info.duration = duration);
-		(yield port.request('db.assign', main.videoId, 'meta', info));
+		(await port.request('db.assign', main.videoId, 'meta', info));
 
 		console.log('control done', title, duration, player.root.querySelector('.ytp-time-duration').textContent, main.videoId);
 		port.post('tab.player_created', main.videoId);
 		play && port.post('tab.player_playing', player.video.currentTime || 0);
 		reportState = true;
-		(yield displayViews());
+		(await displayViews());
 
-	}, error => console.error(error)));
+	});
 
 	player.on('ended', checkbox => (checkbox = document.querySelector('#autoplay-checkbox')) && checkbox.checked && checkbox.click());
 };
@@ -125,4 +122,4 @@ function resolveBefore(good, bad) {
 	]);
 }
 
-}); })((function() { /* jshint strict: false */ return this; })());
+}); })(this);

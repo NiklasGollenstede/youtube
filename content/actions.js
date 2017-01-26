@@ -1,13 +1,8 @@
-(() => { 'use strict'; define(function({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
-	'node_modules/web-ext-utils/chrome/': { applications: { gecko, }, },
-	'node_modules/es6lib/concurrent': { async, spawn, sleep, },
-	'node_modules/es6lib/dom': { clickElement, createElement, CreationObserver, notify, once, saveAs, },
-	'node_modules/es6lib/functional': { noop, Logger, log, },
-	'node_modules/es6lib/object': { copyProperties, },
+(function(global) { 'use strict'; define(({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
+	'node_modules/es6lib/dom': { createElement, saveAs, },
 	'node_modules/es6lib/network': { HttpRequest, },
-	'node_modules/es6lib/string': { hhMmSsToSeconds, secondsToHhMmSs, numberToRoundString, timeToRoundString, QueryObject, },
-	Templates,
-}) {
+	'node_modules/es6lib/string': { hhMmSsToSeconds, secondsToHhMmSs, QueryObject, },
+}) => {
 
 
 const actions = {
@@ -39,7 +34,7 @@ const actions = {
 		document.querySelector('.ytp-fullscreen-button').click();
 	},
 	videoPromptPosiotion({ player, }) {
-		let seconds = hhMmSsToSeconds(prompt('Seek to (hh:mm:SS.ss): '));
+		const seconds = hhMmSsToSeconds(prompt('Seek to (hh:mm:SS.ss): '));
 		if (seconds >= 0) {
 			player.seekTo(seconds);
 		}
@@ -60,7 +55,7 @@ const actions = {
 		document.querySelector('.toggle-loop').click();
 	},
 	playlistClear({ player, }) {
-		let queryObject = new QueryObject(window.location.search);
+		const queryObject = new QueryObject(window.location.search);
 		if (!queryObject.list) { return; }
 		delete queryObject.list;
 		delete queryObject.index;
@@ -89,7 +84,7 @@ const actions = {
 		player.toggleMute();
 	},
 	videoToggleInfoScreen({ player, }) {
-		let element = document.querySelector('.html5-video-info-panel');
+		const element = document.querySelector('.html5-video-info-panel');
 		if (!element || element.style.display === 'none') {
 			player.showVideoInfo();
 		} else {
@@ -99,7 +94,7 @@ const actions = {
 	videoPushScreenshot({ player, }) {
 		const { video, } = player;
 		if (!video || !video.videoWidth || !video.videoHeight) { return; }
-		let canvas, time = video.currentTime;
+		let canvas; const time = video.currentTime;
 		const ref = document.querySelector('#watch-discussion, ytg-related-videos');
 		ref.parentNode.insertBefore(createElement('div', {
 			className: 'yt-card yt-card-has-padding screenshot-preview',
@@ -161,11 +156,11 @@ const actions = {
 		const title = (document.querySelector('#eow-title') || { textContent: 'cover', }).textContent.trim();
 		HttpRequest({ url, responseType: 'blob', })
 		.then(({ response, }) => saveAs(response, title +'.jpg'))
-		.catch(error => saveAs(url, title +'.jpg'));
+		.catch(() => saveAs(url, title +'.jpg'));
 	},
 	openRelatedModifier(_, { key, }) {
 		document.querySelectorAll('li.video-list-item.related-list-item')[key - 1].querySelector('a').click();
-	}
+	},
 };
 
 return class Actions {
@@ -184,8 +179,8 @@ return class Actions {
 		this.options = this.main.options;
 		this.options.keys.children.forEach(command => command.whenChange((_, { current, }, old) => {
 			if (command.name === 'openRelatedModifier') {
-				current = [1,2,3,4,5,6,7,8,9,0].map(i => _ +'Digit'+ i);
-				old = old && [1,2,3,4,5,6,7,8,9,0].map(i => old[0] +'Digit'+ i);
+				current = [1,2,3,4,5,6,7,8,9,0,].map(i => _ +'Digit'+ i);
+				old = old && [1,2,3,4,5,6,7,8,9,0,].map(i => old[0] +'Digit'+ i);
 			}
 			old && old.forEach(this.keyMap.delete.bind(this.keyMap));
 			current.forEach(key => this.keyMap.set(key, command.name));
@@ -203,4 +198,4 @@ return class Actions {
 	}
 };
 
-}); })();
+}); })(this);

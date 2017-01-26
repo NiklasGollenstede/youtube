@@ -1,7 +1,6 @@
-(function() { 'use strict'; define(function({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
-	'node_modules/web-ext-utils/chrome/': { extension, applications: { gecko, }, },
-	'node_modules/es6lib/concurrent': { async, spawn, sleep, Resolvable, PromiseCapability, },
-	'node_modules/es6lib/dom':  { createElement, DOMContentLoaded, RemoveObserver, getParent, },
+(function(global) { 'use strict'; define(({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
+	'node_modules/es6lib/concurrent': { Resolvable, PromiseCapability, },
+	'node_modules/es6lib/dom':  { createElement, RemoveObserver, getParent, },
 	'node_modules/es6lib/network': { HttpRequest, },
 	'node_modules/es6lib/object': { Class, },
 	'node_modules/es6lib/port': Port,
@@ -9,7 +8,7 @@
 	'common/event-emitter': EventEmitter,
 	Templates,
 	'./player.js': playerJS,
-}) { /* globals WheelEvent */
+}) => { /* globals WheelEvent */
 
 let Instance = null;
 
@@ -42,7 +41,7 @@ const methods = [
 const Player = new Class({
 	extends: { public: EventEmitter, },
 
-	constructor: (Super, Private, Protected) => (function(main) {
+	constructor: (Super, Private, Protected) => (function Player(main) {
 		if (Instance) { try { Private(Instance).destroy(); } catch (_) { } }
 		Super.call(this);
 		const self = Private(this), _this = Protected(this);
@@ -125,7 +124,7 @@ const Player = new Class({
 			this.port.post('initPlayer', element.ownerDocument !== document);
 			this.root = self.root = element;
 			this.video = self.video = element.querySelector('video');
-			this.queue && this.queue.forEach(([ method, args, { resolve, reject, } ]) => this.port.request(method, ...args).then(resolve, reject));
+			this.queue && this.queue.forEach(([ method, args, { resolve, reject, }, ]) => this.port.request(method, ...args).then(resolve, reject));
 			this.queue = null;
 			_this.emit('loaded', element);
 			RemoveObserver.on(this.root, this.removePlayer);
@@ -152,7 +151,7 @@ const Player = new Class({
 			if (!this.root) { return; }
 			const old = this.root;
 			const suspended = this.suspended.concat(old);
-			RemoveObserver.on(old, () => this.suspended = this.suspended.filter(value => value !== old));
+			RemoveObserver.on(old, () => (this.suspended = this.suspended.filter(value => value !== old)));
 			this.suspended = [ ];
 			this.removePlayer();
 			this.suspended = suspended;
@@ -191,10 +190,10 @@ const Player = new Class({
 
 			// load related videos
 			new HttpRequest('https://www.youtube.com/get_video_info?asv=3&hl=en_US&video_id='+ videoId)
-			.then(({ responseText, }) => document.getElementById('watch7-sidebar-modules').innerHTML = Templates.relatedVideoList(
+			.then(({ responseText, }) => (document.getElementById('watch7-sidebar-modules').innerHTML = Templates.relatedVideoList(
 				decodeURIComponent(new QueryObject(responseText).rvs).split(',')
 				.map(string => Templates.relatedVideoListItem(new QueryObject(string, '&', '=', decodeURIComponent)))
-			)).catch(error =>console.error('failed to load related videos', error));
+			))).catch(error =>console.error('failed to load related videos', error));
 		},
 
 	}),
@@ -202,4 +201,4 @@ const Player = new Class({
 
 return (Player.Player = Player);
 
-}); })();
+}); })(this);
