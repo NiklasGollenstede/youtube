@@ -1,5 +1,5 @@
 (function(global) { 'use strict'; define(({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
-	'node_modules/web-ext-utils/chrome/': { Tabs, Windows, browserAction, },
+	'node_modules/web-ext-utils/browser/': { Tabs, Windows, browserAction, },
 	'common/options': options,
 	db,
 }) => {
@@ -84,20 +84,23 @@ class PanelHandler {
 		console.log('tab_play', tabId);
 		this.tabs.get(+tabId).play();
 	}
-	tab_focus(tabId) {
+	async tab_focus(tabId) {
 		console.log('tab_focus', tabId);
-		Tabs.update(tabId, { active: true, }).then(() => console.log('tab focused'));
-		Tabs.get(tabId).then(({ windowId, }) => Windows.update(windowId, { focused: true, })).then(() => console.log('window focused'));
+		(await Tabs.update(tabId, { active: true, }));
+		console.log('tab focused');
+		const { windowId, } = (await Tabs.get(tabId));
+		(await Windows.update(windowId, { focused: true, }));
+		console.log('window focused');
 	}
-	tab_close(tabId) {
+	async tab_close(tabId) {
 		console.log('tab_close', tabId);
-		Tabs.remove(tabId).then(() => console.log('tab closed'));
-	}
-	window_close(windowId) {
-		console.log('window_close', windowId);
-		const closing = [ ];
-		this.tabs.forEach(tab => tab.windowId === windowId && closing.push(Tabs.remove(tab.id)));
-		Promise.all(closing).then(() => console.log(closing.length +' tabs closed'));
+		if (Array.isArray(tabId)) {
+			const count = (await Promise.all(tabId.map(tabId => Tabs.remove(tabId)))).length;
+			console.log(count +' tabs closed');
+		} else {
+			(await Tabs.remove(tabId));
+			console.log('tab closed');
+		}
 	}
 	playlist_add({ index, tabId, reference, }) {
 		console.log('playlist_add', index, tabId, reference);

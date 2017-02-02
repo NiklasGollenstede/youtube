@@ -80,8 +80,8 @@ const Player = new Class({
 		methods.forEach(method => {
 			members[method] = function(...args) {
 				if (Instance !== this) { return new Error('"'+ method +'" called on dead Player'); }
+				// return Private(this).request(method, ...args)
 				const self = Private(this);
-				if (self[method]) { return Promise.resolve(self[method](...args)); }
 				console.log('player request', method, ...args);
 				return self.request(method, ...args).then(value => { console.log('player resolve', method, value); return value; });
 			};

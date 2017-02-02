@@ -1,7 +1,7 @@
 (function(global) { 'use strict'; define(({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
-	'node_modules/web-ext-utils/chrome/': { applications: { gecko, edgeHTML, }, },
 	'node_modules/es6lib/network': { HttpRequest, },
 	'node_modules/es6lib/string': { decodeHtml, },
+	'node_modules/web-ext-utils/browser/version': { gecko, edgeHTML, },
 	utils: { getVideoIdFromImageSrc, },
 	Templates,
 }) => {
@@ -138,7 +138,7 @@ return class Ratings {
 
 	disable() {
 		this.observer && this.observer.disconnect();
-		this.main.observer && this.main.observer.remove(this.selector.split(',').map(s => s +':not([data-rating="true"])').join(','), this.loadAndDisplayRating);
+		try { this.main.observer && this.main.observer.remove(this.selector.split(',').map(s => s +':not([data-rating="true"])').join(','), this.loadAndDisplayRating); } catch (_) { }
 		Array.prototype.forEach.call(document.querySelectorAll('[data-rating="true"]'), element => delete element.dataset.rating);
 		Array.prototype.forEach.call(document.querySelectorAll('.inserted-ratings'), element => {
 			const image = element.querySelector(this.selector) || element;

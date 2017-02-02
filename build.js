@@ -47,10 +47,10 @@ const include = {
 			'index.js',
 		],
 		'web-ext-utils': [
-			'chrome/',
+			'browser/',
 			'options/',
 			'update/',
-			'utils.js',
+			'utils/index.js',
 		],
 		'sortablejs': [
 			'Sortable.min.js',

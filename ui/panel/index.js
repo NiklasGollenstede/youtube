@@ -24,6 +24,7 @@ function init() {
 	port.onMessage.addListener(({ type, value, }) => ({
 		init({ windows, playlist, active, state, }) {
 			console.log('init', windows, playlist, active, state);
+			document.documentElement.classList.remove('loading');
 			Object.keys(windows).forEach(windowId => {
 				const win = windows[windowId];
 				const tabList = windowList.appendChild(createWindow(win)).querySelector('.tabs');
@@ -168,11 +169,10 @@ document.addEventListener('contextmenu', event => {
 		);
 	}
 	if (_window) {
-		const windowId = _window.id.match(/^window-(.+)$/)[1];
-		const tabCount = _window.querySelectorAll('.tab').length;
-		tabCount > 1 && items.push(
-			{ icon: '⋯',	 label: 'Add all '+ tabCount, action: () => port.emit('playlist_push', Array.prototype.map.call(_window.querySelectorAll('.tab'), _=>_.dataset.tabId)), },
-			{ icon: '❌',	 label: 'Close all '+ tabCount, action: () => confirm('Close all '+ tabCount +' tabs in this window?') && port.emit('window_close', +windowId), }
+		const tabs = Array.from(_window.querySelectorAll(document.body.classList.contains('searching') ? '.tab.found' : '.tab'));
+		tabs.length > 1 && items.push(
+			{ icon: '⋯',	 label: 'Add all '+ tabs.length, action: () => port.emit('playlist_push', tabs.map(_=>_.dataset.tabId)), },
+			{ icon: '❌',	 label: 'Close all '+ tabs.length, action: () => confirm('Close all '+ tabs.length +' tabs in this window?') && port.emit('tab_close', tabs.map(_=>_.dataset.tabId)), }
 		);
 	}
 	// ' 🔉 🔈 🔇 🔂 🔁 🔜 🌀 🔧 ⫶ 🔞 '; // some more icons

@@ -81,7 +81,7 @@ try {
 } catch(error) {
 	console.warn('indexedDB is unavailable, fall back to chrome.storage.local:', error);
 
-	const Storage = (await require.async('node_modules/web-ext-utils/chrome/')).Storage.local;
+	const Storage = (await require.async('node_modules/web-ext-utils/browser/')).Storage.local;
 
 	Transaction = class Fallback extends TransactionBase {
 		ids() {

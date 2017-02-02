@@ -1,5 +1,6 @@
 (function(global) { 'use strict'; define(({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
 	'node_modules/es6lib/concurrent': { _async, sleep, },
+	'node_modules/es6lib/functional': { debounce, },
 	'node_modules/es6lib/network': { HttpRequest, },
 	'node_modules/es6lib/string': { hhMmSsToSeconds, timeToRoundString, },
 }) => {
@@ -28,22 +29,22 @@ return function(main) {
 			player.setQuality(wanted);
 		}
 	}
+	player.on('playing', debounce(setQuality, 1000));
 
 	// update the private view count
-	const displayViews = () => sleep(300)
-	.then(() => port.request('db.get', main.videoId, [ 'meta', 'viewed', ]))
-	.then(({ meta: { duration, }, viewed, }) => {
-		viewed = viewed || 0;
+	async function displayViews() {
+		(await sleep(300)); // allow the view counter to be updated
+		const { meta: { duration, }, viewed = 0, } = (await port.request('db.get', main.videoId, [ 'meta', 'viewed', ]));
 		const views = document.querySelector('.watch-view-count');
 		delete views.dataset.tooltipText;
 		views.title = (duration ? (viewed / duration).toFixed(1).replace('.0', '') +' times' : timeToRoundString(viewed * 1000, 1.7)) +' by you';
 		views.classList.add('yt-uix-tooltip');
 		views.style.display = 'block';
-	});
-	[ 'paused', 'ended', ].forEach(event => player.on(event, displayViews));
+	}
+	player.on('paused', displayViews); player.on('ended', displayViews);
 
 	player.on('buffering', time => {
-		if (!reportState || time < 2.5 || time > 6) { return; }
+		if (!reportState || time < 2.5 || time > 8) { return; }
 		console.log('forcing play on buffer');
 		player.play();
 		player.video.play();
@@ -52,6 +53,7 @@ return function(main) {
 	// increase quality of the video poster
 	const posters = new Map;
 	player.on('unstarted', async () => {
+		if (!main.videoId) { return; }
 		const blob = posters.get(main.videoId) || (await HttpRequest(`https://i.ytimg.com/vi/${ main.videoId }/maxresdefault.jpg`, { responseType: 'blob', })).response;
 		posters.set(main.videoId, blob);
 		main.setStyle('hd-poster', String.raw`.ytp-thumbnail-overlay-image {
@@ -68,7 +70,7 @@ return function(main) {
 			return void port.post('tab.player_removed');
 		}
 
-		(await resolveBefore(player.promise('loaded', 'unloaded'), main.promise('navigated')));
+		!player.root && (await resolveBefore(player.promise('loaded', 'unloaded'), main.promise('navigated')));
 		console.log('player loaded', videoId);
 		port.post('tab.mute_start');
 
@@ -78,20 +80,19 @@ return function(main) {
 		|| should === 'visible' && !document.hidden
 		|| should === 'focused' && document.hasFocus();
 		if (play) {
-			console.log('control at load play');
+			console.log('control at load: play');
 			(await setQuality());
-			(await player.play()) < 20 && (await player.seekTo(0));
+			(await player.play(false)) < 20 && (await player.seekTo(0));
 		} else if (
 			main.options.player.children.onStart.children.stop.value
 			&& (await player.getLoaded()) < 0.5
 		) {
-			console.log('control at load stop');
-			player.once('playing', setQuality);
+			console.log('control at load: stop');
 			(await player.stop());
 		} else {
-			console.log('control at load pause');
+			console.log('control at load: pause');
 			(await setQuality());
-			(await player.pause()) < 20 && (await player.seekTo(0));
+			(await player.pause(false)) < 20 && (await player.seekTo(0));
 		}
 
 		port.post('tab.mute_stop');
@@ -106,8 +107,7 @@ return function(main) {
 		port.post('tab.player_created', main.videoId);
 		play && port.post('tab.player_playing', player.video.currentTime || 0);
 		reportState = true;
-		(await displayViews());
-
+		displayViews();
 	});
 
 	player.on('ended', checkbox => (checkbox = document.querySelector('#autoplay-checkbox')) && checkbox.checked && checkbox.click());

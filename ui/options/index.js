@@ -1,7 +1,8 @@
 (function(global) { 'use strict'; define(({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
-	'node_modules/web-ext-utils/options/editor': Editor,
 	'node_modules/es6lib/dom': { loadFile, saveAs, readBlob, writeToClipboard, },
-	'node_modules/web-ext-utils/chrome/': { extension, applications: { blink, }, },
+	'node_modules/web-ext-utils/browser/': { extension, },
+	'node_modules/web-ext-utils/browser/version': { blink, },
+	'node_modules/web-ext-utils/options/editor': Editor,
 	'common/options': options,
 }) => {
 

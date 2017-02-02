@@ -1,9 +1,9 @@
 (function(global) { 'use strict'; define(async ({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
 	require,
-	'node_modules/es6lib/port': _, // for chrome/Messages
+	'node_modules/es6lib/port': _, // for browser/Messages
+	'node_modules/web-ext-utils/browser/': { Commands, Runtime, Tabs, Messages, },
 	'node_modules/web-ext-utils/update/': updated,
-	'node_modules/web-ext-utils/chrome/': { Commands, Runtime, Tabs, Messages, },
-	'node_modules/web-ext-utils/utils': { attachAllContentScripts, showExtensionTab, },
+	'node_modules/web-ext-utils/utils/': { attachAllContentScripts, showExtensionTab, },
 	'common/options': options,
 	db,
 	Tab,
@@ -12,7 +12,7 @@
 }) => {
 console.log('Ran updates', updated);
 
-window.Chrome = require('node_modules/web-ext-utils/chrome/');
+window.Browser = require('node_modules/web-ext-utils/browser/');
 window.db = db; window.options = options;
 
 const playlist = window.playlist = new Playlist({

@@ -2,7 +2,8 @@
 	'node_modules/es6lib/concurrent': { sleep, },
 	'node_modules/es6lib/network': { HttpRequest, },
 	'node_modules/es6lib/port': Port,
-	'node_modules/web-ext-utils/chrome/': { Tabs, Windows, applications: { gecko, blink, }, },
+	'node_modules/web-ext-utils/browser/': { Tabs, Windows, },
+	'node_modules/web-ext-utils/browser/version': { gecko, blink, },
 	db,
 }) => {
 
@@ -92,6 +93,7 @@ class Tab {
 		console.log('player_created', vId);
 		this.stoppedPlaying();
 		this.videoId = vId;
+		this._thumbUrl = null;
 		if (!Tab.actives.has(this.id)) { Tab.actives.set(+this.id, this); }
 		const added = this.playlist.add(this);
 		this.panel.is && this.info().then(info => {
@@ -99,15 +101,17 @@ class Tab {
 			added !== -1 && this.panel.emit('playlist_add', { index: added, tabId: this.id, });
 		});
 	}
-	player_playing(time) {
+	async player_playing(time) {
 		console.log('player_playing', this.videoId, time);
 		this.startedPlaying(time);
 		Tab.pauseAllBut(this);
 		this.panel.emit('state_change', { playing: true, });
 		const added = this.playlist.seek(this);
 		added !== -1 && this.panel.emit('playlist_add', { index: added, tabId: this.id, });
-		(!blink || !this.panel.hasPanel()) && this.tab().then(({ windowId, }) => Windows.get(windowId))
-		.then(({ focused, }) => !focused && Tabs.update(this.id, { active: true, }));
+		if (blink && this.panel.hasPanel()) { return; } // focusing tabs closes panels (also those of other extensions)
+		const { windowId, } = (await this.tab());
+		const { focused, } = (await Windows.get(windowId));
+		!focused && (await Tabs.update(this.id, { active: true, }));
 	}
 	player_paused(time) {
 		console.log('player_paused', this.videoId, time);
@@ -125,6 +129,7 @@ class Tab {
 		console.log('player_removed', this.videoId);
 		this.stoppedPlaying();
 		this.videoId = null;
+		this._thumbUrl = null; // TODO: should revoke
 		Tab.actives.delete(this.id);
 		this.playlist.delete(this);
 		this.panel.emit('tab_close', this.id);
@@ -151,8 +156,7 @@ class Tab {
 		if (active) { return; } // moving the tab won't do anything positive
 
 		if (gecko && !(await Windows.get(windowId)).focused) { // the tab would be focused anyway once it starts playing, and in firefox this keeps panels open
-			(await Tabs.update(this.id, { active: true, }));
-			return;
+			return void (await Tabs.update(this.id, { active: true, }));
 		}
 
 		(await Windows.create({ tabId: this.id, state: 'minimized', })); // move into own window ==> focuses

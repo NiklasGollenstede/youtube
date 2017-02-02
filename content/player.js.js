@@ -1,7 +1,5 @@
 (function(global) { 'use strict'; define([ 'node_modules/es6lib/port', 'require', ], (Port, require) => `(function(global) { 'use strict'; (`+ (function(Port) { // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-const fadeIn_factor = 1.4, fadeIn_margin = 0.05;
-
 let player, video;
 
 const methods = {
@@ -105,30 +103,27 @@ function unsafeOnPlaybackQualityChange(quality) {
 	emit('qualityChanged', quality);
 }
 
-function pause(smooth) {
+async function pause(smooth) {
 	if (video.paused) { return player.getCurrentTime(); }
-	if (!smooth) {
-		player.pauseVideo();
-	} else {
+	if (smooth) {
 		const pos = video.currentTime;
-		fadeVolume(1 / fadeIn_factor, () => {
-			player.pauseVideo();
-			video.currentTime = pos;
-		});
+		(await fadeVolume(false));
+		video.currentTime = pos;
 	}
+	player.pauseVideo();
 	return waitFor('paused');
 }
 
-function play(smooth, recursing) {
+async function play(smooth) {
 
-	if (!recursing && player.dataset.visible !== 'true') { // YouTube won't start playing if the tab was never visible
-		return port.request('tab.focus_temporary').then(() => play.call(player, smooth, true));
+	if (player.dataset.visible !== 'true') { // YouTube won't start playing if the tab was never visible
+		(await port.request('tab.focus_temporary'));
 	}
 
 	if (video.readyState === 4) { // video is ready to play
 		if (!video.paused) { console.log('playing anyway'); return player.getCurrentTime(); }
 		video.play();
-		smooth && fadeVolume(fadeIn_factor);
+		smooth && (await fadeVolume(true));
 		return waitFor('playing');
 	}
 
@@ -147,28 +142,17 @@ function play(smooth, recursing) {
 	return waitFor('playing');
 }
 
-let fadeProps = null;
-
-function fadeVolume(factor, done = _=>_) {
-	if (!fadeProps) {
-		const old = video.volume;
-		fadeProps = { factor, done, };
-		let i = factor > 1 ? fadeIn_margin : 1;
-		(function iterate() {
-			i *= fadeProps.factor;
-			if (i > 1 || i <= fadeIn_margin) {
-				fadeProps.done.call();
-				video.volume = old;
-				fadeProps = null;
-			} else {
-				video.volume = old * i;
-				port.request('tab.reply_after', 25).then(iterate); // setTimeout won't do because chrome throttles that to 1s for background tabs
-			}
-		})();
-	} else {
-		fadeProps.factor = factor;
-		fadeProps.done = done;
+async function fadeVolume(on) {
+	let volume = on ? 0.05 : video.volume;
+	const dest = on ? video.volume : 0.05;
+	const factor = on ? 1.4 : 1 / 1.4;
+	let should = Date.now();
+	while (on ? volume < dest : volume > dest) {
+		video.volume = volume = Math.min(volume * factor, 1);
+		should += 25;
+		(await port.request('tab.reply_after', should - Date.now()));
 	}
+	player.setVolume(player.getVolume());
 }
 
-}) +`)((${ require.cache['node_modules/es6lib/port'].factory })()); })((function() { /* jshint strict: false */ return this; })()); //# sourceURL=${ require.toUrl('./player-injected.js') }`); })(this);
+}) +`)((${ require.cache['node_modules/es6lib/port'].factory })()); })(this); //# sourceURL=${ require.toUrl('./player-injected.js') }`); })(this);
