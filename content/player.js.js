@@ -90,13 +90,16 @@ function waitFor(...types) {
 }
 
 function emit(type, value) {
+	console.log('player emitting', type, player.getPlayerState(), value);
 	waiting[type].forEach(func => func(value));
 	waiting[type] = [ ];
 	port.post('emit', type, value);
 }
 
 function unsafeOnPlaybackStateChange(state) { // this is sometimes called synchronously
-	emit(typeMap.get(state), player.getCurrentTime());
+	const time = player.getCurrentTime();
+	if (state === 3 && video.buffered.length && time > video.buffered.start(0) && time + 1 < video.buffered.end(0)) { return; } // not really buffering
+	emit(typeMap.get(state), time);
 }
 
 function unsafeOnPlaybackQualityChange(quality) {
@@ -111,7 +114,8 @@ async function pause(smooth) {
 		video.currentTime = pos;
 	}
 	player.pauseVideo();
-	return waitFor('paused');
+	return player.getCurrentTime();
+	// return waitFor('paused'); pause should work synchronously (?)
 }
 
 async function play(smooth) {

@@ -134,7 +134,7 @@ class PanelHandler {
 		this.commands.pause();
 		this.playlist.splice(0, Infinity);
 	}
-	playlist_sort({ by, direction = 0, }) { // TODO: test
+	async playlist_sort({ by, direction = 0, }) { // TODO: test
 		const directed = !!(direction << 0);
 		direction = directed && direction < 0 ? -1 : 1;
 		console.log('playlist_sort', by, direction, directed);
@@ -153,10 +153,12 @@ class PanelHandler {
 			.then(value => data.set(tab, (value << 0) || 0) * 1024 + index) // add the previous index to make the sorting stable
 		))
 		.then(() => {
+			const current = this.playlist.get();
 			const sorted = this.playlist.slice().sort((a, b) => (data.get(a) - data.get(b)) * direction); // sort a .slice() to avoid updates
 			const reverse = !directed && this.playlist.every((tab, index) => tab === sorted[index]); // reverse if nothing changed
-			this.playlist.splice(0, Infinity, ...(reverse ? sorted.reverse() : sorted)); // write change and trigger update
-			this.emit('playlist_replace', this.playlist.map(tab => tab.id));
+			Array.prototype.splice.call(this.playlist, 0, Infinity, ...(reverse ? sorted.reverse() : sorted)); // write change
+			this.emit('playlist_replace', this.playlist.map(tab => tab.id)); // and trigger update
+			this.playlist.index = this.playlist.indexOf(current);
 		})
 		.catch(error => console.error('Sorting failed', error));
 	}

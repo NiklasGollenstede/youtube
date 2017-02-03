@@ -155,8 +155,17 @@ class Tab {
 		console.log('focus_temporary', { index, windowId, active, pinned, });
 		if (active) { return; } // moving the tab won't do anything positive
 
-		if (gecko && !(await Windows.get(windowId)).focused) { // the tab would be focused anyway once it starts playing, and in firefox this keeps panels open
-			return void (await Tabs.update(this.id, { active: true, }));
+		if (gecko) { // avoid moving the tab in firefox (takes much longer and looks worse than in chrome)
+			const { focused, } = (await Windows.get(windowId));
+			if (!focused) { // the tab would be focused anyway once it starts playing, and in firefox this keeps panels open
+				return void (await Tabs.update(this.id, { active: true, }));
+			}
+			if (this.panel.hasPanel()) { // the focus is actually on the panel
+				const current = (await Tabs.query({ active: true, windowId, }));
+				(await Tabs.update(this.id, { active: true, }));
+				(await Tabs.update(current.id, { active: true, }));
+				return;
+			}
 		}
 
 		(await Windows.create({ tabId: this.id, state: 'minimized', })); // move into own window ==> focuses

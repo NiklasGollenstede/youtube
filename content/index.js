@@ -82,6 +82,7 @@ const Main = new Class({
 	private: (Private, Protected, Public) => ({
 		loaded() {
 			const self = Public(this), _this = Protected(this);
+			console.log('DOMContentLoaded => observerCreated + navigated');
 			this.update(self);
 			document.head.appendChild(this.styles);
 			self.observer = new CreationObserver(document);

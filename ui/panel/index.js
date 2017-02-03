@@ -35,13 +35,12 @@ function init() {
 			enableDragIn(tabList);
 			this.playlist_seek(active);
 			this.state_change(state);
-			tabList.children[active] && (tabList.children[active].scrollIntoViewIfNeeded ? tabList.children[active].scrollIntoViewIfNeeded() : tabList.children[active].scrollIntoView());
 			setTimeout(initCSS, 100);
 		},
 		state_change(state) {
 			console.log('state_change', state);
 			if ('playing' in state) {
-				Array.prototype.forEach.call(document.querySelectorAll('#play, #pause'), button => button.classList.remove('active'));
+				document.querySelectorAll('#play, #pause').forEach(button => button.classList.remove('active'));
 				document.querySelector(state.playing ? '#play' : '#pause').classList.add('active');
 			}
 			if ('looping' in state) {
@@ -79,13 +78,12 @@ function init() {
 			tabList.textContent = '';
 			playlist.forEach(tabId => tabList.appendChild(windowList.querySelector('.tab-'+ tabId).cloneNode(true)));
 			this.playlist_seek(active);
-			tabList.children[active] && tabList.children[active].scrollIntoViewIfNeeded();
 		},
 		tab_open(tab) {
 			console.log('tab_open', tab);
 			let element = windowList.querySelector('.tab-'+ tab.tabId);
 			if (element) {
-				Array.prototype.forEach.call(document.querySelectorAll('.tab-'+ tab.tabId), element => updateTab(element, tab));
+				document.querySelectorAll('.tab-'+ tab.tabId).forEach(element => updateTab(element, tab));
 				removeTab(element);
 			} else {
 				element = createTab(tab);
@@ -96,7 +94,7 @@ function init() {
 		},
 		tab_close(tabId) {
 			console.log('tab_close', tabId);
-			Array.prototype.forEach.call(document.querySelectorAll('.tab-'+ tabId), tab => removeTab(tab));
+			document.querySelectorAll('.tab-'+ tabId).forEach(tab => removeTab(tab));
 		},
 	})[type](value));
 
@@ -239,7 +237,7 @@ document.addEventListener('input', function handler(event) {
 	if (event.target.matches('#searchbox>input')) {
 		const term = event.target.value.trim();
 		const lTerm = term.toLowerCase();
-		const tabs = Array.from(document.body.querySelectorAll('.tab'));
+		const tabs = Array.from(windowList.querySelectorAll('.tab'));
 		tabs.forEach(_=>_.classList.remove('found'));
 
 		if (term.length < 3) { document.body.classList.remove('searching'); return; }
@@ -256,13 +254,16 @@ document.addEventListener('input', function handler(event) {
 
 function seek(active) {
 	Array.prototype.forEach.call(tabList.querySelectorAll('.active'), tab => tab.classList.remove('active'));
-	tabList.children[active] && tabList.children[active].classList.add('active');
+	if (!tabList.children[active]) { return; }
+	tabList.children[active].classList.add('active');
+	if (tabList.matches(':hover')) { return; }
+	scrollToCenter(tabList.children[active]);
 }
 
 function highlight(element) {
 	if (!element) { return; }
 
-	element.scrollIntoViewIfNeeded ? element.scrollIntoViewIfNeeded() : element.scrollIntoView({ behavior: 'smooth', });
+	scrollToCenter(element);
 
 	element.animate([
 		{ transform: 'translateX(-10px)', },
@@ -394,6 +395,23 @@ function removeTab(tab) {
 	window && window.querySelectorAll('.tab').length === 1 && window.remove();
 	return tab.remove();
 }
+
+function scrollToCenter(element, { ifNeeded = true, duration = 250, } = { }) { return new Promise((resolve) => {
+	const scroller = element.offsetParent;
+	if (ifNeeded && element.offsetTop >= scroller.scrollTop && element.offsetTop + element.offsetHeight <= scroller.scrollTop + scroller.offsetHeight) { return void resolve(); }
+	const to = Math.min(Math.max(0, element.offsetTop + element.offsetHeight / 2 - scroller.offsetHeight / 2), scroller.scrollHeight);
+	if (!duration) { scroller.scrollTop = to; return void resolve(); }
+	const from = scroller.scrollTop, diff = to - from;
+
+	const start = performance.now(), end = start + duration;
+	/// time in [start; end], coefficients from https://github.com/mietek/ease-tween/blob/master/src/index.js (MIT)
+	const pos = time => from + diff * 1.0042954579734844 * Math.exp(-6.4041738958415664 * Math.exp(-7.2908241330981340 * (time - start) / duration));
+	window.requestAnimationFrame(function step(now) {
+		if (now >= end) { scroller.scrollTop = to; return void resolve(); }
+		scroller.scrollTop = pos(now);
+		window.requestAnimationFrame(step);
+	});
+}); }
 
 function positionInParent(element) {
 	if (!element) { return -1; }

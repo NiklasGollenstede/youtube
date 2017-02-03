@@ -1,5 +1,5 @@
 (function(global) { 'use strict'; define(({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
-	'node_modules/es6lib/concurrent': { _async, sleep, },
+	'node_modules/es6lib/concurrent': { sleep, before, },
 	'node_modules/es6lib/functional': { debounce, },
 	'node_modules/es6lib/network': { HttpRequest, },
 	'node_modules/es6lib/string': { hhMmSsToSeconds, timeToRoundString, },
@@ -43,11 +43,16 @@ return function(main) {
 	}
 	player.on('paused', displayViews); player.on('ended', displayViews);
 
-	player.on('buffering', time => {
+	player.on('buffering', async time => {
 		if (!reportState || time < 2.5 || time > 8) { return; }
 		console.log('forcing play on buffer');
-		player.play();
-		player.video.play();
+		player.play(); player.video.play();
+		if ((await before(player.promise('playing'), sleep(2000)))) { return; }
+		// didn't start within 2000 ms
+		console.log('still buffering, seeking by +1 sec');
+		(await player.seekTo(time + 1));
+		if ((await before(player.promise('playing'), sleep(5000)))) { return; }
+		console.log('still not playing -.-');
 	});
 
 	// increase quality of the video poster
@@ -70,7 +75,7 @@ return function(main) {
 			return void port.post('tab.player_removed');
 		}
 
-		!player.root && (await resolveBefore(player.promise('loaded', 'unloaded'), main.promise('navigated')));
+		if (!player.root && (await before(main.promise('navigated'), player.promise('loaded', 'unloaded')))) { return void console.log('cancel navigation'); }
 		console.log('player loaded', videoId);
 		port.post('tab.mute_start');
 
@@ -95,6 +100,8 @@ return function(main) {
 			(await player.pause(false)) < 20 && (await player.seekTo(0));
 		}
 
+		!play && (player.video.volume = 0);
+		!play && player.once('playing', () => player.unMute());
 		port.post('tab.mute_stop');
 
 		const duration = hhMmSsToSeconds(player.root.querySelector('.ytp-time-duration').textContent); // TODO: this may use the duration of an ad
@@ -112,14 +119,5 @@ return function(main) {
 
 	player.on('ended', checkbox => (checkbox = document.querySelector('#autoplay-checkbox')) && checkbox.checked && checkbox.click());
 };
-
-function resolveBefore(good, bad) {
-	return Promise.race([
-		good,
-		typeof bad === 'number'
-		? sleep(bad).then(() => { throw new Error(`Operation was canceled after ${ bad }ms`); })
-		: bad.then(() => { throw new Error(`Operation was canceled`); }),
-	]);
-}
 
 }); })(this);
