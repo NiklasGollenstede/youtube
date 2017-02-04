@@ -1,39 +1,38 @@
 {
 	"name": "youtubeoverhaul",
+	"version": "0.5.1",
 	"title": "YouTube Overhaul",
 	"description": "",
 	"author": "Niklas Gollenstede",
 	"license": "MPL-2.0",
-	"version": "0.5.0",
 	"repository" : {
 		"type" : "git",
 		"url" : "https://github.com/NiklasGollenstede/youtube"
 	},
 	"contributions": [
 		{
-			"what": "Sortable",
+			"what": { "name": "Sortable", "url": "https://rubaxa.github.io/Sortable/" },
 			"who": "Lebedev Konstantin",
-			"link": "https://rubaxa.github.io/Sortable/",
 			"license": "MIT"
 		}
 	],
 
 	"dependencies": {
-		"fs-extra": "0.30.0",
-		"zip-dir": "1.0.2",
-
 		"sortablejs": "rubaxa/Sortable#1.4.2",
-
-		"es6lib": "NiklasGollenstede/es6lib",
+		"es6lib": "NiklasGollenstede/es6lib#a381f6a",
 		"regexpx": "NiklasGollenstede/regexpx",
-		"web-ext-utils": "NiklasGollenstede/web-ext-utils",
-
+		"web-ext-utils": "NiklasGollenstede/web-ext-utils#1ce61be",
+		"web-ext-build": "0.0.3"
+	},
+	"devDependencies": {
+		"babel-eslint": "7.1.1",
+		"eslint": "3.14.1",
 		"eslintrc": "NiklasGollenstede/eslintrc"
 	},
-
 	"scripts": {
-		"build": "node build.js",
-		"postinstall": "node build.js"
+		"postinstall": "npm start",
+		"start": "web-ext-build",
+		"lint": "eslint --ignore-path .gitignore ."
 	},
 	"eslintConfig": {
 		"extends": "./node_modules/eslintrc/web-ext.js",
