@@ -1,7 +1,7 @@
-(function(global) { 'use strict'; define(({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
-	'node_modules/es6lib/dom': { CreationObserver, DOMContentLoaded, createElement, },
-	'node_modules/es6lib/namespace': { IterableNameSpace, },
-	'node_modules/es6lib/object': { Class, },
+(function(global) { 'use strict'; define(async ({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
+	'node_modules/es6lib/dom': { DOMContentLoaded, createElement, },
+	'node_modules/es6lib/object': { Class, MultiMap, },
+	'node_modules/es6lib/observer': { InsertObserver, },
 	'node_modules/es6lib/port': Port,
 	'node_modules/es6lib/string': { QueryObject, },
 	'node_modules/web-ext-utils/browser/': { runtime, },
@@ -27,8 +27,8 @@ const Main = new Class({
 		const self = Private(this);
 
 		self.styles = createElement('span');
-		self.nodesCapture = new IterableNameSpace;
-		self.nodesBubble = new IterableNameSpace;
+		self.nodesCapture = new Map/*<Node, MultiMap<event, listener>*/;
+		self.nodesBubble = new Map/*<Node, MultiMap<event, listener>*/;
 
 		this.on = this.on.bind(this);
 		this.once = this.once.bind(this);
@@ -41,13 +41,14 @@ const Main = new Class({
 		self.update(this);
 
 		this.port = new Port(runtime.connect({ name: 'tab', }), Port.web_ext_Port);
-		try { this.actions   = new Actions(this);   } catch(e) { error(e); }
-		try { this.player    = new Player(this);    } catch(e) { error(e); }
-		try { this.layout    = new Layout(this);    } catch(e) { error(e); }
-		try { this.ratings   = new Ratings(this);   } catch(e) { error(e); }
-		try { this.passive   = new Passive(this);   } catch(e) { error(e); }
-		try { this.control   = new Control(this);   } catch(e) { error(e); }
-		function error(error) { console.error('Failed to load module:', error); }
+		Try(() => (this.actions   = new Actions(this)));
+		Try(() => (this.player    = new Player(this)));
+		Try(() => (this.layout    = new Layout(this)));
+		Try(() => (this.ratings   = new Ratings(this)));
+		Try(() => (this.passive   = new Passive(this)));
+		Try(() => (this.control   = new Control(this)));
+
+		gecko && this.addDomListener(window, 'focus', () => this.port.post('ping')); // probe if port is still open
 
 		this.port.ended.then(self.destroy.bind(self));
 		require.async('content/options').then(self.optionsLoaded.bind(self));
@@ -63,17 +64,17 @@ const Main = new Class({
 		},
 		addDomListener(node, type, listener, capture) {
 			const self = Private(this);
-			const _node = (capture ? self.nodesCapture : self.nodesBubble)(node);
-			const _type = _node[type] || (_node[type] = new Set);
-			_type.add(listener);
+			const nodeMap = (capture ? self.nodesCapture : self.nodesBubble);
+			let listeners = nodeMap.get(node); if (!listeners) { listeners = new MultiMap; nodeMap.set(node, listeners); }
+			listeners.add(type, listener);
 			node.addEventListener(type, listener, !!capture);
 			return listener;
 		},
 		removeDomListener(node, type, listener, capture) {
 			const self = Private(this);
-			const _node = (capture ? self.nodesCapture : self.nodesBubble)(node);
-			const _type = _node[type];
-			_type && _type.delete(listener);
+			const nodeMap = (capture ? self.nodesCapture : self.nodesBubble)(node);
+			const listeners = nodeMap.get(node);
+			listeners && listeners.delete(type, listener);
 			node.removeEventListener(type, listener, !!capture);
 			return node;
 		},
@@ -85,7 +86,7 @@ const Main = new Class({
 			console.log('DOMContentLoaded => observerCreated + navigated');
 			this.update(self);
 			document.head.appendChild(this.styles);
-			self.observer = new CreationObserver(document);
+			self.observer = new InsertObserver(document);
 			_this.emitSync('observerCreated', null);
 			_this.clear('observerCreated');
 			_this.emitSync('navigated', null);
@@ -123,28 +124,33 @@ const Main = new Class({
 			console.log('Main.destroy');
 			if (this.destroyed) { return; } this.destroyed = true;
 			Protected(this).destroy(); // destroy EventEmitter, emits Symbol.for('destroyed')
-			self.observer.removeAll();
+			Try(() => self.observer.removeAll());
+			Try(() => this.optionsRoot.destroy());
 			Object.keys(self).forEach(key => delete self[key]);
 
 			this.styles.remove();
 
-			try { this.optionsRoot.destroy(); } catch (e) { }
-
 			// remove all listeners
 			[ this.nodesCapture, this.nodesBubble, ]
-			.forEach(nodes => nodes.forEach((_node, node) => {
-				Object.keys(_node).forEach(type => {
-					const _type = _node[type];
-					_type.forEach(listener => node.removeEventListener(type, listener, nodes === self.nodesCapture));
-					_type.clear();
+			.forEach(nodeMap => {
+				nodeMap.forEach((node, listeners) => {
+					listeners.forEach((type, range) => range.forEach(listener => {
+						node.removeEventListener(type, listener, nodeMap === this.nodesCapture);
+					}));
+					listeners.clear();
 				});
-				nodes.destroy();
-			}));
+				nodeMap.clear();
+			});
 
-			window._main = null;
+			window._main === self && (window._main = null);
 		},
 	}),
 });
+
+function Try(callback) {
+	try { callback(); }
+	catch (error) { console.error(error); }
+}
 
 if (window._main) {
 	console.error('Main module already exists', window._main);

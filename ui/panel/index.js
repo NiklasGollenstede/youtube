@@ -1,6 +1,5 @@
 (function(global) { 'use strict'; define(({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
-	'node_modules/es6lib/string': { secondsToHhMmSs, },
-	'node_modules/es6lib/functional': { fuzzyMatch, },
+	'node_modules/es6lib/string': { secondsToHhMmSs, fuzzyIncludes, },
 	'node_modules/sortablejs/Sortable.min': Sortable,
 	'common/context-menu': ContextMenu,
 }) => {
@@ -416,15 +415,6 @@ function scrollToCenter(element, { ifNeeded = true, duration = 250, } = { }) { r
 function positionInParent(element) {
 	if (!element) { return -1; }
 	return Array.prototype.indexOf.call(element.parentNode.children, element);
-}
-
-function fuzzyIncludes(s1, s2, n) {
-	n = n > 2 && Number.parseInt(n) || 2;
-	const l1 = s1.length - n + 1;
-	const l2 = s2.length - n + 1;
-	const ll = Math.min(l1, l2);
-	const match = fuzzyMatch(s1, s2, n);
-	return match && ll ? match / 2 * (l1 + l2) / ll : 0;
 }
 
 function initCSS() {

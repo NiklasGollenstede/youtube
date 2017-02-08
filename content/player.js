@@ -1,8 +1,9 @@
 (function(global) { 'use strict'; define(({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
 	'node_modules/es6lib/concurrent': { Resolvable, PromiseCapability, },
-	'node_modules/es6lib/dom':  { createElement, RemoveObserver, getParent, },
+	'node_modules/es6lib/dom':  { createElement, getParent, },
 	'node_modules/es6lib/network': { HttpRequest, },
 	'node_modules/es6lib/object': { Class, },
+	'node_modules/es6lib/observer':  { RemoveObserver, },
 	'node_modules/es6lib/port': Port,
 	'node_modules/es6lib/string': { QueryObject, },
 	'common/event-emitter': EventEmitter,

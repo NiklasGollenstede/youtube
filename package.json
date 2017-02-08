@@ -19,9 +19,9 @@
 
 	"dependencies": {
 		"sortablejs": "rubaxa/Sortable#1.4.2",
-		"es6lib": "NiklasGollenstede/es6lib#a381f6a",
-		"regexpx": "NiklasGollenstede/regexpx",
-		"web-ext-utils": "NiklasGollenstede/web-ext-utils#1ce61be",
+		"es6lib": "NiklasGollenstede/es6lib#b250121",
+		"regexpx": "NiklasGollenstede/regexpx#eebed29",
+		"web-ext-utils": "NiklasGollenstede/web-ext-utils#146c58b",
 		"web-ext-build": "0.0.3"
 	},
 	"devDependencies": {

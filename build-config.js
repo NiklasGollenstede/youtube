@@ -17,19 +17,21 @@ module.exports = function({ /*options, packageJson,*/ manifestJson, files, }) {
 		matches: [ 'https://www.youtube.com/*', 'https://gaming.youtube.com/*', ],
 		js: [
 			'node_modules/es6lib/require.js',
-			'node_modules/es6lib/namespace.js',
-			'node_modules/es6lib/object.js',
-			'node_modules/es6lib/functional.js',
 			'node_modules/es6lib/concurrent.js',
 			'node_modules/es6lib/dom.js',
-			'node_modules/es6lib/string.js',
+			'node_modules/es6lib/functional.js',
+			'node_modules/es6lib/namespace.js',
 			'node_modules/es6lib/network.js',
+			'node_modules/es6lib/object.js',
+			'node_modules/es6lib/observer.js',
 			'node_modules/es6lib/port.js',
-			'node_modules/es6lib/index.js',
+			'node_modules/es6lib/string.js',
 			'node_modules/web-ext-utils/browser/index.js',
 			'node_modules/web-ext-utils/browser/version.js',
 			'node_modules/web-ext-utils/options/index.js',
 			'common/event-emitter.js',
+
+			// these need to be in dependency order
 			'content/layout-new.css.js',
 			'content/layout-old.css.js',
 			'content/player.js.js',
@@ -73,6 +75,7 @@ module.exports = function({ /*options, packageJson,*/ manifestJson, files, }) {
 			'namespace.js',
 			'network.js',
 			'object.js',
+			'observer.js',
 			'port.js',
 			'require.js',
 			'string.js',
@@ -81,9 +84,9 @@ module.exports = function({ /*options, packageJson,*/ manifestJson, files, }) {
 			'index.js',
 		],
 		'web-ext-utils': {
-			browser: [
-				'index.js',
-				'version.js',
+			'.': [
+				'browser/',
+				'loader/',
 			],
 			options: {
 				'.': [ 'index.js', ],
@@ -102,7 +105,6 @@ module.exports = function({ /*options, packageJson,*/ manifestJson, files, }) {
 				'files.js',
 				'index.js',
 				//	'inject.js',
-				//	'run-in-tab.js',
 				'semver.js',
 			],
 		},
