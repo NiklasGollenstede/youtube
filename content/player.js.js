@@ -45,7 +45,7 @@ function initPlayer(isExternal) {
 
 	player = cw.document.querySelector('.html5-video-player');
 	video = player.querySelector('video');
-	console.log('player', player);
+
 	player.addEventListener('onStateChange', 'unsafeOnPlaybackStateChange');
 	player.addEventListener('onPlaybackQualityChange', 'unsafeOnPlaybackQualityChange');
 

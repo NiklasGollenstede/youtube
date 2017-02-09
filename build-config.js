@@ -5,6 +5,7 @@ module.exports = function({ /*options, packageJson,*/ manifestJson, files, }) {
 		'clipboardWrite',
 		'notifications',
 		'tabs',
+		'webNavigation',
 		'https://www.youtube.com/*', 'https://gaming.youtube.com/*', 'https://i.ytimg.com/*'
 	);
 
@@ -12,44 +13,6 @@ module.exports = function({ /*options, packageJson,*/ manifestJson, files, }) {
 		page: 'ui/options/index.html',
 		open_in_tab: true,
 	};
-
-	manifestJson.content_scripts = [ {
-		matches: [ 'https://www.youtube.com/*', 'https://gaming.youtube.com/*', ],
-		js: [
-			'node_modules/es6lib/require.js',
-			'node_modules/es6lib/concurrent.js',
-			'node_modules/es6lib/dom.js',
-			'node_modules/es6lib/functional.js',
-			'node_modules/es6lib/namespace.js',
-			'node_modules/es6lib/network.js',
-			'node_modules/es6lib/object.js',
-			'node_modules/es6lib/observer.js',
-			'node_modules/es6lib/port.js',
-			'node_modules/es6lib/string.js',
-			'node_modules/web-ext-utils/browser/index.js',
-			'node_modules/web-ext-utils/browser/version.js',
-			'node_modules/web-ext-utils/options/index.js',
-			'common/event-emitter.js',
-
-			// these need to be in dependency order
-			'content/layout-new.css.js',
-			'content/layout-old.css.js',
-			'content/player.js.js',
-			'content/utils.js',
-			'content/templates.js',
-			'content/player.js',
-			'content/ratings.js',
-			'content/passive.js',
-			'content/actions.js',
-			'content/layout.js',
-			'content/control.js',
-			'content/options.js',
-			'content/index.js',
-		],
-		css: [ ],
-		all_frames: false,
-		run_at: 'document_start',
-	}, ];
 
 	manifestJson.commands = {
 		MediaPlayPause: {

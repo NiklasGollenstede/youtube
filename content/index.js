@@ -6,6 +6,7 @@
 	'node_modules/es6lib/string': { QueryObject, },
 	'node_modules/web-ext-utils/browser/': { runtime, },
 	'node_modules/web-ext-utils/browser/version': { gecko, },
+	'node_modules/web-ext-utils/loader/content': { onDisconnect, },
 	'common/event-emitter': EventEmitter,
 	Actions,
 	Control,
@@ -48,8 +49,7 @@ const Main = new Class({
 		Try(() => (this.passive   = new Passive(this)));
 		Try(() => (this.control   = new Control(this)));
 
-		gecko && this.addDomListener(window, 'focus', () => this.port.post('ping')); // probe if port is still open
-
+		onDisconnect.addListener(self.destroy.bind(self));
 		this.port.ended.then(self.destroy.bind(self));
 		require.async('content/options').then(self.optionsLoaded.bind(self));
 	}),
@@ -72,7 +72,7 @@ const Main = new Class({
 		},
 		removeDomListener(node, type, listener, capture) {
 			const self = Private(this);
-			const nodeMap = (capture ? self.nodesCapture : self.nodesBubble)(node);
+			const nodeMap = (capture ? self.nodesCapture : self.nodesBubble);
 			const listeners = nodeMap.get(node);
 			listeners && listeners.delete(type, listener);
 			node.removeEventListener(type, listener, !!capture);
@@ -133,9 +133,10 @@ const Main = new Class({
 			// remove all listeners
 			[ this.nodesCapture, this.nodesBubble, ]
 			.forEach(nodeMap => {
-				nodeMap.forEach((node, listeners) => {
-					listeners.forEach((type, range) => range.forEach(listener => {
-						node.removeEventListener(type, listener, nodeMap === this.nodesCapture);
+				const capture = nodeMap === this.nodesCapture;
+				nodeMap.forEach((listeners, node) => {
+					listeners.forEach((range, type) => range.forEach(listener => {
+						node.removeEventListener(type, listener, capture);
 					}));
 					listeners.clear();
 				});

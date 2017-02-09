@@ -4,18 +4,18 @@
 	'node_modules/es6lib/port': _, // for browser/Messages
 	'node_modules/web-ext-utils/browser/': { Commands, Runtime, Tabs, Messages, },
 	'node_modules/web-ext-utils/browser/version': { gecko, },
+	'node_modules/web-ext-utils/loader/': { ContentScript, },
 	'node_modules/web-ext-utils/update/': updated,
-	'node_modules/web-ext-utils/utils/': { attachAllContentScripts, showExtensionTab, },
+	'node_modules/web-ext-utils/utils/': { showExtensionTab, },
 	'common/options': options,
 	db,
 	Tab,
 	PanelHandler,
 	Playlist,
 }) => {
-console.log('Ran updates', updated);
+updated.extension.to.channel !== '' && console.info('Ran updates', updated);
 
 window.Browser = require('node_modules/web-ext-utils/browser/');
-window.db = db; window.options = options;
 
 const playlist = window.playlist = new Playlist({
 	onSeek(index) {
@@ -37,12 +37,9 @@ const commands = window.commands = {
 		tab && !tab.playing ? commands.play() : commands.pause();
 	},
 	next() {
-		if (playlist.next()) {
-			commands.play();
-			playlist.index === playlist.length - 1 && loadNextTab();
-		} else {
-			commands.pause();
-		}
+		const next = playlist.next();
+		next ? commands.play() : commands.pause();
+		next && playlist.index === playlist.length - 1 && loadNextTab();
 	},
 	prev() {
 		playlist.prev() ? commands.play() : commands.pause();
@@ -67,9 +64,10 @@ const loadNextTab = !gecko ? () => void 0 : debounce(async () => {
 		break;
 	} catch (_) { } } }
 }, 3000);
-global.loadNextTab = loadNextTab;
 
-const panel = window.panel = new PanelHandler({ tabs: Tab.actives, playlist, commands, });
+const panel = window.panel = new PanelHandler({
+	tabs: Tab.actives, playlist, commands,
+});
 
 Commands && Commands.onCommand.addListener(command => ({
 	MediaPlayPause: commands.toggle,
@@ -82,7 +80,7 @@ Runtime.onConnect.addListener(port => { switch (port.name) {
 		panel.add(port);
 	} break;
 	case 'tab': {
-		new Tab({ port, playlist, commands, panel, data: db, });
+		new Tab({ port, playlist, commands, panel, });
 	} break;
 	case 'require.scriptLoader': break;
 	default: {
@@ -94,18 +92,25 @@ Runtime.onConnect.addListener(port => { switch (port.name) {
 Messages.addHandler('openOptions', window.openOptions = () => showExtensionTab('/ui/options/index.html'));
 Messages.addHandler('openPlaylist', window.openPlaylist = () => showExtensionTab('/ui/panel/index.html?theme='+ options.children.panel.children.theme.value, '/ui/panel/index.html'));
 
-// allow content_scripts to ping
-Messages.addHandler('ping', () => true);
-
 // report location changes to the content scripts
 Tabs.onUpdated.addListener((id, { url, }) => url && Tab.instances.has(id) && Tab.instances.get(id).port.post('page.navigated'));
 
-// load the content_scripts into all existing tabs
-const [ count, ] = (await attachAllContentScripts({ cleanup: () => {
-	delete window.require;
-	delete window.define;
-}, }));
+// attach ContentScript
+const contentScript = new ContentScript({
+	runAt: 'document_start',
+	matches: [ 'https://www.youtube.com/*', 'https://gaming.youtube.com/*', ],
+	modules: [ 'content/', ],
+});
+const attachedTo = (await contentScript.applyNow());
 
-console.log(`attached to ${ count } tabs`);
+console.log(`attached to ${ attachedTo.length } tabs:`, attachedTo);
+
+Object.assign((global, {
+	Messages, Tabs, db,
+	playlist,
+	loadNextTab,
+	commands,
+	contentScript,
+}));
 
 }); })(this);

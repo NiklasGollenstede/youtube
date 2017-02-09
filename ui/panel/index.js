@@ -19,6 +19,7 @@ function init() {
 
 	port = browser.runtime.connect({ name: 'panel', });
 	port.emit = function(type, value) { this.postMessage({ type, value, }); };
+	initCSS();
 
 	port.onMessage.addListener(({ type, value, }) => ({
 		init({ windows, playlist, active, state, }) {
@@ -34,7 +35,6 @@ function init() {
 			enableDragIn(tabList);
 			this.playlist_seek(active);
 			this.state_change(state);
-			setTimeout(initCSS, 100);
 		},
 		state_change(state) {
 			console.log('state_change', state);
@@ -419,13 +419,13 @@ function positionInParent(element) {
 
 function initCSS() {
 	// enable transitions
-	setTimeout(() => document.documentElement.classList.remove('no-transitions'), 100);
+	setTimeout(() => document.documentElement.classList.remove('no-transitions'), 200);
 
 	// hide scrollbars if ::-webkit-scrollbar doesn't apply
 	const element = document.body.appendChild(document.createElement('div'));
 	element.classList.add('scroll-inner');
 	const width = element.offsetWidth - element.clientWidth;
-	document.styleSheets[0].insertRule(`.scroll-inner { margin-right: -${ width }px; }`, 0);
+	document.styleSheets[0].insertRule(`.scroll-outer>.scroll-inner { padding-right: -${ width }px; width: calc(100% + ${ width }px); }`, 0);
 	element.remove();
 }
 

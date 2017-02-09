@@ -60,8 +60,8 @@ const Player = new Class({
 		frame.contentWindow.addEventListener('message', event => {
 			self.port = new Port(event.ports[0], Port.MessagePort)
 			.addHandler('emit', _this.emitSync, _this)
-			.addHandler((/^tab\./), (name, ...args) => { console.log('forwarding', name); return main.port[self.port.isRequest() ? 'request' : 'post'](name, ...args); });
-			main.port.addHandler((/^player\./), (name, ...args) => { console.log('forwarding', name); return self.port[main.port.isRequest() ? 'request' : 'post'](name.slice('player.'.length), ...args); });
+			.addHandler((/^tab\./), (name, ...args) => main.port[self.port.isRequest() ? 'request' : 'post'](name, ...args));
+			main.port.addHandler((/^player\./), (name, ...args) => self.port[main.port.isRequest() ? 'request' : 'post'](name.slice('player.'.length), ...args));
 			getPort.resolve();
 			// frame.remove(); // removing the iframe would close the channel
 		});
