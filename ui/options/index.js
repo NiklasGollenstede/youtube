@@ -4,6 +4,7 @@
 	'node_modules/web-ext-utils/browser/version': { blink, current: currentBrowser, version: browserVersion, },
 	'node_modules/web-ext-utils/options/editor/': Editor,
 	'node_modules/web-ext-utils/options/editor/about': aboutSection,
+	'node_modules/web-ext-utils/utils': { reportError, },
 	'common/options': options,
 }) => {
 
@@ -29,7 +30,7 @@ async function onCommand({ name, parent, }, button) { try {
 			} else if (blink) { // prompt has a limited output length in chromium
 				(await writeToClipboard({ 'application/json': json, 'text/plain': json, }));
 				alert('The JSON data has been put into your clipboard');
-			} else { // writeToClipboard doesn't work in Firefox
+			} else { // writeToClipboard doesn't work in Firefox // TODO: it probably does by now
 				prompt('Please copy the JSON from the field below', json);
 			}
 		} break;
@@ -89,10 +90,7 @@ async function onCommand({ name, parent, }, button) { try {
 			throw new Error('Unhandled command "'+ name +'"');
 		}
 	}
-} catch (error) {
-	alert('The operation failed with '+ (error && (error.name +': '+ error.message)));
-	throw error;
-} }
+} catch (error) { reportError(error); throw error; } }
 
 new Editor({
 	options,

@@ -12,6 +12,7 @@ class Tab {
 		console.log('tab', port);
 		this.id = port.sender.tab.id;
 		this.private = port.sender.tab.incognito;
+		this.url = port.sender.tab.url;
 		this.db = this.private ? db.inMemory : db;
 		if (Tab.instances.has(this.id)) { throw new Error('Tab with id '+ this.id +' already exists'); }
 		Tab.instances.set(this.id, this);

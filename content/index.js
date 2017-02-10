@@ -6,7 +6,7 @@
 	'node_modules/es6lib/string': { QueryObject, },
 	'node_modules/web-ext-utils/browser/': { runtime, },
 	'node_modules/web-ext-utils/browser/version': { gecko, },
-	'node_modules/web-ext-utils/loader/content': { onDisconnect, },
+	'node_modules/web-ext-utils/loader/content': { onUnload, },
 	'common/event-emitter': EventEmitter,
 	Actions,
 	Control,
@@ -26,6 +26,7 @@ const Main = new Class({
 	constructor: (Super, Private) => (function Main() {
 		Super.call(this);
 		const self = Private(this);
+		console.log('Main.construct', this.id = self.id = Math.random() * 0x100000000000000);
 
 		self.styles = createElement('span');
 		self.nodesCapture = new Map/*<Node, MultiMap<event, listener>*/;
@@ -49,7 +50,7 @@ const Main = new Class({
 		Try(() => (this.passive   = new Passive(this)));
 		Try(() => (this.control   = new Control(this)));
 
-		onDisconnect.addListener(self.destroy.bind(self));
+		onUnload.addListener(self.destroy.bind(self));
 		this.port.ended.then(self.destroy.bind(self));
 		require.async('content/options').then(self.optionsLoaded.bind(self));
 	}),
@@ -83,7 +84,6 @@ const Main = new Class({
 	private: (Private, Protected, Public) => ({
 		loaded() {
 			const self = Public(this), _this = Protected(this);
-			console.log('DOMContentLoaded => observerCreated + navigated');
 			this.update(self);
 			document.head.appendChild(this.styles);
 			self.observer = new InsertObserver(document);
@@ -95,7 +95,7 @@ const Main = new Class({
 		navigated() {
 			const self = Public(this), _this = Protected(this);
 			this.update(self);
-			// console.log('navigated', location.href, self);
+			console.log('navigated', location.href);
 			_this.emitSync('navigated', null);
 		},
 
@@ -121,7 +121,7 @@ const Main = new Class({
 
 		destroy() {
 			const self = Public(this);
-			console.log('Main.destroy');
+			console.log('Main.destroy', self.id);
 			if (this.destroyed) { return; } this.destroyed = true;
 			Protected(this).destroy(); // destroy EventEmitter, emits Symbol.for('destroyed')
 			Try(() => self.observer.removeAll());
