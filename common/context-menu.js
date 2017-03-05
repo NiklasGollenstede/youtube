@@ -7,14 +7,21 @@ location.protocol !== 'moz-extension:' && events.push('resize'); // for some rea
 let current = null;
 
 class ContextMenu {
-	constructor({ x, y, items, }) {
+	constructor({ x, y, items, host, }) {
+		this.host = host;
 		const root = this.root = document.createElement('div');
 		root.classList.add('menu-anchor');
 		this.active = null;
 		root.addEventListener('mousemove', ({ target, }) => (target = target.closest && target.closest('.menu-item')) && this.setActive(target));
 		root.addEventListener('mouseleave', () => this.setActive(null));
 		this.addMenu(items, root);
-		this.show();
+		this.show(x, y);
+	}
+
+	show(x, y) {
+		const host = (this.host || document.body), { root, } = this;
+		const window = host.ownerDocument.defaultView;
+		host.appendChild(this.root);
 		const width = window.innerWidth, height = window.innerHeight;
 		root.style.top  = y +'px';
 		root.style.left = x +'px';
@@ -23,10 +30,6 @@ class ContextMenu {
 			rect.right  > width  && menu.classList.add('to-left');
 			rect.bottom > height && menu.classList.add('to-top');
 		});
-	}
-
-	show() {
-		document.body.appendChild(this.root);
 		events.forEach(type => window.addEventListener(type, this, true));
 		current && current.remove();
 		current = this;
@@ -34,7 +37,7 @@ class ContextMenu {
 
 	remove() {
 		this.root.remove();
-		events.forEach(type => window.removeEventListener(type, this, true));
+		events.forEach(type => (this.host || document.body).ownerDocument.defaultView.removeEventListener(type, this, true));
 		current === this && (current = null);
 	}
 

@@ -1,22 +1,29 @@
 (function(global) { 'use strict'; define(async ({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
 	'node_modules/regexpx/': { RegExpX, },
 	'node_modules/web-ext-utils/options/': Options,
-}) => {
+	'node_modules/web-ext-utils/browser/version': { gecko, },
+}) => { /* eslint-disable no-irregular-whitespace */
 
-return new Options({ model: {
-	panel: {
-		title: `Panel options`,
+const isBeta = (/^\d+\.\d+.\d+(?!$)/).test((global.browser || global.chrome).runtime.getManifest().version); // version doesn't end after the 3rd number ==> bata channel
+
+const model = {
+	playlist: {
+		title: `Playlist options`,
 		description: ``,
 		default: true,
 		children: {
 			theme: {
-				title: 'Theme',
 				default: 'dark',
 				restrict: { match: (/^dark$|^light$/), },
-				input: { type: 'menulist', options: [
+				input: { type: 'menulist', prefix: `<b>Theme</b>`, options: [
 					{ value: 'dark',     label: `Dark`, },
 					{ value: 'light',    label: `Light`, },
 				], },
+			},
+			loop: {
+				default: true,
+				restrict: { type: 'boolean', },
+				input: { type: 'bool', prefix: `<b>Loop<b>`, },
 			},
 		},
 	},
@@ -101,7 +108,7 @@ return new Options({ model: {
 						description: ``,
 						default: [ 'hd1080', 'hd720', ],
 						maxLength: 10,
-						input: { type: 'menulist', options: [ /* eslint-disable no-irregular-whitespace */
+						input: { type: 'menulist', options: [
 							{ value: 'hd2160',	label:   `2160p | UHD 4k`, },
 							{ value: 'hd1440',	label:   `1440p | Quad HD`, },
 							{ value: 'hd1080',	label:   `1080p | Full HD`, },
@@ -110,7 +117,7 @@ return new Options({ model: {
 							{ value: 'medium',	label: `   360p | medium`, },
 							{ value: 'small',	label: `   240p | small`, },
 							{ value: 'tiny',	label: `   144p | tiny`, },
-						], }, /* eslint-enable no-irregular-whitespace */
+						], },
 					},
 					zoomFactor: {
 						title: `Video zoom levels`,
@@ -358,6 +365,11 @@ return new Options({ model: {
 			},
 		},
 	},
+	incognito: {
+		title: 'Private Mode',
+		default: !gecko, hidden: !gecko, // this is only relevant in Firefox, Chrome has a separate check box for this
+		input: { type: 'bool', suffix: `include Private Browsing windows`, },
+	},
 	storage: {
 		title: `Storage options`,
 		description: ``,
@@ -367,39 +379,54 @@ return new Options({ model: {
 			export: {
 				title: `Export all collected data`,
 				description: `Export all cache and user data (as JSON)`,
-				default: [ "all to file", "all to clipboard", "viewed to file", "viewed to clipboard", ],
-				input: { type: 'control', },
+				default: true,
+				input: [
+					{ type: 'control', prefix: `All to     `,    label: `File`,      id: `all-file`, },
+					{ type: 'control',                           label: `Clipboard`, id: `all-clipboard`, },
+					{ type: 'control', prefix: `<br> Viewed to`, label: `File`,      id: `viewed-file`, },
+					{ type: 'control',                           label: `Clipboard`, id: `viewed-clipboard`, },
+				],
 			},
 			import: {
 				title: `Import data`,
 				description: `Imports JSON formatted data into the cache data / user data storage. Overwrites conflicting data`,
-				default: [ "from file", "from clipboard", ],
-				input: { type: 'control', },
+				default: true,
+				input: [
+					{ type: 'control', prefix: `From`,    label: `File`,      id: `from-file`, },
+					{ type: 'control',                    label: `Clipboard`, id: `from-clipboard`, },
+				],
 			},
 			getSize: {
 				title: `Show data size`,
-				default: "Show size",
-				input: { type: 'control', },
+				default: true,
+				input: { type: 'control', label: `Compute and Show`, suffix: `this may take a few seconds`, },
 			},
 			clear: {
 				title: `Clear all collected data`,
 				description: `Irrevocably deletes all cache data and user data, keeps the settings/options selected on this page`,
-				default: "Purge",
-				input: { type: 'control', },
+				default: true,
+				input: { type: 'control', label: `Purge`, },
 			},
 		},
 	},
 	debug: {
-		default: true,
+		title: 'Debug Level',
+		expanded: false,
+		default: +isBeta,
+		hidden: !isBeta,
+		restrict: { type: 'number', from: 0, to: 2, },
+		input: { type: 'integer', suffix: 'set to > 0 to enable debugging', },
 	},
-}, });
+};
+
+return (await new Options({ model, })).children;
 
 function keybordKey(arg) {
 	return Object.assign({ }, {
-		type: "keybordKey",
-		restrict: "inherit",
 		maxLength: 5,
 		expanded: false,
+		restrict: 'inherit',
+		input: { type: 'keybordKey', },
 	}, arg);
 }
 

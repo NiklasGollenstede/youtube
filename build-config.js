@@ -9,10 +9,8 @@ module.exports = function({ /*options, packageJson,*/ manifestJson, files, }) {
 		'https://www.youtube.com/*', 'https://gaming.youtube.com/*', 'https://i.ytimg.com/*'
 	);
 
-	manifestJson.options_ui = {
-		page: 'ui/options/index.html',
-		open_in_tab: true,
-	};
+	manifestJson.options_ui.open_in_tab = true;
+	manifestJson.browser_action.default_popup = 'view.html#playlist';
 
 	manifestJson.commands = {
 		MediaPlayPause: {

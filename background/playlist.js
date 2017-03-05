@@ -10,16 +10,16 @@ class PlayList extends Array {
 	 * @param  {bool}      options.loop      Optional initial value of this.loop. While this.loop is true, .next() and .pref() will wrap around instead of seeking past the end / before the beginning.
 	 * @param  {function}  options.onSeek    Optional function that will be called with (currentIndex) whenever this.index changes to a different value slot in this.
 	 * @param  {function}  options.onAdd     Optional function that will be called with (atIndex, newValue) whenever a value is added to this.
-	 * @param  {function}  options.onDelete  Optional function that will be called with (fromIndex, oldValue) whenever a value is removed from this.
+	 * @param  {function}  options.onRemove  Optional function that will be called with (fromIndex, oldValue) whenever a value is removed from this.
 	 */
-	constructor({ values, index, loop, onSeek, onAdd, onDelete, } = { }) {
+	constructor({ values, index, loop, } = { }) {
 		super(...(values || [ ]));
+		this.onSeek = new Event;
+		this.onAdd = new Event;
+		this.onRemove = new Event;
 		this._index = 0;
 		this.index = index;
 		this.loop = !!loop;
-		this.onSeek = onSeek;
-		this.onAdd = onAdd;
-		this.onDelete = onDelete;
 	}
 	static get [Symbol.species]() { return Array; }
 
@@ -33,7 +33,7 @@ class PlayList extends Array {
 		else { value <<= 0; }
 		const old = this._index;
 		this._index = value;
-		old !== value && this.onSeek && this.onSeek(value, old);
+		old !== value && this.onSeek._fire(value, old);
 	}
 	get index() {
 		return this._index;
@@ -150,14 +150,14 @@ class PlayList extends Array {
 		const length = this.length;
 		super.push(...arguments);
 		for (let i = 0; i < arguments.length; ++i) {
-			this.onAdd && this.onAdd(length + i, arguments[i]);
+			this.onAdd._fire(length + i, arguments[i]);
 		}
 		return this.length;
 	}
 
 	pop() {
 		const value = super.pop();
-		this.onDelete && this.onDelete(this.length, value);
+		this.onRemove._fire(this.length, value);
 		this.index === this.length && this.next();
 		return value;
 	}
@@ -169,7 +169,7 @@ class PlayList extends Array {
 
 	shift() {
 		const value = super.shift();
-		this.onDelete && this.onDelete(0, value);
+		this.onRemove._fire(0, value);
 		this.index >= 0 && (this.index -= 1);
 		return value;
 	}
@@ -177,7 +177,7 @@ class PlayList extends Array {
 	unshift() {
 		super.unshift(...arguments);
 		for (let i = 0; i < arguments.length; ++i) {
-			this.onAdd && this.onAdd(i, arguments[i]);
+			this.onAdd._fire(i, arguments[i]);
 		}
 		return this.length;
 	}
@@ -186,10 +186,10 @@ class PlayList extends Array {
 		const removed = super.splice(...arguments);
 		remove = removed.length;
 		for (let i = 0; i < removed.length; ++i) {
-			this.onDelete && this.onDelete(at + i, removed[i]);
+			this.onRemove._fire(at, removed[i]);
 		}
 		for (let i = 0; i < items.length; ++i) {
-			this.onAdd && this.onAdd(at + i, items[i]);
+			this.onAdd._fire(at + i, items[i]);
 		}
 		this.index >= at && (this.index <= at + remove ? (this.index = at + items.length) : (this.index += items.length - remove));
 		return removed;
@@ -197,5 +197,22 @@ class PlayList extends Array {
 }
 
 return (PlayList.PlayList = PlayList);
+
+function Event() {
+	const listeners = new Set;
+	return {
+		_listeners: listeners,
+		_fire() {
+			listeners.forEach(listener => { try { listener.apply(null, arguments); } catch (error) { console.error(error); } });
+		},
+		addListener(listener, { owner, } = { }) {
+			if (typeof listener !== 'function') { return; }
+			listeners.add(listener);
+			owner && owner.addEventListener('unload', () => listeners.delete(listener));
+		},
+		hasListener(listener) { return listeners.has(listener); },
+		removeListener(listener) { listeners.delete(listener); },
+	};
+}
 
 }); })(this);

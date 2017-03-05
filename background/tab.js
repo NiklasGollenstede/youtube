@@ -1,30 +1,33 @@
 (function(global) { 'use strict'; define(({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
 	'node_modules/es6lib/concurrent': { sleep, },
 	'node_modules/es6lib/network': { HttpRequest, },
-	'node_modules/es6lib/port': Port,
 	'node_modules/web-ext-utils/browser/': { Tabs, Windows, },
 	'node_modules/web-ext-utils/browser/version': { gecko, blink, },
 	db,
+	module,
+	require,
 }) => {
 
+let playlist, commands; module.ready.then(() => require.async('./').then(_ => {
+	({ playlist, commands, } = _);
+	playlist.onRemove.addListener(tab => tab.playing && tab.pause() === commands.play());
+}));
+
 class Tab {
-	constructor({ port, playlist, panel, commands, }) {
+	constructor({ tab, port, }) {
 		console.log('tab', port);
-		this.id = port.sender.tab.id;
-		this.private = port.sender.tab.incognito;
-		this.url = port.sender.tab.url;
+		this.id = tab.id;
+		this.private = tab.incognito;
+		this.url = tab.url;
 		this.db = this.private ? db.inMemory : db;
 		if (Tab.instances.has(this.id)) { throw new Error('Tab with id '+ this.id +' already exists'); }
 		Tab.instances.set(this.id, this);
-		this.playlist = playlist;
-		this.panel = panel;
-		this.commands = commands;
 		this.videoId = null;
 		this._thumbUrl = null;
-		this.port = new Port(port, Port.web_ext_Port)
-		.addHandlers('tab.', Tab.remoteMethods, this)
-		.addHandlers('db.', this.db);
-		this.port.ended.then(() => this.destructor());
+		this.port = port;
+		port.addHandlers('tab.', Tab.remoteMethods, this);
+		port.addHandlers('db.', this.db);
+		port.ended.then(() => this.destructor());
 
 		this.muteCount = 0;
 		this.destructed = false;
@@ -35,9 +38,9 @@ class Tab {
 		try { console.log('Tab.destructor', this.id); } catch (e) { error(e); }
 		try { Tab.actives.delete(this.id); } catch (e) { error(e); }
 		try { Tab.instances.delete(this.id); } catch (e) { error(e); }
-		try { this.playlist.delete(this); } catch (e) { error(e); }
-		try { this.panel.emit('tab_close', this.id); } catch (e) { error(e); }
-		try { this.playing && this.commands.play(); } catch (e) { error(e); }
+		try { playlist.delete(this); } catch (e) { error(e); }
+		try { Tab.onClose._fire(this.id); } catch (e) { error(e); }
+		try { this.playing && commands.play(); } catch (e) { error(e); }
 		// TODO: if this.playing && !this.active then focus the next playing tab
 		try { this.port.destroy(); } catch (e) { error(e); }
 		try { this.stoppedPlaying(); } catch (e) { error(e); }
@@ -90,26 +93,22 @@ class Tab {
 		this.db.assign(this.videoId, 'private', { lastPlayed: now, });
 	}
 
-	player_created(vId) {
+	async player_created(vId) {
 		console.log('player_created', vId);
 		this.stoppedPlaying();
 		this.videoId = vId;
 		this._thumbUrl = null;
 		if (!Tab.actives.has(this.id)) { Tab.actives.set(+this.id, this); }
-		const added = this.playlist.add(this);
-		this.panel.is && this.info().then(info => {
-			this.panel.emit('tab_open', info);
-			added !== -1 && this.panel.emit('playlist_add', { index: added, tabId: this.id, });
-		});
+		Tab.onOpen._fire((await this.info()));
+		playlist.add(this);
 	}
 	async player_playing(time) {
 		console.log('player_playing', this.videoId, time);
 		this.startedPlaying(time);
 		Tab.pauseAllBut(this);
-		this.panel.emit('state_change', { playing: true, });
-		const added = this.playlist.seek(this);
-		added !== -1 && this.panel.emit('playlist_add', { index: added, tabId: this.id, });
-		if (blink && this.panel.hasPanel()) { return; } // focusing tabs closes panels (also those of other extensions)
+		Tab.onPlay._fire(this);
+		playlist.seek(this);
+		if (blink /*&& this.panel.hasPanel()*/) { return; } // focusing tabs closes panels (also those of other extensions)
 		const { windowId, } = (await this.tab());
 		const { focused, } = (await Windows.get(windowId));
 		!focused && (await Tabs.update(this.id, { active: true, }));
@@ -118,13 +117,13 @@ class Tab {
 		console.log('player_paused', this.videoId, time);
 		if (!this.playing) { return; }
 		this.stoppedPlaying(time);
-		this.panel.is && this.panel.emit('state_change', { playing: this.playlist.is(tab => tab.playing), });
+		Tab.onPlay._fire(playlist.is(tab => tab.playing) ? playlist.get() : null);
 	}
 	player_ended(time) {
 		console.log('player_ended', this.videoId, time);
 		this.stoppedPlaying(time);
-		this.playlist.get() === this && this.commands.next();
-		this.panel.is && this.panel.emit('state_change', { playing: this.playlist.is(tab => tab.playing), });
+		playlist.get() === this && commands.next(true);
+		Tab.onPlay._fire(playlist.is(tab => tab.playing) ? playlist.get() : null);
 	}
 	player_removed() {
 		console.log('player_removed', this.videoId);
@@ -132,9 +131,9 @@ class Tab {
 		this.videoId = null;
 		this._thumbUrl = null; // TODO: should revoke
 		Tab.actives.delete(this.id);
-		this.playlist.delete(this);
-		this.panel.emit('tab_close', this.id);
-		this.playing && this.commands.play();
+		playlist.delete(this);
+		Tab.onClose._fire(this.id);
+		this.playing && commands.play();
 	}
 	reply_after(ms) {
 		return sleep(ms);
@@ -161,12 +160,12 @@ class Tab {
 			if (!focused) { // the tab would be focused anyway once it starts playing, and in firefox this keeps panels open
 				return void (await Tabs.update(this.id, { active: true, }));
 			}
-			if (this.panel.hasPanel()) { // the focus is actually on the panel
-				const current = (await Tabs.query({ active: true, windowId, }));
-				(await Tabs.update(this.id, { active: true, }));
-				(await Tabs.update(current.id, { active: true, }));
-				return;
-			}
+//			if (this.panel.hasPanel()) { // the focus is actually on the panel
+//				const current = (await Tabs.query({ active: true, windowId, }));
+//				(await Tabs.update(this.id, { active: true, }));
+//				(await Tabs.update(current.id, { active: true, }));
+//				return;
+//			}
 		}
 
 		(await Windows.create({ tabId: this.id, state: 'minimized', })); // move into own window ==> focuses
@@ -202,7 +201,27 @@ class Tab {
 Tab.remoteMethods = Object.getOwnPropertyNames(Tab.prototype).filter(key => (/_/).test(key)).map(key => Tab.prototype[key]);
 Tab.instances = new Map;
 Tab.actives = new Map;
+Tab.onOpen = new Event;
+Tab.onClose = new Event;
+Tab.onPlay = new Event;
 
 return Tab;
+
+function Event() {
+	const listeners = new Set;
+	return {
+		_listeners: listeners,
+		_fire() {
+			listeners.forEach(listener => { try { listener.apply(null, arguments); } catch (error) { console.error(error); } });
+		},
+		addListener(listener, { owner, } = { }) {
+			if (typeof listener !== 'function') { return; }
+			listeners.add(listener);
+			owner && owner.addEventListener('unload', () => listeners.delete(listener));
+		},
+		hasListener(listener) { return listeners.has(listener); },
+		removeListener(listener) { listeners.delete(listener); },
+	};
+}
 
 }); })(this);

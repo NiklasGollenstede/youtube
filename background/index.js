@@ -1,32 +1,23 @@
 (function(global) { 'use strict'; define(async ({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
-	require,
 	'node_modules/es6lib/functional': { debounce, },
-	'node_modules/es6lib/port': _, // for browser/Messages
-	'node_modules/web-ext-utils/browser/': { Commands, Runtime, Tabs, Messages, },
+	'node_modules/es6lib/port': Port,
+	'node_modules/web-ext-utils/browser/': { Commands, Runtime, Tabs, },
 	'node_modules/web-ext-utils/browser/version': { gecko, },
 	'node_modules/web-ext-utils/loader/': { ContentScript, },
 	'node_modules/web-ext-utils/update/': updated,
-	'node_modules/web-ext-utils/utils/': { showExtensionTab, },
 	'common/options': options,
 	db,
 	Tab,
-	PanelHandler,
 	Playlist,
+	require,
 }) => {
-updated.extension.to.channel !== '' && console.info('Ran updates', updated);
+options.debug.value && console.info('Ran updates', updated);
 
-window.Browser = require('node_modules/web-ext-utils/browser/');
+const playlist = new Playlist({ });
 
-const playlist = window.playlist = new Playlist({
-	onSeek(index) {
-		console.log('onSeek', index);
-		panel.emit('playlist_seek', index);
-	},
-	// onAdd(index, value) { },
-});
-
-const commands = window.commands = {
+const commands = {
 	play() {
+		playlist.get() || (playlist.index = 0);
 		playlist.is(tab => tab.play());
 	},
 	pause() {
@@ -36,17 +27,17 @@ const commands = window.commands = {
 		const tab = playlist.get();
 		tab && !tab.playing ? commands.play() : commands.pause();
 	},
-	next() {
+	next(play = playlist.is(_=>_.playing)) {
 		const next = playlist.next();
-		next ? commands.play() : commands.pause();
+		play ? commands.play() : commands.pause();
 		next && playlist.index === playlist.length - 1 && loadNextTab();
 	},
-	prev() {
-		playlist.prev() ? commands.play() : commands.pause();
+	prev(play = playlist.is(_=>_.playing)) {
+		playlist.prev();
+		play ? commands.play() : commands.pause();
 	},
-	loop(value = !playlist.loop) {
-		playlist.loop = !!value;
-		panel.emit('state_change', { looping: playlist.loop, });
+	loop(value = !options.playlist.children.loop.value) {
+		playlist.loop = options.playlist.children.loop.value = !!value;
 	},
 };
 
@@ -65,10 +56,6 @@ const loadNextTab = !gecko ? () => void 0 : debounce(async () => {
 	} catch (_) { } } }
 }, 3000);
 
-const panel = window.panel = new PanelHandler({
-	tabs: Tab.actives, playlist, commands,
-});
-
 Commands && Commands.onCommand.addListener(command => ({
 	MediaPlayPause: commands.toggle,
 	MediaNextTrack: commands.next,
@@ -76,21 +63,14 @@ Commands && Commands.onCommand.addListener(command => ({
 }[command]()));
 
 Runtime.onConnect.addListener(port => { switch (port.name) {
-	case 'panel': {
-		panel.add(port);
-	} break;
 	case 'tab': {
-		new Tab({ port, playlist, commands, panel, });
+		new Tab({ tab: port.sender.tab, port: new Port(port, Port.web_ext_Port), });
 	} break;
 	case 'require.scriptLoader': break;
 	default: {
 		console.error('connection with unknown name:', port.name);
 	}
 } });
-
-// open or focus the options view in a tab.
-Messages.addHandler('openOptions', window.openOptions = () => showExtensionTab('/ui/options/index.html'));
-Messages.addHandler('openPlaylist', window.openPlaylist = () => showExtensionTab('/ui/panel/index.html?theme='+ options.children.panel.children.theme.value, '/ui/panel/index.html'));
 
 // report location changes to the content scripts
 Tabs.onUpdated.addListener((id, { url, }) => {
@@ -101,7 +81,7 @@ Tabs.onUpdated.addListener((id, { url, }) => {
 });
 
 // attach ContentScript
-const contentScript = new ContentScript({
+const content = new ContentScript({
 	runAt: 'document_start',
 	include: [ 'https://www.youtube.com/*', 'https://gaming.youtube.com/*', ],
 	modules: [
@@ -135,16 +115,26 @@ const contentScript = new ContentScript({
 		'content/index',
 	],
 });
-const attachedTo = (await contentScript.applyNow());
+options.incognito.whenChange(value => {
+	content.incognito = value;
+});
+const attachedTo = (await content.applyNow());
 
-console.log(`attached to ${ attachedTo.length } tabs:`, attachedTo);
+options.debug.value && console.log(`attached to ${ attachedTo.size } tabs:`, attachedTo);
 
-Object.assign((global, {
-	Messages, Tabs, db,
+Object.assign(global, {
+	Browser: require('node_modules/web-ext-utils/browser/'),
+	db,
 	playlist,
 	loadNextTab,
 	commands,
-	contentScript,
-}));
+	content,
+});
+
+return {
+	content,
+	commands,
+	playlist,
+};
 
 }); })(this);
