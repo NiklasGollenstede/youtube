@@ -3,21 +3,23 @@
 	'node_modules/es6lib/dom': { createElement, },
 	'node_modules/sortablejs/Sortable.min': Sortable,
 	'node_modules/web-ext-utils/browser/': { manifest, runtime, Tabs, Windows, },
-	'node_modules/web-ext-utils/browser/version': { blink, },
 	'node_modules/web-ext-utils/utils/': { showExtensionTab, reportError, },
+	'background/commands': commands,
 	'background/db': db,
-	'background/tab': { actives: tabs, onOpen, onClose, onPlay, },
+	'background/playlist': playlist,
+	'background/tab': { actives: players, onOpen, onClose, onPlay, },
 	'common/context-menu': ContextMenu,
 	'common/options': options,
 	'./body.html': Body,
 	require,
-	module,
 }) => {
-let playlist, commands; module.ready.then(() => require.async('background/').then(_ => ({ playlist, commands, } = _)));
 
-return async function View(window) {
+async function View(window) {
 	const { document, } = window;
 	const off = { owner: window, };
+
+	View.instances.push(window);
+	window.addEventListener('unload', () => View.instances.splice(View.instances.indexOf(window), 1));
 
 	document.title = manifest.name +' - Playlist';
 
@@ -25,32 +27,31 @@ return async function View(window) {
 	options.playlist.children.theme.whenChange(value => (theme.href = require.toUrl(`./theme/${ value }.css`)), off);
 	document.head.appendChild(createElement('link', { rel: 'stylesheet', href: require.toUrl(`./layout.css`), }));
 	document.head.appendChild(createElement('link', { rel: 'stylesheet', href: `/common/context-menu.css`, }));
-	initCSS(document);
 
 	document.body.lang = navigator.language;
-	document.body.classList = 'no-transitions loading';
 	document.body.innerHTML = Body;
+	document.body.classList = 'no-transitions loading';
+	setTimeout(() => document.documentElement.classList.remove('no-transitions'), 200);
 
 	const windowList = document.querySelector('#windows .windows');
 	const tabList = document.querySelector('#playlist .tabs');
 	const defaultWindow = document.querySelector('#window-default');
-	const defaultTab = document.querySelector('.tab-default');
+	const defaultTab = document.querySelector('.tab[data-tab="default"');
 	defaultWindow.remove(); defaultTab.remove();
 
-	const tabInfos = (await Promise.all(Array.from(tabs.values(), tab => tab.info())));
-	const windows = { }; tabInfos.forEach(tab => {
+	const tabs = (await Promise.all(Array.from(players.values(), tab => tab.tab())));
+	const windows = { }; tabs.forEach(tab => {
 		!windows[tab.windowId] && (windows[tab.windowId] = { id: tab.windowId, tabs: [ ], });
 		windows[tab.windowId].tabs.push(tab);
 	});
 
 	document.body.classList.remove('loading');
-	Object.keys(windows).forEach(windowId => {
-		const win = windows[windowId];
-		const tabList = windowList.appendChild(updateWindow(defaultWindow.cloneNode(true), win)).querySelector('.tabs');
-		win.tabs.sort((a, b) => a.index - b.index).forEach(tabInfo => tabList.appendChild(updateTab(defaultTab.cloneNode(true), tabInfo)));
+	Object.values(windows).forEach(window => {
+		const tabList = windowList.appendChild(updateWindow(defaultWindow.cloneNode(true), window)).querySelector('.tabs');
+		window.tabs.sort((a, b) => a.index - b.index).forEach(tab => tabList.appendChild(updateTab(defaultTab.cloneNode(true), tab)));
 		enableDragOut(tabList);
 	});
-	playlist.forEach(tab => tabList.appendChild(windowList.querySelector('.tab-'+ tab.id).cloneNode(true)).classList.add('in-playlist'));
+	playlist.forEach(tab => tabList.appendChild(windowList.querySelector(`.tab[data-tab="${ tab.tabId }"]`).cloneNode(true)).classList.add('in-playlist'));
 	enableDragIn(tabList);
 
 	playlist.onSeek.addListener(seek, off); seek(playlist.index);
@@ -71,28 +72,28 @@ return async function View(window) {
 	}
 
 	playlist.onAdd.addListener(async (index, tab) => {
-		const other = windowList.querySelector('.tab-'+ tab.id);
-		const self = other ? other.cloneNode(true) : updateTab(defaultTab.cloneNode(true), (await tab.info()));
+		const other = windowList.querySelector(`.tab[data-tab="${ tab.tabId }"]`);
+		const self = /*other ?*/ other.cloneNode(true) /*: updateTab(defaultTab.cloneNode(true), tab)*/;
 		tabList.insertBefore(self, tabList.children[index]).classList.add('in-playlist');
 	}, off);
 
 	playlist.onRemove.addListener((index, tab) => {
-		if (tabList.children[index].dataset.tabId !== tab.id +'') { throw new Error; }
+		if (tabList.children[index].dataset.tab !== tab.id +'') { throw new Error; }
 		removeTabElement(tabList.children[index]);
 	}, off);
 
-	onOpen.addListener(tabInfo => {
-		let element = windowList.querySelector('.tab-'+ tabInfo.tabId);
-		if (!element) { element = updateTab(defaultTab.cloneNode(true), tabInfo); }
-		else { document.querySelectorAll('.tab-'+ tabInfo.tabId).forEach(element => updateTab(element, tabInfo)); }
-		const tabList = windowList.querySelector(`#window-${ tabInfo.windowId } .tabs`)
-		|| windowList.appendChild(updateWindow(defaultWindow.cloneNode(true), { id: tabInfo.windowId, title: tabInfo.windowId, })).querySelector('.tabs');
-		const next = Array.prototype.find.call(tabList.children, ({ dataset: { index, }, }) => index > tabInfo.index); // TODO: the index of the other tabs in the list may be incorrect if they were shifted due to other tabs movement/open/close
+	onOpen.addListener(tab => {
+		let element = windowList.querySelector(`.tab[data-tab="${ tab.tabId }"]`);
+		if (!element) { element = updateTab(defaultTab.cloneNode(true), tab); }
+		else { document.querySelectorAll(`.tab[data-tab="${ tab.tabId }"]`).forEach(element => updateTab(element, tab)); }
+		const tabList = windowList.querySelector(`#window-${ tab.windowId } .tabs`)
+		|| windowList.appendChild(updateWindow(defaultWindow.cloneNode(true), { id: tab.windowId, title: tab.windowId, })).querySelector('.tabs');
+		const next = Array.prototype.find.call(tabList.children, ({ dataset: { index, }, }) => index > tab.index); // TODO: the index of the other tabs in the list may be incorrect if they were shifted due to other tabs movement/open/close
 		tabList.insertBefore(element, next);
 	}, off);
 
 	onClose.addListener(tabId => {
-		document.querySelectorAll('.tab-'+ tabId).forEach(tab => removeTabElement(tab));
+		document.querySelectorAll(`.tab[data-tab="${ tabId }"]`).forEach(tab => removeTabElement(tab));
 	}, off);
 
 	[ 'prev', 'play', 'pause', 'next', 'loop', ]
@@ -104,15 +105,17 @@ return async function View(window) {
 	document.addEventListener('click', onClick);
 	document.addEventListener('keydown', onKeydown);
 	document.addEventListener('input', onInput);
-};
+}
+View.instances = [ ];
+return View;
 
 function showMainMenu(event) {
 	if (event.button) { return; }
-	const document = event.target.ownerDocument;
+	const document = event.target.ownerDocument, window = document.defaultView;
 	const { left: x, bottom: y, } = document.querySelector('#more').getBoundingClientRect();
 	const items = [
 		runtime.reload
-		&&  { icon: '⚡',	label: 'Restart', action: () => confirm('Are you sure you want to restart this extension? It may take a while') && runtime.reload(), },
+		&&  { icon: '⚡',	label: 'Restart', action: () => window.confirm(`Restart ${ manifest.name }?`) && runtime.reload(), },
 		    { icon: '◑',	label: 'Dark Theme', checked: options.playlist.children.theme.value === 'dark', action() {
 			    const theme = this.checked ? 'light' : 'dark';
 			    document.body.classList.add('no-transitions');
@@ -130,7 +133,7 @@ function showMainMenu(event) {
 function showContextMenu(event) {
 	const { target, clientX: x, clientY: y, } = event;
 	if (!target.matches) { return; }
-	const document = event.target.ownerDocument;
+	const document = event.target.ownerDocument, window = document.defaultView;
 	const windowList = document.querySelector('#windows .windows');
 	const tabList = document.querySelector('#playlist .tabs');
 	const items = [ ];
@@ -138,16 +141,16 @@ function showContextMenu(event) {
 	const _window = target.closest('.window');
 	const _playlist = target.matches('#playlist, #playlist *');
 	if (target.matches('.tab, .tab *')) {
-		const tabId = +tab.dataset.tabId;
+		const tabId = +tab.dataset.tab;
 		items.push(
-			             { icon: '▶',	 label: 'Play video',       action: () => tabs.get(+tabId).play(),   default: tab.matches('#playlist :not(.active)') && !target.matches('.remove, .icon'), },
+			             { icon: '▶',	 label: 'Play video',       action: () => players.get(+tabId).play(),   default: tab.matches('#playlist :not(.active)') && !target.matches('.remove, .icon'), },
 			             { icon: '👁',	 label: 'Show tab',         action: () => focusTab(+tabId),          default: tab.matches('#windows *, .active') && !target.matches('.remove, .icon'), },
 			             { icon: '⨉',	 label: 'Close tab',        action: () => Tabs.remove(tabId),        default: target.matches('#windows .remove'), },
-			_playlist && { icon: '❏',	 label: 'Duplicate',        action: () => playlist.splice(positionInParent(tab), 0, tabs.get(+tabId)), },
+			_playlist && { icon: '❏',	 label: 'Duplicate',        action: () => playlist.splice(positionInParent(tab), 0, players.get(+tabId)), },
 			_playlist && { icon: '⨉',	 label: 'Remove entry',     action: () => playlist.splice(positionInParent(tab), 1), default: target.matches('#playlist .remove'), },
-			_playlist && { icon: '🔍',	 label: 'Find in window',   action: () => highlight(windowList.querySelector('.tab-'+ tabId)), },
-			_window   && { icon: '🔍',	 label: 'Find in playist',  action: () => highlight(tabList.querySelector('.tab-'+ tabId) || _window.querySelector('.tab-'+ tabId)), },
-			_window   && { icon: '➕',	 label: 'Add video',        action: () => playlist.push(tabs.get(+tabId)), }
+			_playlist && { icon: '🔍',	 label: 'Find in window',   action: () => highlight(windowList.querySelector(`.tab[data-tab="${ tabId }"]`)), },
+			_window   && { icon: '🔍',	 label: 'Find in playist',  action: () => highlight(tabList.querySelector(`.tab[data-tab="${ tabId }"]`) || _window.querySelector(`.tab[data-tab="${ tabId }"]`)), },
+			_window   && { icon: '➕',	 label: 'Add video',        action: () => playlist.push(players.get(+tabId)), }
 		);
 	}
 	if (_playlist) {
@@ -173,9 +176,9 @@ function showContextMenu(event) {
 	if (_window) {
 		const _tabs = Array.from(_window.querySelectorAll(document.body.classList.contains('searching') ? '.tab.found' : '.tab'));
 		_tabs.length > 1 && items.push(
-			{ icon: '⋯',	 label: 'Add all '+   _tabs.length, action: () => playlist.push(..._tabs.map(tab => tabs.get(+tab.dataset.tabId))), },
+			{ icon: '⋯',	 label: 'Add all '+   _tabs.length, action: () => playlist.push(..._tabs.map(tab => players.get(+tab.dataset.tab))), },
 			{ icon: '❌',	 label: 'Close all '+ _tabs.length, action: () => {
-				confirm('Close all '+ _tabs.length +' tabs in this window?') && _tabs.forEach(tab => Tabs.remove(+tab.dataset.tabId));
+				window.confirm('Close all '+ _tabs.length +' tabs in this window?') && _tabs.forEach(tab => Tabs.remove(+tab.dataset.tab));
 			}, }
 		);
 	}
@@ -189,31 +192,34 @@ function showContextMenu(event) {
 // focus tab (windows) or play tab on dblclick
 function onDblckick({ target, button, }) {
 	if (button || !target.matches || !target.matches('.description, .description :not(.remove)')) { return; }
+	const document = target.ownerDocument;
 
 	target = target.closest('.tab');
 	if (target.matches('#playlist *')) {
 		if (target.matches('.active')) {
-			focusTab(+target.dataset.tabId);
+			focusTab(+target.dataset.tab);
 		} else {
+			const playing = playlist.is(_=>_.playing);
 			playlist.index = positionInParent(target);
+			playing && playlist.is(_=>_.play());
 		}
-		commands.play();
 	} else if (target.matches('#windows *')) {
-		focusTab(+target.dataset.tabId);
+		focusTab(+target.dataset.tab);
 	}
-	window.getSelection().removeAllRanges();
+	document.defaultView.getSelection().removeAllRanges();
 }
 
 // remove tab on leftcklick on ".remove"
 function onClick({ target, button, }) {
 	if (button || !target.matches) { return; }
+	const document = target.ownerDocument;
 
 	if (target.matches('.tab .remove, .tab .remove *')) {
 		const tab = target.closest('.tab');
 		if (tab.matches('#playlist *')) {
 			playlist.splice(positionInParent(tab), 1);
 		} else if (tab.matches('#windows *')) {
-			Tabs.remove(+tab.dataset.tabId);
+			Tabs.remove(+tab.dataset.tab);
 		}
 	} else if (target.matches('#searchbox .remove, #searchbox .remove *')) {
 		const box = document.querySelector('#searchbox>input');
@@ -223,6 +229,7 @@ function onClick({ target, button, }) {
 }
 
 function onKeydown(event) {
+	const document = event.target.ownerDocument;
 	const inInput = event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA';
 	switch (event.key) {
 		case 'f': {
@@ -245,8 +252,8 @@ function onKeydown(event) {
 }
 
 function onInput(event) {
+	const document = event.target.ownerDocument;
 	if (event.target.matches('#searchbox>input')) {
-		const document = event.target.ownerDocument;
 		const windowList = document.querySelector('#windows .windows');
 		const term = event.target.value.trim();
 		const lTerm = term.toLowerCase();
@@ -258,7 +265,7 @@ function onInput(event) {
 
 		// looking for trigrams makes it quite unlikely to match just anything, but a typo will have quite an impact
 		const found = tabs.filter(tab => fuzzyIncludes(tab.querySelector('.icon').title.toLowerCase(), lTerm, 3) > 0.6);
-		term.length === 11 && found.push(...tabs.filter(_=>_.dataset.videoId === term));
+		term.length === 11 && found.push(...tabs.filter(_=>_.dataset.video === term));
 		found.forEach(_=>_.classList.add('found'));
 	} else {
 		return;
@@ -308,7 +315,7 @@ function enableDragOut(element) {
 		scrollSpeed: 10,
 		sort: false,
 		setData(dataTransfer, item) { // insert url if dropped somewhere else
-			dataTransfer.setData('text', 'https://www.youtube.com/watch?v='+ item.dataset.videoId);
+			dataTransfer.setData('text', 'https://www.youtube.com/watch?v='+ item.dataset.video);
 		},
 	}));
 }
@@ -330,20 +337,19 @@ function enableDragIn(element) {
 		scrollSpeed: 10,
 		sort: true,
 		setData(dataTransfer, item) { // insert url if dropped somewhere else
-			dataTransfer.setData('text', 'https://www.youtube.com/watch?v='+ item.dataset.videoId);
+			dataTransfer.setData('text', 'https://www.youtube.com/watch?v='+ item.dataset.video);
 		},
 		onAdd({ item, newIndex, }) { setTimeout(() => { // inserted, async for the :hover test
 			Array.prototype.forEach.call(tabList.querySelectorAll('.tab:not(.in-playlist)'), _=>_.remove()); // remove any inserted items
 			if (!tabList.matches(':hover')) { return; } // cursor is not over drop target ==> invalid drop
-			playlist.splice(newIndex, 0, tabs.get(+item.dataset.tabId));
-			// item.matches('.active') && port.emit('playlist_seek', newIndex);
+			playlist.splice(newIndex, 0, players.get(+item.dataset.tab));
 		}); },
 		onUpdate({ item, newIndex, oldIndex, }) { // sorted within
 			console.log('onUpdate');
-			tabList.insertBefore(item, tabList.children[oldIndex]); // put back to old position
+			item.remove(); tabList.insertBefore(item, tabList.children[oldIndex]); // put back to old position
 			playlist.splice(oldIndex, 1);
-			playlist.splice(newIndex, 0, tabs.get(+item.dataset.tabId));
-			//item.matches('.active') && port.emit('playlist_seek', newIndex);
+			playlist.splice(newIndex, 0, players.get(+item.dataset.tab));
+			item.matches('.active') && (playlist.index = newIndex);
 		},
 	}));
 }
@@ -357,28 +363,14 @@ function updateWindow(element, { id, title, }) {
 }
 
 function updateTab(element, tab) {
-	if ('index' in tab) {
-		element.dataset.index = tab.index;
-	}
-	if ('tabId' in tab) {
-		element.dataset.tabId = tab.tabId;
-		element.className = element.className.replace(/tab-[^ ]*/, 'tab-'+ tab.tabId);
-	}
-	if ('videoId' in tab) {
-		element.dataset.videoId = tab.videoId;
-		element.className = element.className.replace(/video-[^ ]*/, 'video-'+ tab.videoId);
-	}
-	if ('thumb' in tab) {
-		element.querySelector('.icon').style.backgroundImage = `url(${ tab.thumb })`;
-	}
-	if ('title' in tab) {
-		element.querySelector('.title').textContent = tab.title;
-		element.querySelector('.icon').title = tab.title;
-	}
-	if ('duration' in tab) {
-		const duration = secondsToHhMmSs(tab.duration);
-		element.querySelector('.duration').textContent = duration;
-	}
+	element.dataset.tab = tab.tabId;
+	element.dataset.video = tab.videoId;
+	const icon = element.querySelector('.icon');
+	icon.style.backgroundImage = `url(${ tab.thumbUrl })`;
+	icon.title = tab.title;
+	element.querySelector('.title').textContent = tab.title;
+	const duration = secondsToHhMmSs(tab.duration);
+	element.querySelector('.duration').textContent = duration;
 	return element;
 }
 
@@ -390,38 +382,27 @@ function removeTabElement(tab) {
 }
 
 function scrollToCenter(element, { ifNeeded = true, duration = 250, } = { }) { return new Promise((resolve) => {
-	const scroller = element.offsetParent;
+	// const scroller = element.offsetParent;
+	const scroller = element.closest('.scroll-inner'); // firefox bug: .offsetParent is the closest element with a CSS filter.
 	if (ifNeeded && element.offsetTop >= scroller.scrollTop && element.offsetTop + element.offsetHeight <= scroller.scrollTop + scroller.offsetHeight) { return void resolve(); }
 	const to = Math.min(Math.max(0, element.offsetTop + element.offsetHeight / 2 - scroller.offsetHeight / 2), scroller.scrollHeight);
 	if (!duration) { scroller.scrollTop = to; return void resolve(); }
 	const from = scroller.scrollTop, diff = to - from;
 
+	const { requestAnimationFrame, performance, } = element.ownerDocument.defaultView;
 	const start = performance.now(), end = start + duration;
 	/// time in [start; end], coefficients from https://github.com/mietek/ease-tween/blob/master/src/index.js (MIT)
 	const pos = time => from + diff * 1.0042954579734844 * Math.exp(-6.4041738958415664 * Math.exp(-7.2908241330981340 * (time - start) / duration));
-	window.requestAnimationFrame(function step(now) {
+	requestAnimationFrame(function step(now) {
 		if (now >= end) { scroller.scrollTop = to; return void resolve(); }
 		scroller.scrollTop = pos(now);
-		window.requestAnimationFrame(step);
+		requestAnimationFrame(step);
 	});
 }); }
 
 function positionInParent(element) {
 	if (!element) { return -1; }
 	return Array.prototype.indexOf.call(element.parentNode.children, element);
-}
-
-async function initCSS(document) {
-	// enable transitions
-	setTimeout(() => document.documentElement.classList.remove('no-transitions'), 200);
-
-	// hide scrollbars if ::-webkit-scrollbar doesn't apply
-//	if (blink) { return; }
-//	const element = document.body.appendChild(document.createElement('div'));
-//	element.classList.add('scroll-inner');
-//	const width = element.offsetWidth - element.clientWidth;
-//	document.head.appendChild(createElement('style', [ `.scroll-outer>.scroll-inner { padding-right: -${ width }px; width: calc(100% + ${ width }px); }`, ]));
-//	element.remove();
 }
 
 async function focusTab(tabId) {

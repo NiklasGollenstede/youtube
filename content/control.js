@@ -2,7 +2,7 @@
 	'node_modules/es6lib/concurrent': { sleep, before, },
 	'node_modules/es6lib/functional': { debounce, },
 	'node_modules/es6lib/network': { HttpRequest, },
-	'node_modules/es6lib/string': { hhMmSsToSeconds, timeToRoundString, },
+	'node_modules/es6lib/string': { timeToRoundString, },
 }) => {
 
 return function(main) {
@@ -104,14 +104,8 @@ return function(main) {
 		!play && player.once('playing', () => player.unMute());
 		port.post('tab.mute_stop');
 
-		const duration = hhMmSsToSeconds(player.root.querySelector('.ytp-time-duration').textContent); // TODO: this may use the duration of an ad
-		const titleElement = document.querySelector('#eow-title, .video-title span, .video-title');
-		const title = titleElement && titleElement.textContent.trim();
-		const info = { }; title && (info.title = title); duration && (info.duration = duration);
-		(await port.request('db.assign', main.videoId, 'meta', info));
-
-		console.log('control done', title, duration, player.root.querySelector('.ytp-time-duration').textContent, main.videoId);
-		port.post('tab.player_created', main.videoId);
+		console.log('control done', main.videoId);
+		port.post('tab.player_created', (await player.getInfo()));
 		play && port.post('tab.player_playing', player.video.currentTime || 0);
 		reportState = true;
 		displayViews();

@@ -3,26 +3,28 @@
 	'node_modules/es6lib/network': { HttpRequest, },
 	'node_modules/web-ext-utils/browser/': { Tabs, Windows, },
 	'node_modules/web-ext-utils/browser/version': { gecko, blink, },
+	commands,
 	db,
-	module,
-	require,
+	playlist,
 }) => {
 
-let playlist, commands; module.ready.then(() => require.async('./').then(_ => {
-	({ playlist, commands, } = _);
-	playlist.onRemove.addListener(tab => tab.playing && tab.pause() === commands.play());
-}));
+let playlists; global.require([ '/views/playlist/', ], _ => (playlists = _.instances));
+playlist.onRemove.addListener(tab => tab.playing && tab.pause() === commands.play());
 
 class Tab {
 	constructor({ tab, port, }) {
 		console.log('tab', port);
-		this.id = tab.id;
+		this.id = this.tabId = tab.id;
 		this.private = tab.incognito;
 		this.url = tab.url;
 		this.db = this.private ? db.inMemory : db;
 		if (Tab.instances.has(this.id)) { throw new Error('Tab with id '+ this.id +' already exists'); }
 		Tab.instances.set(this.id, this);
+		this.windowId = -1;
+		this.index = -1;
 		this.videoId = null;
+		this.duration = 0;
+		this.title = '';
 		this._thumbUrl = null;
 		this.port = port;
 		port.addHandlers('tab.', Tab.remoteMethods, this);
@@ -48,23 +50,11 @@ class Tab {
 		function error(e) { console.error(e); }
 	}
 
-	tab() {
-		return Tabs.get(+this.id);
-	}
-
-	info() {
-		const { videoId, id: tabId, } = this;
-		return Promise.all([
-			this.tab().catch(error => console.error(error)),
-			this.db.get(videoId, [ 'meta', ]).catch(error => console.error(error)),
-			this.getThumbUrl(),
-		]).then(([
-			{ windowId = 'other', index = -1, } = { },
-			{ meta: { title = '<unknown>', duration = 0, } = { }, } = { },
-			thumb,
-		]) => ({
-			tabId, windowId, videoId, index, title, duration, thumb,
-		}));
+	async tab() {
+		const tab = (await Tabs.get(+this.id));
+		this.windowId = tab.windowId;
+		this.index = tab.index;
+		return this;
 	}
 
 	play() {
@@ -93,25 +83,28 @@ class Tab {
 		this.db.assign(this.videoId, 'private', { lastPlayed: now, });
 	}
 
-	async player_created(vId) {
-		console.log('player_created', vId);
+	async player_created({ videoId, duration, title, }) {
+		console.log('player_created', videoId, duration, title);
 		this.stoppedPlaying();
-		this.videoId = vId;
+		this.videoId = videoId;
+		this.duration = duration;
+		this.title = title;
 		this._thumbUrl = null;
 		if (!Tab.actives.has(this.id)) { Tab.actives.set(+this.id, this); }
-		Tab.onOpen._fire((await this.info()));
-		playlist.add(this);
+		Tab.onOpen._fire(this);
+		playlist.add(this, playlist.index + 1);
 	}
 	async player_playing(time) {
 		console.log('player_playing', this.videoId, time);
 		this.startedPlaying(time);
 		Tab.pauseAllBut(this);
 		Tab.onPlay._fire(this);
+		playlist.add(this);
 		playlist.seek(this);
-		if (blink /*&& this.panel.hasPanel()*/) { return; } // focusing tabs closes panels (also those of other extensions)
-		const { windowId, } = (await this.tab());
-		const { focused, } = (await Windows.get(windowId));
-		!focused && (await Tabs.update(this.id, { active: true, }));
+		const hasPanel = playlists.some(view => !view.tabId);
+		if (blink && hasPanel) { return; } // in chrome, focusing tabs closes all panels
+		(hasPanel || !(await Windows.get((await this.tab()).windowId)).focused)
+		&& (await Tabs.update(this.id, { active: true, })); // in firefox, the window is focused even if it has a panel open
 	}
 	player_paused(time) {
 		console.log('player_paused', this.videoId, time);
@@ -129,6 +122,8 @@ class Tab {
 		console.log('player_removed', this.videoId);
 		this.stoppedPlaying();
 		this.videoId = null;
+		this.duration = 0;
+		this.title = '';
 		this._thumbUrl = null; // TODO: should revoke
 		Tab.actives.delete(this.id);
 		playlist.delete(this);
@@ -160,12 +155,12 @@ class Tab {
 			if (!focused) { // the tab would be focused anyway once it starts playing, and in firefox this keeps panels open
 				return void (await Tabs.update(this.id, { active: true, }));
 			}
-//			if (this.panel.hasPanel()) { // the focus is actually on the panel
-//				const current = (await Tabs.query({ active: true, windowId, }));
-//				(await Tabs.update(this.id, { active: true, }));
-//				(await Tabs.update(current.id, { active: true, }));
-//				return;
-//			}
+			if (playlists.some(view => !view.tabId)) { // the focus is actually on the panel
+				const current = (await Tabs.query({ active: true, windowId, }));
+				(await Tabs.update(this.id, { active: true, }));
+				(await Tabs.update(current.id, { active: true, }));
+				return;
+			}
 		}
 
 		(await Windows.create({ tabId: this.id, state: 'minimized', })); // move into own window ==> focuses
@@ -175,6 +170,10 @@ class Tab {
 		(await Tabs.update(this.id, { active, pinned, })); // need to pin again if it was pinned
 		gecko && (await sleep(1)); // firefox at least up to version 51 needs these
 		(await Tabs.move(this.id, { index, windowId, })); // move to the correct position within (the pinned tabs of) the window
+	}
+
+	get thumbUrl() {
+		return `https://i.ytimg.com/vi/${ this.videoId }/default.jpg`;
 	}
 
 	getThumbUrl() {

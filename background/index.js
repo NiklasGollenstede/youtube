@@ -6,70 +6,28 @@
 	'node_modules/web-ext-utils/loader/': { ContentScript, },
 	'node_modules/web-ext-utils/update/': updated,
 	'common/options': options,
+	commands,
 	db,
 	Tab,
-	Playlist,
+	playlist,
 	require,
 }) => {
 options.debug.value && console.info('Ran updates', updated);
 
-const playlist = new Playlist({ });
-
-const commands = {
-	play() {
-		playlist.get() || (playlist.index = 0);
-		playlist.is(tab => tab.play());
-	},
-	pause() {
-		Tab.pauseAllBut(null);
-	},
-	toggle() {
-		const tab = playlist.get();
-		tab && !tab.playing ? commands.play() : commands.pause();
-	},
-	next(play = playlist.is(_=>_.playing)) {
-		const next = playlist.next();
-		play ? commands.play() : commands.pause();
-		next && playlist.index === playlist.length - 1 && loadNextTab();
-	},
-	prev(play = playlist.is(_=>_.playing)) {
-		playlist.prev();
-		play ? commands.play() : commands.pause();
-	},
-	loop(value = !options.playlist.children.loop.value) {
-		playlist.loop = options.playlist.children.loop.value = !!value;
-	},
-};
-
-const loadNextTab = !gecko ? () => void 0 : debounce(async () => {
-	let tab = playlist.get() || playlist[playlist.length - 1]; if (!tab) { return; } tab = (await tab.tab());
-	const tabs = (await Tabs.query({ url: [ 'https://www.youtube.com/watch?*', 'https://gaming.youtube.com/*', ], }))
-	.filter(({ id, }) => !Tab.instances.has(id))
-	.sort((a, b) => Math.abs(a.index - tab.index) + (a.windowId === tab.windowId) * 1024 - Math.abs(b.index - tab.index) + (b.windowId === tab.windowId) * 1024)
-	.slice(0, 5);
-	for (const tab of tabs) { try {
-		(await Tabs.executeScript(tab.id, { code: 'true', }));
-		continue;
-	} catch (_) { try {
-		(await Tabs.reload(tab.id));
-		break;
-	} catch (_) { } } }
-}, 3000);
-
+// global hotkeys
 Commands && Commands.onCommand.addListener(command => ({
 	MediaPlayPause: commands.toggle,
 	MediaNextTrack: commands.next,
 	MediaPrevTrack: commands.prev,
 }[command]()));
 
+// port connections
 Runtime.onConnect.addListener(port => { switch (port.name) {
 	case 'tab': {
 		new Tab({ tab: port.sender.tab, port: new Port(port, Port.web_ext_Port), });
 	} break;
 	case 'require.scriptLoader': break;
-	default: {
-		console.error('connection with unknown name:', port.name);
-	}
+	default: console.error('connection with unknown name:', port.name);
 } });
 
 // report location changes to the content scripts
@@ -126,15 +84,12 @@ Object.assign(global, {
 	Browser: require('node_modules/web-ext-utils/browser/'),
 	db,
 	playlist,
-	loadNextTab,
 	commands,
 	content,
 });
 
 return {
 	content,
-	commands,
-	playlist,
 };
 
 }); })(this);

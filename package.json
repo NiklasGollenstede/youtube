@@ -5,9 +5,9 @@
 	"description": "",
 	"author": "Niklas Gollenstede",
 	"license": "MPL-2.0",
-	"repository" : {
-		"type" : "git",
-		"url" : "https://github.com/NiklasGollenstede/youtube"
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/NiklasGollenstede/youtube"
 	},
 	"contributions": [
 		{
@@ -19,9 +19,9 @@
 
 	"dependencies": {
 		"sortablejs": "rubaxa/Sortable#1.4.2",
-		"es6lib": "NiklasGollenstede/es6lib#2359688",
+		"es6lib": "NiklasGollenstede/es6lib#8a2f99c",
 		"regexpx": "NiklasGollenstede/regexpx#eebed29",
-		"web-ext-utils": "NiklasGollenstede/web-ext-utils#8291354",
+		"web-ext-utils": "NiklasGollenstede/web-ext-utils#6135748",
 		"web-ext-build": "NiklasGollenstede/web-ext-build#cafdc99"
 	},
 	"devDependencies": {

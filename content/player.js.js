@@ -22,6 +22,7 @@ const methods = {
 	getSpeed        : ()    => { return { available: player.getAvailablePlaybackRates(), current: player.getPlaybackRate(), }; },
 	isMuted         : ()    => { return player.isMuted(); },
 	getTime         : ()    => { return player.getCurrentTime(); },
+	getInfo         : ()    => { const info = player.getVideoData(); return { videoId: info.video_id, title: info.title, duration: player.getDuration() +.5<<0, }; },
 	getLoaded       : ()    => { return player.getVideoLoadedFraction(); },
 	showVideoInfo   : ()    => { return player.showVideoInfo(); },
 	hideVideoInfo   : ()    => { return player.hideVideoInfo(); },

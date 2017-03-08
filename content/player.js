@@ -34,6 +34,7 @@ const methods = [
 	'getSpeed',
 	'isMuted',
 	'getTime',
+	'getInfo',
 	'getLoaded',
 	'showVideoInfo',
 	'hideVideoInfo',

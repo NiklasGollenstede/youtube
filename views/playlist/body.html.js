@@ -29,7 +29,7 @@ define(`<div id="left" class="column">
 		<div id="playlist" class="scroll-outer">
 			<div class="scroll-inner">
 				<span class="tabs">
-					<div class="tab tab-default video-default">
+					<div class="tab" data-tab="default" data-video="default">
 						<div class="icon" style="background-image: url('');"></div>
 						<div class="description">
 							<span class="title">

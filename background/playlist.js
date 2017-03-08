@@ -81,9 +81,10 @@ class PlayList extends Array {
 	 * @param  {any}    value  Value to optionally insert.
 	 * @return {integer}       The new index of value in this or -1 if value was not inserted.
 	 */
-	add(value) {
+	add(value, where = this._index) {
 		if (this.indexOf(value) !== -1) { return -1; }
-		return this.push(value);
+		this.splice(Math.max(0, where), 0, value);
+		return Math.min(where, this.length - 1);
 	}
 
 	/**
@@ -196,7 +197,7 @@ class PlayList extends Array {
 	}
 }
 
-return (PlayList.PlayList = PlayList);
+return new PlayList({ });
 
 function Event() {
 	const listeners = new Set;
