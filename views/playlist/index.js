@@ -28,10 +28,10 @@ async function View(window) {
 	document.head.appendChild(createElement('link', { rel: 'stylesheet', href: require.toUrl(`./layout.css`), }));
 	document.head.appendChild(createElement('link', { rel: 'stylesheet', href: `/common/context-menu.css`, }));
 
-	document.body.lang = navigator.language;
+	document.body.lang = global.navigator.language;
 	document.body.innerHTML = Body;
 	document.body.classList = 'no-transitions loading';
-	setTimeout(() => document.documentElement.classList.remove('no-transitions'), 200);
+	global.setTimeout(() => document.documentElement.classList.remove('no-transitions'), 200);
 
 	const windowList = document.querySelector('#windows .windows');
 	const tabList = document.querySelector('#playlist .tabs');
@@ -39,7 +39,7 @@ async function View(window) {
 	const defaultTab = document.querySelector('.tab[data-tab="default"');
 	defaultWindow.remove(); defaultTab.remove();
 
-	const tabs = (await Promise.all(Array.from(players.values(), tab => tab.tab())));
+	const tabs = (await Promise.all(Array.from(players.values(), tab => tab.tab().catch(error => (console.error(error), tab)))));
 	const windows = { }; tabs.forEach(tab => {
 		!windows[tab.windowId] && (windows[tab.windowId] = { id: tab.windowId, tabs: [ ], });
 		windows[tab.windowId].tabs.push(tab);
@@ -119,7 +119,7 @@ function showMainMenu(event) {
 		    { icon: '◑',	label: 'Dark Theme', checked: options.playlist.children.theme.value === 'dark', action() {
 			    const theme = this.checked ? 'light' : 'dark';
 			    document.body.classList.add('no-transitions');
-			    setTimeout(() => document.body.classList.remove('no-transitions'), 70);
+			    global.setTimeout(() => document.body.classList.remove('no-transitions'), 70);
 			    options.playlist.children.theme.value = theme;
 		    }, },
 		    { icon: '❐', 	label: 'Show in tab', action: () => showExtensionTab('/view.html#playlist'), },
@@ -339,7 +339,7 @@ function enableDragIn(element) {
 		setData(dataTransfer, item) { // insert url if dropped somewhere else
 			dataTransfer.setData('text', 'https://www.youtube.com/watch?v='+ item.dataset.video);
 		},
-		onAdd({ item, newIndex, }) { setTimeout(() => { // inserted, async for the :hover test
+		onAdd({ item, newIndex, }) { global.setTimeout(() => { // inserted, async for the :hover test
 			Array.prototype.forEach.call(tabList.querySelectorAll('.tab:not(.in-playlist)'), _=>_.remove()); // remove any inserted items
 			if (!tabList.matches(':hover')) { return; } // cursor is not over drop target ==> invalid drop
 			playlist.splice(newIndex, 0, players.get(+item.dataset.tab));

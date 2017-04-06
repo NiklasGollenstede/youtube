@@ -3,7 +3,7 @@
 	'node_modules/es6lib/functional': { debounce, },
 	'node_modules/es6lib/network': { HttpRequest, },
 	'node_modules/es6lib/string': { timeToRoundString, },
-}) => {
+}) => { /* global document, URL, */
 
 return function(main) {
 	const { player, port, } = main;
@@ -34,7 +34,8 @@ return function(main) {
 	// update the private view count
 	async function displayViews() {
 		(await sleep(300)); // allow the view counter to be updated
-		const { meta: { duration, }, viewed = 0, } = (await port.request('db.get', main.videoId, [ 'meta', 'viewed', ]));
+		const { duration, } = (await player.getInfo());
+		const { viewed = 0, } = (await port.request('db.get', main.videoId, [ 'viewed', ]));
 		const views = document.querySelector('.watch-view-count');
 		delete views.dataset.tooltipText;
 		views.title = (duration ? (viewed / duration).toFixed(1).replace('.0', '') +' times' : timeToRoundString(viewed * 1000, 1.7)) +' by you';

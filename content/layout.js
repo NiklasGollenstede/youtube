@@ -1,10 +1,8 @@
 (function(global) { 'use strict'; define(({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
-	'node_modules/es6lib/dom': { createElement, once, getParent, },
-	'./layout-new.css': _1,
-	'./layout-old.css': _2,
+	'./layout-new.css': newCss,
+	'./layout-old.css': oldCss,
 	utils: { getVideoIdFromImageSrc, },
-	require,
-}) => {
+}) => { /* global document, window, location, setTimeout, */
 
 const noop = document.createElement('p');
 
@@ -17,30 +15,22 @@ return class Layout {
 		this.animateThumbsTargets  = `img, .ytp-videowall-still-image, .ytp-redesign-videowall-still-image, .videowall-still-image, div#image`;
 		this.animateThumbsParents  = parents.join(', ');
 		this.animateThumbsChildren = parents.map(s => s +' *, '+ s).join(', ');
-		this.animateThumbsScaleIf  = `.yt-uix-simple-thumb-related *`;
 		this.main.setStyle('thumb-zoom', `
-			.yt-uix-simple-thumb-related     .animated-thumb { transform: scaleY(1.366); } /* view, */
-			.yt-thumb-simple                 .animated-thumb { transform: scaleY(1.366) translateY(+0.17%); } /* home, */
-			.yt-thumb-clip                   .animated-thumb { transform: scaleY(1.016) translateY(-0.22%); } /* channels, */
+			.yt-uix-simple-thumb-related     .animated-thumb:not(.loading) { transform: scaleY(1.366); } /* view, */
+			.yt-thumb-simple                 .animated-thumb:not(.loading) { transform: scaleY(1.366) translateY(+0.17%); } /* home, */
+			.yt-thumb-clip                   .animated-thumb:not(.loading) { transform: scaleY(1.016) translateY(-0.22%); } /* channels, */
 		`);
-
-		this.scale = 1;
-		this.scaleX = this.scaleY = 0.5;
-		this.zoom = createElement('style');
-		main.player.on('loaded', (element) => element.ownerDocument.head.appendChild(this.zoom));
 
 		this.disableAnnotations = this.disableAnnotations.bind(this);
 		this.animatedThumbsOnMouseover = this.animatedThumbsOnMouseover.bind(this);
 		this.fullscreenOnWheel = this.fullscreenOnWheel.bind(this);
-		this.seamlessFullscreenOnMousemove = this.seamlessFullscreenOnMousemove.bind(this);
-		this.videoZoomOnWheel = this.videoZoomOnWheel.bind(this);
+		this.fullscreenOnMousemove = this.fullscreenOnMousemove.bind(this);
 
 		main.once('optionsLoaded', this.optionsLoaded.bind(this));
 
 		main.on('navigated', this.navigated.bind(this));
 
 		main.once(Symbol.for('destroyed'), () => {
-			this.zoom.remove();
 			document.documentElement.classList.remove('watchpage');
 			document.documentElement.classList.remove('playlist');
 		});
@@ -49,8 +39,14 @@ return class Layout {
 	optionsLoaded(options) {
 		this.options = options;
 		options.player.children.annotations.when({
-			false: () => this.main.player.on ('playing', this.disableAnnotations),
-			true:  () => this.main.player.off('playing', this.disableAnnotations),
+			false: () => {
+				this.main.setStyle('annotations', `.ytp-ce-element { display: none; }`);
+				this.main.player.on('playing', this.disableAnnotations);
+			},
+			true: () => {
+				this.main.setStyle('annotations', ``);
+				this.main.player.off('playing', this.disableAnnotations);
+			},
 		});
 		options.animateThumbs.when({
 			true:  () => this.main.addDomListener   (window, 'mouseover', this.animatedThumbsOnMouseover),
@@ -58,7 +54,7 @@ return class Layout {
 		});
 		options.player.children.seamlessFullscreen.when({
 			true: () => {
-				this.main.setStyle('layout-main', require(this.main.redesign ? './layout-new.css' : './layout-old.css'));
+				this.main.setStyle('layout-main', this.main.redesign ? newCss : oldCss);
 				this.main.addDomListener(window, 'wheel', this.fullscreenOnWheel);
 			},
 			false: () => {
@@ -71,14 +67,9 @@ return class Layout {
 			false:  () => this.main.setStyle('show-comments', `.watchpage #watch-discussion { display: none !important; }`),
 		});
 		options.player.children.seamlessFullscreen.children.showOnMouseRight.when({
-			true:  () => this.main.addDomListener   (window, 'mousemove', this.seamlessFullscreenOnMousemove),
-			false: () => this.main.removeDomListener(window, 'mousemove', this.seamlessFullscreenOnMousemove),
+			true:  () => this.main.addDomListener   (window, 'mousemove', this.fullscreenOnMousemove),
+			false: () => this.main.removeDomListener(window, 'mousemove', this.fullscreenOnMousemove),
 		});
-		options.player.children.zoomFactor.when({
-			true:  () => this.main.addDomListener   (window, 'wheel', this.videoZoomOnWheel),
-			false: () => this.main.removeDomListener(window, 'wheel', this.videoZoomOnWheel),
-		});
-		this.enableVideoAutoZoom();
 	}
 
 	navigated() {
@@ -139,17 +130,21 @@ return class Layout {
 		(function loop() {
 			if (!original) { return; }
 			index = index % 3 + 1;
-			background
-			? image.style.backgroundImage = `url("https://i.ytimg.com/vi/${ videoId }/${ index }.jpg")`
-			: image.src = `https://i.ytimg.com/vi/${ videoId }/${ index }.jpg`;
+			if (background) {
+				image.style.backgroundImage = `url("https://i.ytimg.com/vi/${ videoId }/${ index }.jpg")`;
+			} else {
+				image.classList.add('loading');
+				image.addEventListener('load', () => image.classList.remove('loading'), { once: true, });
+				image.src = `https://i.ytimg.com/vi/${ videoId }/${ index }.jpg`;
+			}
 			setTimeout(loop, 1000);
 		})();
 
-		once(target, 'mouseout', event => {
+		target.addEventListener('mouseout', event => {
 			background ? image.style.backgroundImage = original : image.src = original;
 			image.classList.remove('animated-thumb');
 			original = null;
-		});
+		}, { once: true, });
 	}
 
 	fullscreenOnWheel(event) {
@@ -174,90 +169,10 @@ return class Layout {
 		}
 	}
 
-	seamlessFullscreenOnMousemove(event) {
+	fullscreenOnMousemove(event) {
 		event.pageX < (this.options.player.children.seamlessFullscreen.children.showOnMouseRight.value || 0)
 		&& document.documentElement.classList.contains('watchpage')
 		&& document.documentElement.classList.add('fullscreen');
-	}
-
-	videoZoomOnWheel(event) {
-		if (
-			!event.ctrlKey || !event.deltaY
-			|| !event.target.matches('.html5-video-player, .html5-video-player *, #external_player')
-		) { return; }
-		event.preventDefault();
-		const factor = 1 + this.options.player.children.zoomFactor.value / 100;
-		const divisor = 1 / factor;
-		const rect = getParent(event.target, '.html5-video-player, #external_player').getBoundingClientRect();
-		const scale = event.deltaY < 0 ? (this.scale * factor) : (this.scale / factor);
-		this.setZoom(
-			(scale < factor && scale > 1 / factor) || (scale > factor && scale < 1 / factor) ? 1 : scale,
-			((event.clientX - rect.left) / rect.width) * (1 - divisor) + this.scaleX * divisor,
-			((event.clientY - rect.top) / rect.height) * (1 - divisor) + this.scaleY * divisor
-		);
-	}
-
-	enableVideoAutoZoom() {
-		const canvas = this.canvas = document.createElement('canvas');
-		const ignore = 0.2;
-		const probes = [ 0.05, 0.5, 0.95, ];
-		this.main.actions.setAction('videoAutoZoom', () => {
-			const tol = 20;
-			const video = this.main.player.video;
-			const ctx = canvas.getContext('2d');
-			const width = canvas.width = video.videoWidth * (1 - ignore * 2) << 0;
-			const height = canvas.height = video.videoHeight;
-			ctx.drawImage(
-				video,
-				ignore, 0, width, height,
-				0, 0, width, height
-			);
-
-			const tRow = ctx.getImageData(0, 2, width, 1).data;
-			const bRow = ctx.getImageData(0, height - 3, width, 1).data;
-			let c0 = 0, c1 = 0, c2 = 0, c3 = 0;
-			for (let x = 0, w4 = width * 4; x < w4; x += 4) {
-				c0 += tRow[x + 0] + bRow[x + 0];
-				c1 += tRow[x + 1] + bRow[x + 1];
-				c2 += tRow[x + 2] + bRow[x + 2];
-				c3 += tRow[x + 3] + bRow[x + 3];
-			}
-			c0 = c0 / width / 2 << 0; c1 = c1 / width / 2 << 0; c2 = c2 / width / 2 << 0; c3 = c3 / width / 2 << 0;
-			const cu0 = c0 + tol, cu1 = c1 + tol, cu2 = c2 + tol, cu3 = c3 + tol;
-			const cl0 = c0 - tol, cl1 = c1 - tol, cl2 = c2 - tol, cl3 = c3 - tol;
-
-			const margins = probes.map(probe => {
-				const data = ctx.getImageData(width * probe << 0, 0, 1, height).data;
-				const uBound = data.length / 3 << 0, lBound = data.length / 3 * 2 << 0;
-				let upper = 0, lower = data.length;
-				while (
-					upper < uBound
-					&& cu0 >= data[upper + 0] && cu1 >= data[upper + 1] && cu2 >= data[upper + 2] && cu3 >= data[upper + 3]
-					&& cl0 <= data[upper + 0] && cl1 <= data[upper + 1] && cl2 <= data[upper + 2] && cl3 <= data[upper + 3]
-				) { upper += 4; }
-				while (
-					lower > lBound
-					&& cu0 >= data[lower - 4] && cu1 >= data[lower - 3] && cu2 >= data[lower - 2] && cu3 >= data[lower - 1]
-					&& cl0 <= data[lower - 4] && cl1 <= data[lower - 3] && cl2 <= data[lower - 2] && cl3 <= data[lower - 1]
-				) { lower -= 4; }
-				return { top: upper / 4, bottom: (data.length - lower) / 4, };
-			});
-
-			let { top, bottom, } = margins.reduce((a, b) => ({ top: a.top < b.top ? a.top : b.top, bottom: a.bottom < b.bottom ? a.bottom : b.bottom, }));
-			top < 4 && (top = 0); bottom < 4 && (bottom = 0);
-			this.setZoom(1 / (1 - (top + bottom) / height), 0.5, (top - bottom) / 2 / height + 0.5);
-		});
-	}
-
-	setZoom(scale = 1, x = 0.5, y = 0.5) {
-		this.scale = scale; this.scaleX = x; this.scaleY = y;
-		this.zoom.textContent = (`
-			.html5-video-player video
-			{
-				transform: scale(${ this.scale.toFixed(6) }) !important;
-				transform-origin: ${ (this.scaleX * 100).toFixed(6) }% ${ (this.scaleY * 100).toFixed(6) }% !important;
-			}
-		`);
 	}
 };
 

@@ -3,7 +3,7 @@
 	'node_modules/es6lib/network': { HttpRequest, },
 	'node_modules/es6lib/string': { hhMmSsToSeconds, secondsToHhMmSs, QueryObject, },
 }) => {
-
+/* global window, document, location, prompt, */
 
 const actions = {
 	videoIncreaseQuality({ player, }) {
@@ -177,13 +177,13 @@ return class Actions {
 
 	_optionsLoaded() {
 		this.options = this.main.options;
-		this.options.keys.children.forEach(command => command.whenChange((_, { current, }, old) => {
+		this.options.keys.children.forEach(command => command.whenChange((now, old) => {
 			if (command.name === 'openRelatedModifier') {
-				current = [1,2,3,4,5,6,7,8,9,0,].map(i => _ +'Digit'+ i);
-				old = old && [1,2,3,4,5,6,7,8,9,0,].map(i => old[0] +'Digit'+ i);
+				now = [1,2,3,4,5,6,7,8,9,0,].map(i => now[0] +'Digit'+ i);
+				old = [1,2,3,4,5,6,7,8,9,0,].map(i => old[0] +'Digit'+ i);
 			}
-			old && old.forEach(this.keyMap.delete.bind(this.keyMap));
-			current.forEach(key => this.keyMap.set(key, command.name));
+			old.forEach(key => this.keyMap.delete(key));
+			now.forEach(key => this.keyMap.set(key, command.name));
 		}));
 	}
 

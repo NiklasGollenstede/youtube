@@ -38,17 +38,13 @@ const commands = {
 
 const loadNextTab = !gecko ? () => void 0 : debounce(async () => {
 	let tab = playlist.get() || playlist[playlist.length - 1]; if (!tab) { return; } tab = (await tab.tab());
-	const tabs = (await Tabs.query({ url: [ 'https://www.youtube.com/watch?*', 'https://gaming.youtube.com/*', ], }))
-	.filter(({ id, }) => !Tab.instances.has(id))
-	.sort((a, b) => Math.abs(a.index - tab.index) + (a.windowId === tab.windowId) * 1024 - Math.abs(b.index - tab.index) + (b.windowId === tab.windowId) * 1024)
-	.slice(0, 5);
-	for (const tab of tabs) { try {
-		(await Tabs.executeScript(tab.id, { code: 'true', }));
-		continue;
-	} catch (_) { try {
-		(await Tabs.reload(tab.id));
-		break;
-	} catch (_) { } } }
+	const tabs = (await Tabs.query({ url: [ 'https://www.youtube.com/watch?*', 'https://gaming.youtube.com/*', ], windowId: tab.windowId, }))
+	.filter(({ id, }) => !Tab.instances.has(id));
+	for (let i = 0; i < 5; i++) {
+		const tab = tabs[Math.random() * tabs.length |0];
+		if ((await Tabs.executeScript(tab.id, { code: 'true', }).catch(() => false))) { continue; }
+		if ((await Tabs.reload(tab.id).then(() => true, () => false))) { return; }
+	}
 }, 3000);
 
 return commands;

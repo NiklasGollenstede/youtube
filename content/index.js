@@ -14,7 +14,8 @@
 	Passive,
 	Player,
 	Ratings,
-}) => {
+	require,
+}) => { /* global document, location, window, */
 
 /**
  * Event sequence: optionsLoaded navigated* observerCreated navigated+ <destroyed>
@@ -58,8 +59,11 @@ const Main = new Class({
 	public: (Private) => ({
 		setStyle(id, css) {
 			const self = Private(this);
-			const style = self.styles.querySelector('#'+ id)
-			|| self.styles.appendChild(createElement('style', { id, }));
+			let style = self.styles.querySelector('#'+ id);
+			if (!style) {
+				if (css == null) { return null; }
+				style = self.styles.appendChild(createElement('style', { id, }));
+			} else if (css == null) { style.remove(); return null; }
 			style.textContent = css;
 			return style;
 		},
@@ -165,6 +169,7 @@ window._main = new Main;
 
 }); })(this);
 
+/* global Element, */
 !Element.prototype.matches && (Element.prototype.matches = Element.prototype.msMatchesSelector);
 !Element.prototype.closest && (Element.prototype.closest = function getParent(selector) { 'use strict';
 	let element = this;

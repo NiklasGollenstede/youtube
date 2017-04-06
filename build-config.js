@@ -48,6 +48,7 @@ module.exports = function({ /*options, packageJson,*/ manifestJson, files, }) {
 			'.': [
 				'browser/',
 				'loader/',
+				'utils/',
 			],
 			options: {
 				'.': [ 'index.js', ],
@@ -61,12 +62,6 @@ module.exports = function({ /*options, packageJson,*/ manifestJson, files, }) {
 			},
 			update: [
 				'index.js',
-			],
-			utils: [
-				'files.js',
-				'index.js',
-				//	'inject.js',
-				'semver.js',
 			],
 		},
 		sortablejs: [
