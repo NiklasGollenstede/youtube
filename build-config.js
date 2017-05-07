@@ -10,7 +10,6 @@ module.exports = function({ /*options, packageJson,*/ manifestJson, files, }) {
 	);
 
 	manifestJson.options_ui.open_in_tab = true;
-	manifestJson.browser_action.default_popup = 'view.html#playlist';
 
 	manifestJson.commands = {
 		MediaPlayPause: {

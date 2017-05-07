@@ -1,8 +1,6 @@
 (function(global) { 'use strict'; define(async ({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
-	'node_modules/es6lib/functional': { debounce, },
 	'node_modules/es6lib/port': Port,
-	'node_modules/web-ext-utils/browser/': { Commands, Runtime, Tabs, },
-	'node_modules/web-ext-utils/browser/version': { gecko, },
+	'node_modules/web-ext-utils/browser/': { Commands, Runtime, Tabs, browserAction, manifest, },
 	'node_modules/web-ext-utils/loader/': { ContentScript, },
 	'node_modules/web-ext-utils/update/': updated,
 	'common/options': options,
@@ -14,12 +12,18 @@
 }) => {
 options.debug.value && console.info('Ran updates', updated);
 
+
+// icon
+browserAction.setIcon({ path: manifest.icons, });
+
+
 // global hotkeys
 Commands && Commands.onCommand.addListener(command => ({
 	MediaPlayPause: commands.toggle,
 	MediaNextTrack: commands.next,
 	MediaPrevTrack: commands.prev,
 }[command]()));
+
 
 // port connections
 Runtime.onConnect.addListener(port => { switch (port.name) {
@@ -30,6 +34,7 @@ Runtime.onConnect.addListener(port => { switch (port.name) {
 	default: console.error('connection with unknown name:', port.name);
 } });
 
+
 // report location changes to the content scripts
 Tabs.onUpdated.addListener((id, { url, }) => {
 	const tab = Tab.instances.get(id);
@@ -37,6 +42,7 @@ Tabs.onUpdated.addListener((id, { url, }) => {
 	tab.url = url;
 	tab.port.post('page.navigated');
 });
+
 
 // attach ContentScript
 const content = new ContentScript({
@@ -80,6 +86,8 @@ const attachedTo = (await content.applyNow());
 
 options.debug.value && console.log(`attached to ${ attachedTo.size } tabs:`, attachedTo);
 
+
+// debug stuff
 Object.assign(global, {
 	Browser: require('node_modules/web-ext-utils/browser/'),
 	db,
