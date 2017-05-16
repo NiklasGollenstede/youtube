@@ -2,14 +2,14 @@
 	'node_modules/es6lib/concurrent': { sleep, },
 	'node_modules/es6lib/network': { HttpRequest, },
 	'node_modules/web-ext-utils/browser/': { Tabs, Windows, },
-	'node_modules/web-ext-utils/browser/version': { gecko, blink, },
+	'node_modules/web-ext-utils/browser/version': { gecko, opera, },
+	'node_modules/web-ext-utils/loader/views': { getViews, },
 	commands,
 	db,
 	playlist,
 }) => {
 
-let playlists; global.require([ '/views/playlist/', ], _ => (playlists = _.instances));
-playlist.onRemove.addListener(tab => tab.playing && tab.pause() === commands.play());
+playlist.onRemove.addListener((index, tab) => tab.playing && tab.pause() === commands.play());
 
 class Tab {
 	constructor({ tab, port, }) {
@@ -31,6 +31,7 @@ class Tab {
 		port.addHandlers('db.', this.db);
 		port.ended.then(() => this.destructor());
 
+		this.playing = null;
 		this.muteCount = 0;
 		this.destructed = false;
 	}
@@ -74,7 +75,7 @@ class Tab {
 		//	} else {
 			this.db.increment(this.videoId, 'viewed', (Date.now() - this.playing.at) / 1000);
 		//	}
-		this.playing = false;
+		this.playing = null;
 	}
 	startedPlaying(time) {
 		this.playing && this.stoppedPlaying(time);
@@ -101,10 +102,7 @@ class Tab {
 		Tab.onPlay._fire(this);
 		playlist.add(this);
 		playlist.seek(this);
-		const hasPanel = playlists.some(view => !view.tabId);
-		if (blink && hasPanel) { return; } // in chrome, focusing tabs closes all panels
-		(hasPanel || !(await Windows.get((await this.tab()).windowId)).focused)
-		&& (await Tabs.update(this.id, { active: true, })); // in firefox, the window is focused even if it has a panel open
+		activateTabIfWindowIsIdle(this.tabId);
 	}
 	player_paused(time) {
 		console.log('player_paused', this.videoId, time);
@@ -150,21 +148,13 @@ class Tab {
 		console.log('focus_temporary', { index, windowId, active, pinned, });
 		if (active) { return; } // moving the tab won't do anything positive
 
-		if (gecko) { // avoid moving the tab in firefox (takes much longer and looks worse than in chrome)
-			const { focused, } = (await Windows.get(windowId));
-			if (!focused) { // the tab would be focused anyway once it starts playing, and in firefox this keeps panels open
-				return void (await Tabs.update(this.id, { active: true, }));
-			}
-			if (playlists.some(view => !view.tabId)) { // the focus is actually on the panel
-				const current = (await Tabs.query({ active: true, windowId, }));
-				(await Tabs.update(this.id, { active: true, }));
-				(await Tabs.update(current.id, { active: true, }));
-				return;
-			}
-		}
+		// avoid moving the tab if not absolutely necessary (especially in firefox it doesn't perform well)
+		if ((await activateTabIfWindowIsIdle(this.tabId, windowId))) { return; }
+		console.log('focus_temporary the long way');
 
-		(await Windows.create({ tabId: this.id, state: 'minimized', })); // move into own window ==> focuses
-		gecko && (await sleep(1)); // firefox at least up to version 51 needs these
+		// moving the tab back from a panel or pop-up window throws in FF54, opening a normal window is awfully slow (it also opens sidebars and such)
+		(await Windows.create({ tabId: this.id, state: 'minimized', /*type: 'panel',*/ })); // move into own window ==> focuses
+		gecko && (await sleep(1000)); // firefox at least up to version 51 needs these
 		(await Tabs.move(this.id, { index, windowId, })); // move back into original window
 		gecko && (await sleep(1)); // firefox at least up to version 51 needs these
 		(await Tabs.update(this.id, { active, pinned, })); // need to pin again if it was pinned
@@ -203,6 +193,22 @@ Tab.actives = new Map;
 Tab.onOpen = new Event;
 Tab.onClose = new Event;
 Tab.onPlay = new Event;
+
+async function activateTabIfWindowIsIdle(tabId, windowId) {
+	windowId == null && ({ windowId, } = (await Tabs.get(tabId)));
+
+	if ( // the window is focused and the focus is not on one if the add-ons own UI elements
+		!(await Windows.get(windowId)).focused
+		|| (gecko || opera) && getViews().some(({ type, view, }) =>
+			gecko && type === 'panel' // in firefox, panels always have focus, but the active tab can change without closing them
+			|| type === 'sidebar' && view.document.hasFocus() // sidebars are not considered part of the window for this
+		)
+	) {
+		(await Tabs.update(tabId, { active: true, }));
+		return true;
+	}
+	return false;
+}
 
 return Tab;
 

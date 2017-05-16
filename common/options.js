@@ -23,7 +23,7 @@ const model = {
 			loop: {
 				default: true,
 				restrict: { type: 'boolean', },
-				input: { type: 'bool', prefix: `<b>Loop<b>`, },
+				input: { type: 'boolean', prefix: `<b>Loop<b>`, },
 			},
 		},
 	},
@@ -37,9 +37,8 @@ const model = {
 				description: `Displays a video rating bar for every thumbnail and shows the view count and video age when the cursor hovers over the image. This needs to load a snippet of information from YouTube servers for every thumbnail and caches these to reduce the network load`,
 				default: true,
 				expanded: false,
-				input: { type: 'bool', },
+				input: { type: 'boolean', },
 				children: {
-
 					totalLifetime: {
 						title: `Cache lifetime (total)`,
 						description: `Maximum absolute lifetime of cached global video information. Set to -1 to disable caching`,
@@ -76,26 +75,23 @@ const model = {
 			},
 			animateThumbs: {
 				title: `Animate thumbnails`,
-				description: `Let thumbnails loop through video preview images when hovered`,
 				default: true,
-				input: { type: 'bool', },
+				input: { type: 'boolean', suffix: `Let thumbnails loop through video preview images when hovered`, },
 			},
 			autoExpandLists: {
 				title: `Automatically expand lists`,
-				description: `Automatically click the "Show/Load more"-button when scrolling to the end of a list`,
 				default: true,
-				input: { type: 'bool', },
+				input: { type: 'boolean', suffix: `Automatically click the "Show/Load more"-button when scrolling to the end of a list`, },
 			},
 			comments: {
 				title: `Show comments`,
 				default: true,
-				input: { type: 'bool', },
+				input: { type: 'boolean', },
 			},
 			hideRecommended: {
 				title: `Hide "Recommended" videos`,
-				description: `Removes any videos that are "<i>Recommended</i> for you" from the list of <i>related</i> videos`,
 				default: true,
-				input: { type: 'bool', },
+				input: { type: 'boolean', suffix: `Remove any videos that are "<i>Recommended</i> for you" from the list of <i>related</i> videos`, },
 			},
 			player: {
 				title: `Player preferences`,
@@ -129,13 +125,13 @@ const model = {
 					annotations: {
 						title: `Display annotations`,
 						default: false,
-						input: { type: 'bool', },
+						input: { type: 'boolean', },
 					},
 					alwaysVolume: {
 						title: `Always display volume`,
 						description: `The volume bar won't disappear`,
 						default: true,
-						input: { type: 'bool', },
+						input: { type: 'boolean', },
 					},
 					onStart: {
 						title: `Video start setting`,
@@ -153,7 +149,7 @@ const model = {
 								title: `Stop`,
 								description: `Stop the video instead of pausing. This prevents buffering`,
 								default: false,
-								input: { type: 'bool', },
+								input: { type: 'boolean', },
 							},
 						},
 					},
@@ -161,20 +157,20 @@ const model = {
 						title: `Use Cinema Mode`,
 						description: `Makes seek bar a bit wider`,
 						default: false,
-						input: { type: 'bool', },
+						input: { type: 'boolean', },
 					},
 					seamlessFullscreen: {
 						title: `Enable seamless full screen`,
 						description: `Hides the sidebar to display the video player across the entire browser window`,
 						default: true,
 						expanded: false,
-						input: { type: 'bool', },
+						input: { type: 'boolean', },
 						children: {
 							atStart: {
 								title: `Load in full screen mode`,
 								description: `Full screen mode is enabled by default`,
 								default: false,
-								input: { type: 'bool', },
+								input: { type: 'boolean', },
 							},
 							showOnMouseRight: {
 								title: `Right edge motion`,
@@ -187,13 +183,13 @@ const model = {
 								title: `Scroll to top`,
 								description: `Enables full screen mode when scrolling to the very top of the page`,
 								default: true,
-								input: { type: 'bool', },
+								input: { type: 'boolean', },
 							},
 							hideOnScrollDown: {
 								title: `Scroll down`,
 								description: `Disables full screen when scrolling downwards`,
 								default: true,
-								input: { type: 'bool', },
+								input: { type: 'boolean', },
 							},
 						},
 					},
@@ -201,7 +197,7 @@ const model = {
 						title: `Bypass age restriction`,
 						description: `Tries to load age restricted videos without the need to sign in to YouTube`,
 						default: true,
-						input: { type: 'bool', },
+						input: { type: 'boolean', },
 					},
 				},
 			},
@@ -368,7 +364,7 @@ const model = {
 	incognito: {
 		title: 'Private Mode',
 		default: !gecko, hidden: !gecko, // this is only relevant in Firefox, Chrome has a separate check box for this
-		input: { type: 'bool', suffix: `include Private Browsing windows`, },
+		input: { type: 'boolean', suffix: `include Private Browsing windows`, },
 	},
 	storage: {
 		title: `Storage options`,

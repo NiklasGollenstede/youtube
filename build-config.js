@@ -57,6 +57,7 @@ module.exports = function({ /*options, packageJson,*/ manifestJson, files, }) {
 					'dark.css',
 					'index.js',
 					'index.css',
+					'inline.js',
 				],
 			},
 			update: [

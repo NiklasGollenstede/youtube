@@ -1,16 +1,16 @@
 (function(global) { 'use strict'; define(({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
 	'node_modules/es6lib/dom': { loadFile, saveAs, readBlob, writeToClipboard, },
-	'node_modules/web-ext-utils/browser/': { extension, },
-	'node_modules/web-ext-utils/browser/version': { blink, current: currentBrowser, version: browserVersion, },
-	'node_modules/web-ext-utils/options/editor/': Editor,
-	'node_modules/web-ext-utils/options/editor/about': aboutSection,
+	'node_modules/web-ext-utils/browser/version': { blink, },
+	'node_modules/web-ext-utils/options/editor/inline': OptionsPage,
 	'node_modules/web-ext-utils/utils/': { reportError, reportSuccess, },
 	'common/options': options,
+	'background/db': db,
 	require,
-}) => {
+}) => window => {
 
-(window.browser || window.chrome).tabs.getCurrent(tab => tab && (window.tabId = tab.id));
-const { db, } = extension.getBackgroundPage() || { };
+window.document.head.insertAdjacentHTML('beforeend', `<link href="/node_modules/web-ext-utils/options/editor/dark.css" rel="stylesheet">`);
+
+OptionsPage({ onCommand, document: window.document, });
 
 async function onCommand({ name, parent, }, buttonId) { try {
 	if (!db && parent.name === 'storage') { throw new Error(`Database is not available, please make sure to open the settings in a not-private window!`); }
@@ -26,11 +26,10 @@ async function onCommand({ name, parent, }, buttonId) { try {
 			}
 			const json = JSON.stringify(infos, null, '\t');
 			if (buttonId.endsWith('-file')) {
-				saveAs(new Blob([ json, ], { type: 'application/json', }), 'data.json');
-			} else { // prompt has a limited output length in chromium
+				saveAs.call(window, new window.Blob([ json, ], { type: 'application/json', }), 'data.json');
+			} else {
 				(await writeToClipboard({ 'application/json': json, 'text/plain': json, }));
 				reportSuccess('Copied', 'The JSON data has been put into your clipboard');
-				// prompt('Please copy the JSON from the field below', json);
 			}
 		} break;
 		case 'import': {
@@ -40,7 +39,7 @@ async function onCommand({ name, parent, }, buttonId) { try {
 				if (!file) { console.log('empty selection'); return; }
 				string = (await readBlob(file));
 			} else {
-				string = prompt('Please paste your JSON data below', '');
+				string = window.prompt('Please paste your JSON data below', '');
 			}
 			if (!string) { return; }
 			let infos; try { infos = JSON.parse(string); } catch (error) { throw new Error('Failed to parse JSON: '+ error.message); }
@@ -63,7 +62,7 @@ async function onCommand({ name, parent, }, buttonId) { try {
 
 			const round = (await require.async('node_modules/es6lib/string')).numberToRoundString;
 
-			alert(`
+			window.alert(`
 				Total #: ${ ids.length }
 				Data size: ~${ round(json.length) }B
 				Thumbs #: ${ thumbs.length }
@@ -71,16 +70,18 @@ async function onCommand({ name, parent, }, buttonId) { try {
 			`.split(/^/gm).map(_=>_.trim()).join('\n'));
 		} break;
 		case 'clear': {
-			if (prompt('If you really mean to delete all your user data type "yes" below') !== 'yes') { return void reportSuccess('Canceled', 'Nothing was deleted'); }
+			if (window.prompt('If you really mean to delete all your user data type "yes" below') !== 'yes') {
+				return void reportSuccess('Canceled', 'Nothing was deleted');
+			}
 			(await db.clear());
 			if ((await db.ids()).length === 0) {
 				reportSuccess('Data cleared', `It's all gone ...`);
 			} else {
-				throw new TypeError(`Failed to delete all data`);
+				throw new Error(`Failed to delete all data`);
 			}
 		} break;
 		case 'reset': {
-			if (!confirm('Are you sure that you want to reset all options to their default values?')) { return; }
+			if (!window.confirm('Are you sure that you want to reset all options to their default values?')) { return; }
 			options.resetAll();
 		} break;
 
@@ -88,28 +89,6 @@ async function onCommand({ name, parent, }, buttonId) { try {
 			throw new Error('Unhandled command "'+ name +'"');
 		}
 	}
-} catch (error) { reportError(error); console.error(error); } }
-
-new Editor({
-	options,
-	host: document.querySelector('#options'),
-	onCommand,
-});
-
-const manifest = (global.browser || global.chrome).runtime.getManifest();
-
-global.document.title = 'Options - '+ manifest.name;
-
-aboutSection({
-	manifest,
-	host: document.querySelector('#about'),
-	browser: { name: currentBrowser.replace(/^./, c => c.toUpperCase()), version: browserVersion, },
-});
-
-Object.assign(global, {
-	options,
-	onCommand,
-	manifest,
-});
+} catch (error) { reportError(error); } }
 
 }); })(this);

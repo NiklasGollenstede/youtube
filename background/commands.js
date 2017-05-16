@@ -22,11 +22,13 @@ const commands = {
 		tab && !tab.playing ? commands.play() : commands.pause();
 	},
 	next(play = playlist.is(_=>_.playing)) {
+		playlist.is(tab => tab.pause());
 		const next = playlist.next();
 		play && next ? commands.play() : commands.pause();
 		next && playlist.index === playlist.length - 1 && loadNextTab();
 	},
 	prev(play = playlist.is(_=>_.playing)) {
+		playlist.is(tab => tab.pause());
 		const prev = playlist.prev();
 		play && prev ? commands.play() : commands.pause();
 	},

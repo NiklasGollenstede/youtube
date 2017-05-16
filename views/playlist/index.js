@@ -10,18 +10,19 @@
 	'background/tab': { actives: players, onOpen, onClose, onPlay, },
 	'common/context-menu': ContextMenu,
 	'common/options': options,
-	'./body.html': Body,
+	'fetch!./body.html': Body,
 	require,
 }) => {
 
 async function View(window) {
+
 	const { document, } = window;
 	const off = { owner: window, };
 
 	View.instances.push(window);
 	window.addEventListener('unload', () => View.instances.splice(View.instances.indexOf(window), 1));
 
-	document.title = manifest.name +' - Playlist';
+	document.title = 'Playlist - '+ manifest.name;
 
 	const theme = document.head.appendChild(createElement('link', { rel: 'stylesheet', }));
 	options.playlist.children.theme.whenChange(value => (theme.href = require.toUrl(`./theme/${ value }.css`)), off);
