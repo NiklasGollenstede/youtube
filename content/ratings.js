@@ -1,10 +1,8 @@
 (function(global) { 'use strict'; define(({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
-	'node_modules/es6lib/network': { HttpRequest, },
-	'node_modules/es6lib/string': { decodeHtml, },
 	'node_modules/web-ext-utils/browser/version': { gecko, edgeHTML, },
 	utils: { getVideoIdFromImageSrc, },
 	Templates,
-}) => {
+}) => { /* global window, document, MutationObserver, */
 
 const CSS = {
 	static: () => (`/* template strings confuse the syntax highlighting in Chrome and Firefox */
@@ -15,7 +13,7 @@ const CSS = {
 		.videowall-endscreen .inserted-ratings
 		{ bottom: 0 !important; position: absolute !important; width: 100% !important; }
 	`),
-	barHeight: barHeight => ((barHeight /= window.devicePixelRatio), `
+	barHeight: barHeight => ((barHeight /= global.devicePixelRatio), `
 		.video-time /* make room for ratings bar */
 		{ margin-bottom: `+( barHeight )+`px !important; }
 		.inserted-ratings>*
@@ -34,24 +32,6 @@ const CSS = {
 		{ background-color: `+( dislikesColor )+` !important; }
 	`),
 };
-
-const getInt = (string, regexp) => parseInt((string.match(regexp) || [0,'0',])[1].replace(/[\,\.]*/g, ''), 10);
-const getString = (string, regexp) => decodeHtml((string.match(regexp) || [0,'',])[1]);
-const getTime = (string, regexp) => +new Date((string.match(regexp) || [0,'',])[1]);
-
-const loadRatingFromServer = id => HttpRequest('https://www.youtube.com/watch?v='+ id).then(({ response, }) => ({
-	id,
-	rating: {
-		timestamp: +Date.now(),
-		likes:     getInt(response,                (/like-button-renderer-like-button[^\w-].*?>([\d\.\,]+)<\//)),
-		dislikes:  getInt(response,             (/like-button-renderer-dislike-button[^\w-].*?>([\d\.\,]+)<\//)),
-		views:     getInt(response, (/<meta[^\/>]*?itemprop="interactionCount"[^\/>]*?content="([\d\.\,]+)">/)),
-	},
-	meta: {
-		title: getString(response, (/<meta[^\/>]*?name="title"[^\/>]*?content="([^"]*?)">/)),
-		published: getTime(response, (/<meta[^\/>]*?itemprop="datePublished"[^\/>]*?content="([^"]*?)">/)),
-	},
-}));
 
 return class Ratings {
 	constructor(main) {
@@ -73,9 +53,6 @@ return class Ratings {
 			[ 'barHeight', 'likesColor', 'dislikesColor', ].forEach(
 				option => ratingOptions[option].whenChange(value => main.setStyle('ratings-'+ option, CSS[option](value)))
 			);
-			[ 'totalLifetime', 'relativeLifetime', ].forEach(
-				option => ratingOptions[option].whenChange(value => (this[option] = value))
-			);
 			main.options.displayRatings.when({
 				true: this.enable,
 				false: this.disable,
@@ -89,40 +66,21 @@ return class Ratings {
 		const id = getVideoIdFromImageSrc(element);
 		if (!id || element.dataset.rating) { return; }
 		element.dataset.rating = true;
-		const { port, } = this.main;
 		try {
-			if (this.totalLifetime < 0) {
-				return void this.attatchRatingBar(element, (await loadRatingFromServer(id)));
-			}
-			const stored = (await port.request('db.get', id, [ 'meta', 'rating', 'viewed', ]));
-			const now = Date.now(); let age;
-			if (
-				stored.meta && stored.rating
-				&& (age = now - stored.rating.timestamp) < this.totalLifetime * 36e5
-				&& age < (now - stored.meta.published) * (this.relativeLifetime / 100)
-			) {
-				return void this.attatchRatingBar(element, stored);
-			}
-			const loaded = (await loadRatingFromServer(id));
-			this.attatchRatingBar(element, Object.assign(stored, loaded));
-			!loaded.meta.title && (delete loaded.meta.title); !loaded.meta.published && (delete loaded.meta.published);
-			(await Promise.all([
-				port.request('db.set', id, { rating: loaded.rating, }),
-				port.request('db.assign', id, 'meta', loaded.meta),
-			]));
+			this.attatchRatingBar(element, (await this.main.port.request('VideoInfo.subscribe', id, data => console.warn('got update', id, data))));
 		} catch (error) {
 			console.error(error);
 			delete element.dataset.rating;
 		}
 	}
 
-	attatchRatingBar(image, { rating: { likes, dislikes, views, }, meta: { published, duration, }, viewed, })  {
+	attatchRatingBar(image, { rating, views, published, duration, viewed, })  {
 		const container = image.closest(this.barParentSelector) || image.parentNode;
 		// element.matches('ytg-thumbnail') && (element = element.parentNode.parentNode.parentNode);
-		container.insertAdjacentHTML('beforeend', Templates.ratingsBar(likes, dislikes));
+		container.insertAdjacentHTML('beforeend', Templates.ratingsBar(rating));
 		const tooltiped = (image.closest(this.tooltipSelector) || image.parentNode);
 		tooltiped.classList.add('yt-uix-tooltip');
-		tooltiped.title = Templates.videoInfoTitle(likes, dislikes, views, published, viewed, duration);
+		tooltiped.title = Templates.videoInfoTitle(rating, views, published, viewed, duration);
 	}
 
 	enable() {

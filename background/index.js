@@ -1,11 +1,14 @@
 (function(global) { 'use strict'; define(async ({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
 	'node_modules/es6lib/port': Port,
 	'node_modules/web-ext-utils/browser/': { Commands, Runtime, Tabs, browserAction, manifest, },
+	'node_modules/web-ext-utils/browser/version': { fennec, },
 	'node_modules/web-ext-utils/loader/': { ContentScript, },
+	'node_modules/web-ext-utils/loader/views': { getUrl, openView, },
 	'node_modules/web-ext-utils/update/': updated,
 	'common/options': options,
 	commands,
 	db,
+	Downloader,
 	Tab,
 	playlist,
 	require,
@@ -13,9 +16,10 @@
 options.debug.value && console.info('Ran updates', updated);
 
 
-// icon
+// browser_action (could not be set in manifest due to fennec incompatibility)
 browserAction.setIcon({ path: manifest.icons, });
-
+browserAction.setPopup({ popup: getUrl({ name: 'panel', }), });
+fennec && browserAction.onClicked.addListener(() => openView('panel'));
 
 // global hotkeys
 Commands && Commands.onCommand.addListener(command => ({
@@ -79,7 +83,7 @@ const content = new ContentScript({
 		'content/index',
 	],
 });
-options.incognito.whenChange(value => {
+options.incognito.whenChange(([ value, ]) => {
 	content.incognito = value;
 });
 const attachedTo = (await content.applyNow());
@@ -94,6 +98,7 @@ Object.assign(global, {
 	playlist,
 	commands,
 	content,
+	Downloader,
 });
 
 return {

@@ -105,21 +105,22 @@ const Templates = ({
 		)
 	),
 
-	ratingsBar: (likes, dislikes, total = ((likes + dislikes) || 1)) => (stringToHtml`
+	ratingsBar: rating => (stringToHtml`
 <div class="video-extras-sparkbarks inserted-ratings">
 	<div class="video-extras-sparkbar-likes" style="
-		width: ${ ((100 * likes) / total) }%
+		width: ${ (rating * 100).toFixed(4) }%
 	"></div>
 	<div class="video-extras-sparkbar-dislikes" style="
-		width: ${ ((100 * dislikes) / total) }%
+		width: ${ ((1 - rating) * 100).toFixed(4) }%
 	"></div>
 </div>`
 	),
 
-	videoInfoTitle: (likes, dislikes, views, published, viewed, duration) => (
+	videoInfoTitle: (rating, views, published, viewed, duration) => (
 		  numberToRoundString(views, 2) +': '
-		+ likes.toLocaleString() +' \uD83D\uDC4D, '
-		+ dislikes.toLocaleString() +' \uD83D\uDC4E '
+		// + likes.toLocaleString() +' \uD83D\uDC4D, '
+		// + dislikes.toLocaleString() +' \uD83D\uDC4E '
+		+ (rating * 100).toFixed(0) +'%\uD83D\uDC4D '
 		+ (published ? '['+ timeToRoundString(Date.now() - published, 1.7) +' \uD83D\uDD52] ' : '')
 		+ (viewed ? (duration ? (viewed / duration).toFixed(1).replace('.0', '') +' \u21bb ' : timeToRoundString(viewed * 1000, 1.7) +' ') : '')
 	),

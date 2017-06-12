@@ -1,11 +1,13 @@
 (function(global) { 'use strict'; define(({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
 	'node_modules/es6lib/concurrent': { sleep, },
+	'node_modules/es6lib/object': { MultiMap, },
 	'node_modules/es6lib/network': { HttpRequest, },
 	'node_modules/web-ext-utils/browser/': { Tabs, Windows, },
-	'node_modules/web-ext-utils/browser/version': { gecko, opera, },
+	'node_modules/web-ext-utils/browser/version': { gecko, fennec, opera, },
 	'node_modules/web-ext-utils/loader/views': { getViews, },
 	commands,
 	db,
+	VideoInfo,
 	playlist,
 }) => {
 
@@ -29,6 +31,20 @@ class Tab {
 		this.port = port;
 		port.addHandlers('tab.', Tab.remoteMethods, this);
 		port.addHandlers('db.', this.db);
+		{ // VideoInfo
+			const listeners = new MultiMap;
+			port.ended.then(() => listeners.forEach((listeners, id) => listeners.forEach(listener => VideoInfo.unsubscribe(id, listener))));
+			port.addHandlers('VideoInfo.', {
+				subscribe(id, listener, filter) {
+					listeners.add(id, listener);
+					return VideoInfo.subscribe(id, listener, filter);
+				},
+				unsubscribe(id, listener) {
+					listeners.delete(id, listener);
+					return VideoInfo.unsubscribe(id, listener);
+				},
+			});
+		}
 		port.ended.then(() => this.destructor());
 
 		this.playing = null;
@@ -135,13 +151,13 @@ class Tab {
 		console.log('mute_start', this.id);
 		this.muteCount++;
 		if (this.muteCount !== 1) { return; }
-		return void (await Tabs.update(+this.id, { muted: true, }));
+		return void (await !fennec && Tabs.update(+this.id, { muted: true, }));
 	}
 	async mute_stop() {
 		console.log('mute_stop', this.id);
 		if (this.muteCount > 0) { this.muteCount--; }
 		if (this.muteCount > 0) { return; }
-		return void (await Tabs.update(+this.id, { muted: false, }));
+		return void (await !fennec && Tabs.update(+this.id, { muted: false, }));
 	}
 	async focus_temporary() {
 		const { index, windowId, active, pinned, } = (await this.tab());
@@ -198,7 +214,8 @@ async function activateTabIfWindowIsIdle(tabId, windowId) {
 	windowId == null && ({ windowId, } = (await Tabs.get(tabId)));
 
 	if ( // the window is focused and the focus is not on one if the add-ons own UI elements
-		!(await Windows.get(windowId)).focused
+		fennec // no windows at all
+		|| !(await Windows.get(windowId)).focused
 		|| (gecko || opera) && getViews().some(({ type, view, }) =>
 			gecko && type === 'panel' // in firefox, panels always have focus, but the active tab can change without closing them
 			|| type === 'sidebar' && view.document.hasFocus() // sidebars are not considered part of the window for this

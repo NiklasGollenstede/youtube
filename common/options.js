@@ -363,8 +363,9 @@ const model = {
 	},
 	incognito: {
 		title: 'Private Mode',
-		default: !gecko, hidden: !gecko, // this is only relevant in Firefox, Chrome has a separate check box for this
-		input: { type: 'boolean', suffix: `include Private Browsing windows`, },
+		description: `Warning: When active, this will <b>record data</b> from YouTube tabs opened in <b>Private Browsing</b> windows on your computers disk!`,
+		default: !gecko, /*hidden: !gecko,*/ // this is only relevant in Firefox, Chrome has a separate check box for this
+		input: { type: 'boolean', suffix: `include tabs in Private Browsing windows`, },
 	},
 	storage: {
 		title: `Storage options`,

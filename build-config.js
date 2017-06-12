@@ -6,7 +6,8 @@ module.exports = function({ /*options, packageJson,*/ manifestJson, files, }) {
 		'notifications',
 		'tabs',
 		'webNavigation',
-		'https://www.youtube.com/*', 'https://gaming.youtube.com/*', 'https://i.ytimg.com/*'
+		'https://www.youtube.com/*', 'https://gaming.youtube.com/*',
+		'https://i.ytimg.com/*', 'https://*.googlevideo.com/*'
 	);
 
 	manifestJson.options_ui.open_in_tab = true;

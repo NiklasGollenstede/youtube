@@ -11,18 +11,22 @@
 	},
 	"contributions": [
 		{
-			"what": { "name": "Sortable", "url": "https://rubaxa.github.io/Sortable/" },
+			"what": {
+				"name": "Sortable",
+				"url": "https://rubaxa.github.io/Sortable/"
+			},
 			"who": "Lebedev Konstantin",
 			"license": "MIT"
 		}
 	],
-
 	"dependencies": {
-		"sortablejs": "rubaxa/Sortable#1.4.2",
-		"es6lib": "NiklasGollenstede/es6lib#8a2f99c",
+		"browserify": "14.4.0",
+		"es6lib": "NiklasGollenstede/es6lib#9f38a84",
 		"regexpx": "NiklasGollenstede/regexpx#eebed29",
-		"web-ext-utils": "NiklasGollenstede/web-ext-utils#afd191c",
-		"web-ext-build": "NiklasGollenstede/web-ext-build#52daebd"
+		"sortablejs": "rubaxa/Sortable#1.4.2",
+		"web-ext-build": "NiklasGollenstede/web-ext-build#52daebd",
+		"web-ext-utils": "NiklasGollenstede/web-ext-utils#177b17d",
+		"ytdl-core": "0.14.4"
 	},
 	"devDependencies": {
 		"babel-eslint": "7.1.1",
@@ -30,8 +34,9 @@
 		"eslintrc": "NiklasGollenstede/eslintrc"
 	},
 	"scripts": {
-		"postinstall": "npm start",
+		"postinstall": "npm run build-ytdl && npm start",
 		"start": "web-ext-build",
+		"build-ytdl": "browserify node_modules/ytdl-core/lib/index.js -o background/lib/ytdl.js -s ytdl",
 		"lint": "eslint --ignore-path .gitignore ."
 	},
 	"eslintConfig": {
