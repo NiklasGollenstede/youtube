@@ -1,13 +1,11 @@
 (function(global) { 'use strict'; define(({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
 	'node_modules/es6lib/concurrent': { sleep, },
-	'node_modules/es6lib/object': { MultiMap, },
 	'node_modules/es6lib/network': { HttpRequest, },
 	'node_modules/web-ext-utils/browser/': { Tabs, Windows, },
 	'node_modules/web-ext-utils/browser/version': { gecko, fennec, opera, },
 	'node_modules/web-ext-utils/loader/views': { getViews, },
 	commands,
 	db,
-	VideoInfo,
 	playlist,
 }) => {
 
@@ -31,20 +29,6 @@ class Tab {
 		this.port = port;
 		port.addHandlers('tab.', Tab.remoteMethods, this);
 		port.addHandlers('db.', this.db);
-		{ // VideoInfo
-			const listeners = new MultiMap;
-			port.ended.then(() => listeners.forEach((listeners, id) => listeners.forEach(listener => VideoInfo.unsubscribe(id, listener))));
-			port.addHandlers('VideoInfo.', {
-				subscribe(id, listener, filter) {
-					listeners.add(id, listener);
-					return VideoInfo.subscribe(id, listener, filter);
-				},
-				unsubscribe(id, listener) {
-					listeners.delete(id, listener);
-					return VideoInfo.unsubscribe(id, listener);
-				},
-			});
-		}
 		port.ended.then(() => this.destructor());
 
 		this.playing = null;

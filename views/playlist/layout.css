@@ -1,8 +1,8 @@
 * {
-	font-family: arial, sans-serif;
 	box-sizing: border-box;
 }
 body {
+	font-family: arial, sans-serif;
 	font-size: 14px;
 	margin: 0px;
 	padding: 0px;
@@ -137,6 +137,7 @@ body:not(.searching) #searchbox .remove {
 	margin: 3px;
 	margin-top: 6px;
 	margin-bottom: 0;
+	display: block;
 	overflow: hidden;
 	position: relative;
 	border-style: solid;

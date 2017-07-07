@@ -1,8 +1,16 @@
-(function(global) { 'use strict'; define(({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
+(function(global) { 'use strict'; define(async ({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
 	'node_modules/web-ext-utils/browser/version': { gecko, edgeHTML, },
-	utils: { getVideoIdFromImageSrc, },
+	'node_modules/web-ext-utils/loader/content': { onUnload, connect, },
+	dom,
+	observer: Inserts,
+	options,
 	Templates,
+	utils: { getVideoIdFromImageSrc, },
 }) => { /* global window, document, MutationObserver, */
+
+cleanup(); // Firefox + content unload => -.-
+const VideoInfo = (await connect('VideoInfo'));
+let Changes = null;
 
 const CSS = {
 	static: () => (`/* template strings confuse the syntax highlighting in Chrome and Firefox */
@@ -33,80 +41,75 @@ const CSS = {
 	`),
 };
 
-return class Ratings {
-	constructor(main) {
-		this.main = main;
-		this.observer = null;
-		this.selector = 'img, .ytp-videowall-still-image, div#image';
-		this.barParentSelector = '.video-thumb, .ytp-videowall-still-image';
-		this.tooltipSelector = '.yt-thumb, .yt-pl-thumb, .ytp-videowall-still';
+const selector = 'img, .ytp-videowall-still-image, div#image';
+const barParentSelector = '.video-thumb, .ytp-videowall-still-image';
+const tooltipSelector = '.yt-thumb, .yt-pl-thumb, .ytp-videowall-still';
 
-		this.enable = this.enable.bind(this);
-		this.disable = this.disable.bind(this);
-		this.loadAndDisplayRating = this.loadAndDisplayRating.bind(this);
 
-		main.once(Symbol.for('destroyed'), this.disable);
+const ratingOptions = options.displayRatings.children;
+dom.setStyle('ratings-static', CSS.static());
+[ 'barHeight', 'likesColor', 'dislikesColor', ].forEach(
+	option => ratingOptions[option].whenChange(value => dom.setStyle('ratings-'+ option, CSS[option](value)))
+);
+options.displayRatings.when({
+	true: enable,
+	false: disable,
+});
+onUnload.addListener(disable);
 
-		main.once('observerCreated', () => {
-			const ratingOptions = main.options.displayRatings.children;
-			main.setStyle('ratings-static', CSS.static());
-			[ 'barHeight', 'likesColor', 'dislikesColor', ].forEach(
-				option => ratingOptions[option].whenChange(value => main.setStyle('ratings-'+ option, CSS[option](value)))
-			);
-			main.options.displayRatings.when({
-				true: this.enable,
-				false: this.disable,
-			});
-		});
+dom.addDomListener(window, 'click', () => document.querySelectorAll('.yt-uix-tooltip-tip').forEach(item => item.remove()));
 
-		main.addDomListener(window, 'click', () => Array.prototype.forEach.call(document.querySelectorAll('.yt-uix-tooltip-tip'), item => item.remove()));
+async function loadAndDisplayRating(element) {
+	const id = getVideoIdFromImageSrc(element);
+	if (!id || element.dataset.rating) { return; }
+	element.dataset.rating = true;
+	try {
+		const callback = data => console.warn('got update', id, data);
+		VideoInfo.afterEnded('unsubscribe', id, callback);
+		attatchRatingBar(element, (await VideoInfo.request('subscribe', id, callback, [ 'rating', 'views', 'published', 'duration', 'viewed', ])));
+	} catch (error) {
+		console.error(error);
+		delete element.dataset.rating;
 	}
+}
 
-	async loadAndDisplayRating(element) {
-		const id = getVideoIdFromImageSrc(element);
-		if (!id || element.dataset.rating) { return; }
-		element.dataset.rating = true;
-		try {
-			this.attatchRatingBar(element, (await this.main.port.request('VideoInfo.subscribe', id, data => console.warn('got update', id, data))));
-		} catch (error) {
-			console.error(error);
-			delete element.dataset.rating;
-		}
-	}
+function attatchRatingBar(image, { rating, views, published, duration, viewed, })  {
+	const container = image.closest(barParentSelector) || image.parentNode;
+	// element.matches('ytg-thumbnail') && (element = element.parentNode.parentNode.parentNode);
+	container.insertAdjacentHTML('beforeend', Templates.ratingsBar(rating));
+	const tooltiped = (image.closest(tooltipSelector) || image.parentNode);
+	tooltiped.classList.add('yt-uix-tooltip');
+	tooltiped.title = Templates.videoInfoTitle(rating, views, published, viewed, duration);
+}
 
-	attatchRatingBar(image, { rating, views, published, duration, viewed, })  {
-		const container = image.closest(this.barParentSelector) || image.parentNode;
-		// element.matches('ytg-thumbnail') && (element = element.parentNode.parentNode.parentNode);
-		container.insertAdjacentHTML('beforeend', Templates.ratingsBar(rating));
-		const tooltiped = (image.closest(this.tooltipSelector) || image.parentNode);
-		tooltiped.classList.add('yt-uix-tooltip');
-		tooltiped.title = Templates.videoInfoTitle(rating, views, published, viewed, duration);
-	}
+function enable() {
+	if (Changes) { return; }
+	Inserts.all(selector.split(',').map(s => s +':not([data-rating="true"])').join(','), loadAndDisplayRating);
 
-	enable() {
-		this.main.observer.all(this.selector.split(',').map(s => s +':not([data-rating="true"])').join(','), this.loadAndDisplayRating);
+	Changes = new MutationObserver(mutations => mutations.forEach(({ target: element, }) => {
+		if (element.dataset.rating || !element.matches || !element.matches(selector)) { return; }
+		loadAndDisplayRating(element);
+	}));
+	Changes.observe(document, { subtree: true, attributes: true, attributeFilter: [ 'src', 'style', ], });
+}
 
-		const observer = this.observer = new MutationObserver(mutations => mutations.forEach(({ target: element, }) => {
-			observer.takeRecords();
-			if (element.dataset.rating || !element.matches || !element.matches(this.selector)) { return; }
-			this.loadAndDisplayRating(element);
-		}));
-		observer.observe(document, { subtree: true, attributes: true, attributeFilter: [ 'src', 'style', ], });
-	}
+function disable() {
+	if (!Changes) { return; }
+	Changes.disconnect();
+	try { Inserts.remove(selector.split(',').map(s => s +':not([data-rating="true"])').join(','), loadAndDisplayRating); } catch (_) { }
+	cleanup();
+}
 
-	disable() {
-		this.observer && this.observer.disconnect();
-		try { this.main.observer && this.main.observer.remove(this.selector.split(',').map(s => s +':not([data-rating="true"])').join(','), this.loadAndDisplayRating); } catch (_) { }
-		Array.prototype.forEach.call(document.querySelectorAll('[data-rating="true"]'), element => delete element.dataset.rating);
-		Array.prototype.forEach.call(document.querySelectorAll('.inserted-ratings'), element => {
-			const image = element.querySelector(this.selector) || element;
-			const tooltiped = image.closest(this.tooltipSelector) || image.parentNode;
-			tooltiped.classList.remove('yt-uix-tooltip');
-			tooltiped.removeAttribute('title');
-			delete tooltiped.dataset.tooltipText;
-			element.remove();
-		});
-	}
-};
+function cleanup() {
+	document.querySelectorAll('[data-rating="true"]').forEach(element => delete element.dataset.rating);
+	document.querySelectorAll('.inserted-ratings').forEach(element => {
+		const image = element.querySelector(selector) || element;
+		const tooltiped = image.closest(tooltipSelector) || image.parentNode;
+		tooltiped.classList.remove('yt-uix-tooltip');
+		tooltiped.removeAttribute('title');
+		delete tooltiped.dataset.tooltipText;
+		element.remove();
+	});
+}
 
 }); })(this);

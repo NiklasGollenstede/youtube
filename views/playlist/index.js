@@ -8,6 +8,7 @@
 	'background/db': db,
 	'background/playlist': playlist,
 	'background/tab': { actives: players, onOpen, onClose, onPlay, },
+	'background/video-info': { makeTabTileClass, },
 	'common/context-menu': ContextMenu,
 	'common/options': options,
 	'fetch!./body.html': Body,
@@ -18,12 +19,9 @@ async function View(window) {
 
 	const { document, } = window;
 	const off = { owner: window, };
-
-	View.instances.push(window);
-	window.addEventListener('unload', () => View.instances.splice(View.instances.indexOf(window), 1));
+	const TabTile = window.TabTile = makeTabTileClass(window);
 
 	document.title = 'Playlist - '+ manifest.name;
-
 	const theme = document.head.appendChild(createElement('link', { rel: 'stylesheet', }));
 	options.playlist.children.theme.whenChange(value => (theme.href = require.toUrl(`./theme/${ value }.css`)), off);
 	document.head.appendChild(createElement('link', { rel: 'stylesheet', href: require.toUrl(`./layout.css`), }));
@@ -32,27 +30,26 @@ async function View(window) {
 	document.body.lang = global.navigator.language;
 	document.body.innerHTML = Body;
 	document.body.classList = 'no-transitions loading';
+	document.body.classList.remove('loading'); // TODO: remove CSS
 	global.setTimeout(() => document.documentElement.classList.remove('no-transitions'), 200);
 
 	const windowList = document.querySelector('#windows .windows');
 	const tabList = document.querySelector('#playlist .tabs');
 	const defaultWindow = document.querySelector('#window-default');
-	const defaultTab = document.querySelector('.tab[data-tab="default"');
-	defaultWindow.remove(); defaultTab.remove();
+	defaultWindow.remove();
 
-	const tabs = (await Promise.all(Array.from(players.values(), tab => tab.tab().catch(error => (console.error(error), tab)))));
+	const tabs = Array.from(players.values());
 	const windows = { }; tabs.forEach(tab => {
 		!windows[tab.windowId] && (windows[tab.windowId] = { id: tab.windowId, tabs: [ ], });
 		windows[tab.windowId].tabs.push(tab);
 	});
 
-	document.body.classList.remove('loading');
 	Object.values(windows).forEach(window => {
 		const tabList = windowList.appendChild(updateWindow(defaultWindow.cloneNode(true), window)).querySelector('.tabs');
-		window.tabs.sort((a, b) => a.index - b.index).forEach(tab => tabList.appendChild(updateTab(defaultTab.cloneNode(true), tab)));
+		window.tabs.sort((a, b) => a.index - b.index).forEach(tab => tabList.appendChild(Object.assign(new TabTile, { className: 'tab', videoId: tab.videoId, })));
 		enableDragOut(tabList);
 	});
-	playlist.forEach(tab => tabList.appendChild(windowList.querySelector(`.tab[data-tab="${ tab.tabId }"]`).cloneNode(true)).classList.add('in-playlist'));
+	playlist.forEach(tab => tabList.appendChild(windowList.querySelector(`.tab[video-id="${ tab.videoId }"]`).cloneNode(true)).classList.add('in-playlist'));
 	enableDragIn(tabList);
 
 	playlist.onSeek.addListener(seek, off); seek(playlist.index);

@@ -1,21 +1,31 @@
 (function(global) { 'use strict'; define(async ({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
-	'node_modules/es6lib/dom': { DOMContentLoaded, createElement, },
-	'node_modules/es6lib/object': { Class, MultiMap, },
+	'node_modules/es6lib/dom': { DOMContentLoaded, },
+	'node_modules/es6lib/object': { Class, },
 	'node_modules/es6lib/observer': { InsertObserver, },
 	'node_modules/es6lib/port': Port,
 	'node_modules/es6lib/string': { QueryObject, },
 	'node_modules/web-ext-utils/browser/': { runtime, },
 	'node_modules/web-ext-utils/browser/version': { gecko, },
-	'node_modules/web-ext-utils/loader/content': { onUnload, },
+	'node_modules/web-ext-utils/loader/content': { onUnload, connect, },
 	'common/event-emitter': EventEmitter,
 	Actions,
 	Control,
 	Layout,
 	Passive,
 	Player,
-	Ratings,
 	require,
+	dom,
 }) => { /* global document, location, window, */
+
+/*(async () => {
+	const get = connect('player'); connect('player');
+	const port = (await get);
+	port.addHandler(function hello(sender) {
+		console.log('content got hello from', sender);
+	});
+	const reply = (await port.request('hello', 'content'));
+	console.log('content got reply', reply);
+})();*/
 
 /**
  * Event sequence: optionsLoaded navigated* observerCreated navigated+ <destroyed>
@@ -28,10 +38,6 @@ const Main = new Class({
 		Super.call(this);
 		const self = Private(this);
 		console.log('Main.construct', this.id = self.id = Math.random() * 0x100000000000000);
-
-		self.styles = createElement('span');
-		self.nodesCapture = new Map/*<Node, MultiMap<event, listener>*/;
-		self.nodesBubble = new Map/*<Node, MultiMap<event, listener>*/;
 
 		this.on = this.on.bind(this);
 		this.once = this.once.bind(this);
@@ -47,7 +53,6 @@ const Main = new Class({
 		Try(() => (this.actions   = new Actions(this)));
 		Try(() => (this.player    = new Player(this)));
 		Try(() => (this.layout    = new Layout(this)));
-		Try(() => (this.ratings   = new Ratings(this)));
 		Try(() => (this.passive   = new Passive(this)));
 		Try(() => (this.control   = new Control(this)));
 
@@ -56,40 +61,12 @@ const Main = new Class({
 		require.async('content/options').then(self.optionsLoaded.bind(self));
 	}),
 
-	public: (Private) => ({
-		setStyle(id, css) {
-			const self = Private(this);
-			let style = self.styles.querySelector('#'+ id);
-			if (!style) {
-				if (css == null) { return null; }
-				style = self.styles.appendChild(createElement('style', { id, }));
-			} else if (css == null) { style.remove(); return null; }
-			style.textContent = css;
-			return style;
-		},
-		addDomListener(node, type, listener, capture) {
-			const self = Private(this);
-			const nodeMap = (capture ? self.nodesCapture : self.nodesBubble);
-			let listeners = nodeMap.get(node); if (!listeners) { listeners = new MultiMap; nodeMap.set(node, listeners); }
-			listeners.add(type, listener);
-			node.addEventListener(type, listener, !!capture);
-			return listener;
-		},
-		removeDomListener(node, type, listener, capture) {
-			const self = Private(this);
-			const nodeMap = (capture ? self.nodesCapture : self.nodesBubble);
-			const listeners = nodeMap.get(node);
-			listeners && listeners.delete(type, listener);
-			node.removeEventListener(type, listener, !!capture);
-			return node;
-		},
-	}),
+	public: () => dom,
 
 	private: (Private, Protected, Public) => ({
 		loaded() {
 			const self = Public(this), _this = Protected(this);
 			this.update(self);
-			document.head.appendChild(this.styles);
 			self.observer = new InsertObserver(document);
 			_this.emitSync('observerCreated', null);
 			_this.clear('observerCreated');
@@ -105,8 +82,7 @@ const Main = new Class({
 
 		optionsLoaded(options) {
 			const self = Public(this), _this = Protected(this);
-			this.optionsRoot = options;
-			self.options = options.children;
+			self.options = options;
 			self.redesign = !!document.querySelector('ytd-app, ytg-app');
 			self.redesign && document.documentElement.classList.add('redesign');
 			console.log('is redesign', self.redesign);
@@ -128,29 +104,15 @@ const Main = new Class({
 			console.log('Main.destroy', self.id);
 			if (this.destroyed) { return; } this.destroyed = true;
 			Protected(this).destroy(); // destroy EventEmitter, emits Symbol.for('destroyed')
-			Try(() => self.observer.removeAll());
-			Try(() => this.optionsRoot.destroy());
+			Try(() => self.observer && self.observer.removeAll());
 			Object.keys(self).forEach(key => delete self[key]);
-
-			this.styles.remove();
-
-			// remove all listeners
-			[ this.nodesCapture, this.nodesBubble, ]
-			.forEach(nodeMap => {
-				const capture = nodeMap === this.nodesCapture;
-				nodeMap.forEach((listeners, node) => {
-					listeners.forEach((range, type) => range.forEach(listener => {
-						node.removeEventListener(type, listener, capture);
-					}));
-					listeners.clear();
-				});
-				nodeMap.clear();
-			});
 
 			window._main === self && (window._main = null);
 		},
 	}),
 });
+
+global.addEventListener('unload', () => 'disable BF-cache');
 
 function Try(callback) {
 	try { callback(); }
