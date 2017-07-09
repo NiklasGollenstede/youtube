@@ -8,7 +8,6 @@
 	utils: { getVideoIdFromImageSrc, },
 }) => { /* global window, document, MutationObserver, */
 
-cleanup(); // Firefox + content unload => -.-
 const VideoInfo = (await connect('VideoInfo'));
 let Changes = null;
 
@@ -57,7 +56,7 @@ options.displayRatings.when({
 });
 onUnload.addListener(disable);
 
-dom.addDomListener(window, 'click', () => document.querySelectorAll('.yt-uix-tooltip-tip').forEach(item => item.remove()));
+dom.on(window, 'click', () => document.querySelectorAll('.yt-uix-tooltip-tip').forEach(item => item.remove()));
 
 async function loadAndDisplayRating(element) {
 	const id = getVideoIdFromImageSrc(element);
@@ -111,5 +110,6 @@ function cleanup() {
 		element.remove();
 	});
 }
+cleanup(); // Firefox + content unload => -.-
 
 }); })(this);

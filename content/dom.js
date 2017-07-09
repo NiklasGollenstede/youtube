@@ -36,14 +36,14 @@ return {
 		style.textContent = css;
 		return style;
 	},
-	addDomListener(node, type, listener, capture) {
+	on(node, type, listener, capture) {
 		const nodeMap = (capture ? nodesCapture : nodesBubble);
 		let listeners = nodeMap.get(node); if (!listeners) { listeners = new MultiMap; nodeMap.set(node, listeners); }
 		listeners.add(type, listener);
 		node.addEventListener(type, listener, !!capture);
 		return listener;
 	},
-	removeDomListener(node, type, listener, capture) {
+	off(node, type, listener, capture) {
 		const nodeMap = (capture ? nodesCapture : nodesBubble);
 		const listeners = nodeMap.get(node);
 		listeners && listeners.delete(type, listener);

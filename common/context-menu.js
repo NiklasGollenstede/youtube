@@ -1,16 +1,17 @@
 (function(global) { 'use strict'; define(({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
+	'node_modules/web-ext-utils/browser/version': { gecko, },
+	'node_modules/es6lib/dom': { createElement, },
 }) => {
 
 const events = [ 'click', 'blur', 'keydown', 'wheel', ];
-location.protocol !== 'moz-extension:' && events.push('resize'); // for some reason Firefox fires a number of resize events in panels directly after the menu is opened
+gecko && events.push('resize'); // for some reason Firefox fires a number of resize events in panels directly after the menu is opened
 
 let current = null;
 
 class ContextMenu {
-	constructor({ x, y, items, host, }) {
+	constructor({ x, y, items, host = global.document.body, }) {
 		this.host = host;
-		const root = this.root = document.createElement('div');
-		root.classList.add('menu-anchor');
+		const root = this.root = createElement('div', { className: 'menu-anchor', });
 		this.active = null;
 		root.addEventListener('mousemove', ({ target, }) => (target = target.closest && target.closest('.menu-item')) && this.setActive(target));
 		root.addEventListener('mouseleave', () => this.setActive(null));
@@ -19,13 +20,12 @@ class ContextMenu {
 	}
 
 	show(x, y) {
-		const host = (this.host || document.body), { root, } = this;
-		const window = host.ownerDocument.defaultView;
-		host.appendChild(this.root);
+		const window = this.host.ownerDocument.defaultView;
+		this.host.appendChild(this.root);
 		const width = window.innerWidth, height = window.innerHeight;
-		root.style.top  = y +'px';
-		root.style.left = x +'px';
-		Array.prototype.forEach.call(root.querySelectorAll('.submenu'), menu => {
+		this.root.style.top  = y +'px';
+		this.root.style.left = x +'px';
+		Array.prototype.forEach.call(this.root.querySelectorAll('.submenu'), menu => {
 			const rect = menu.getBoundingClientRect();
 			rect.right  > width  && menu.classList.add('to-left');
 			rect.bottom > height && menu.classList.add('to-top');
@@ -37,34 +37,24 @@ class ContextMenu {
 
 	remove() {
 		this.root.remove();
-		events.forEach(type => (this.host || document.body).ownerDocument.defaultView.removeEventListener(type, this, true));
+		const window = this.host.ownerDocument.defaultView;
+		events.forEach(type => window.removeEventListener(type, this, true));
 		current === this && (current = null);
 	}
 
 	addMenu(children, item) {
 		item.classList.add('menu-submenu');
-		const submenu = item.appendChild(document.createElement('div'));
-		submenu.className = 'submenu';
+		const submenu = item.appendChild(createElement('div', { className: 'submenu', }));
 		children.forEach(child => child && this.addItem(child, submenu));
 	}
 
 	addItem({ type, label, icon, children, value, checked, action, 'default': _default, }, parent) {
-		const item = document.createElement('div'); {
-			item.classList.add('menu-item');
-			_default && item.classList.add('default');
-		}
+		const item = createElement('div', { className: 'menu-item'+ (_default ? ' default' : ''), });
 		if (icon) {
-			typeof icon === 'string' && (icon = document.createTextNode(icon));
-			const _icon = document.createElement('div'); {
-				_icon.classList.add('icon');
-			}
-			item.appendChild(_icon).appendChild(icon);
+			item.appendChild(createElement('div', { className: 'icon', }, [ icon, ]));
 			parent.classList.add('has-icon');
 		}
-		const _label = item.appendChild(document.createElement('div')); {
-			_label.classList.add('label');
-			_label.textContent = label;
-		}
+		item.appendChild(createElement('div', { className: 'label', }, [ label, ]));
 		if (typeof checked === 'boolean') { type = 'checkbox'; }
 		switch (type) {
 			case 'menu': {
@@ -148,6 +138,6 @@ class ContextMenu {
 	}
 }
 
-return (ContextMenu.ContextMenu = ContextMenu);
+return ContextMenu;
 
 }); })(this);

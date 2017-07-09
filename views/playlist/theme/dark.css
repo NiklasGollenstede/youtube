@@ -18,24 +18,24 @@ html, body, input {
 	border-color: #555;
 	background-color: #000;
 }
-.window {
+.group {
 	background-color: #222;
 }
-.tab,
+media-tile,
 .placeholder {
 	background-color: #444;
 	border-color: #444;
 	/* box-shadow: none; */
 }
-.tab:hover{
+media-tile:hover{
 	background-color: #4D4D4D;
 	border-color: #4D4D4D;
 }
-.tab.active {
+media-tile.active {
 	background-color: #000;
 	border-color: red;
 }
-.tab.active:hover {
+media-tile.active:hover {
 	background-color: #191919;
 }
 .description .duration {

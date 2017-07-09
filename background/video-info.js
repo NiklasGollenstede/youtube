@@ -1,7 +1,6 @@
 (function(global) { 'use strict'; define(async ({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
 	'node_modules/es6lib/dom': { createElement, },
 	'node_modules/es6lib/string': { secondsToHhMmSs, },
-	'node_modules/web-ext-utils/browser/version': { gecko, opera, },
 	'common/options': options,
 	Downloader,
 }) => {
@@ -15,6 +14,7 @@ const db = (await (() => {
 		lastPlayed: { type: 'number', level: 0, },
 		viewed: { type: 'number', level: 0, },
 		views: { type: 'number', level: 3, },
+		// viewed: { type: 'number', level: 0, },
 		rating: { type: 'number', level: 3, },
 		audioUrl: { type: 'string', level: 4, }, // only refresh if no audioData
 		audioData: { type: 'blob', level: 1, },
@@ -73,7 +73,7 @@ class InfoHandler {
 	unsubscribe(listener) {
 		this.listeners.delete(listener);
 		console.log('unsubscribe', this.id, this.listeners.size);
-		global.setTimeout(() => this.listeners && this.listeners.size === 0 && this.destroy(), 100);
+		global.setTimeout(() => this.listeners && this.listeners.size === 0 && this.destroy(), 5000);
 	}
 
 	fire(update) {
@@ -116,8 +116,7 @@ class InfoHandler {
 		('length_seconds' in info) && (!this.data || !this.data.duration) && (data.duration = info.length_seconds * 1000);
 		('view_count' in info) && (data.views = +info.view_count);
 		('avg_rating' in info) && (data.rating = (info.avg_rating - 1) / 4);
-		('formats' in info) && (!this.data || !this.data.audioData)
-		&& (data.audioUrl = (info.formats.find(({ bitrate, audioBitrate, }) => !bitrate && audioBitrate) || { }).url);
+		('formats' in info) && (!this.data || !this.data.audioData) && (data.audioUrl = getPreferredAudio(info.formats));
 		console.log('extracted', data);
 		return data;
 	}
@@ -166,20 +165,18 @@ async function unsubscribe(id, listener) {
 	handler && (await handler).unsubscribe(listener);
 }
 
-async function setData(id, data) {
+const getData = withHandler(_=>_.data);
+const setData = withHandler((handler, data) => handler.set(data));
+const refresh = withHandler(_=>_.refresh());
+
+function withHandler(run) { return async function(id, ...args) {
 	const handler = (await (handlers.get(id) || new InfoHandler(id)));
-	const done = handler.set(data);
-	unsubscribe(id, null);
+	function dummy() { }
+	handler.listeners.set(dummy, null);
+	const done = run(handler, ...args);
+	unsubscribe(id, dummy);
 	return done;
-}
-
-async function refresh(id) {
-	const handler = (await handlers.get(id) || new InfoHandler(id));
-	const done = handler.refresh();
-	unsubscribe(id, null);
-	return done;
-}
-
+}; }
 
 const tabChildren = [
 	createElement('div', { classList: 'icon', }),
@@ -192,7 +189,7 @@ const tabChildren = [
 
 const Self = new WeakMap;
 
-const makeTabTileClass = window => window.document.registerElement('tab-tile', { prototype: {
+const makeTileClass = window => window.document.registerElement('media-tile', { prototype: {
 	__proto__: window.HTMLDivElement.prototype,
 	createdCallback() { // constructor in v1
 		// super();
@@ -203,7 +200,7 @@ const makeTabTileClass = window => window.document.registerElement('tab-tile', {
 		Self.get(this).attach();
 	},
 	detachedCallback() { // disconnectedCallback in v1
-		Self.get(this).detach(true);
+		Self.get(this).detach();
 	},
 	attributeChangedCallback(name, old, now) {
 		if (name === 'video-id' && old !== now) {
@@ -219,11 +216,12 @@ class _TabTile {
 		this.public = self;
 		this.videoId = '';
 		this.onChange = this.onChange.bind(this);
+		this.view = null;
 		this.rand = Math.random().toString(32).slice(2);
 	}
 	onChange(data) {
 		const self = this.public;
-		('title' in data) && (self.querySelector('.title').textContent = data.title);
+		('title' in data) && (self.querySelector('.title').textContent = self.querySelector('.icon').title = data.title);
 		('duration' in data) && (self.querySelector('.duration').textContent = data.duration ? secondsToHhMmSs(data.duration / 1000) : '-:--');
 		('thumbUrl' in data) && (self.querySelector('.icon').style.backgroundImage = `url("${ data.thumbUrl }")`);
 	}
@@ -232,25 +230,44 @@ class _TabTile {
 		const videoId = self.videoId;
 		if (!videoId || this.videoId === videoId || !self.parentNode) { return; }
 		if (this.videoId) { this.detach(); }
-		this.videoId = videoId;
+		this.videoId = videoId; this.view = self.ownerDocument.defaultView;
 		console.log('attach', this.videoId, this.rand);
 		!self.children.length && tabChildren.forEach(node => self.appendChild(node.cloneNode(true)));
 		subscribe(this.videoId, this.onChange, [ 'title', 'duration', 'thumbUrl', ]).then(this.onChange);
+		this.view.addEventListener('unload', this);
 	}
 	async detach() {
 		if (!this.videoId) { return; }
 		console.log('detach', this.videoId, this.rand);
 		unsubscribe(this.videoId, this.onChange);
-		this.videoId = '';
+		this.view.removeEventListener('unload', this);
+		this.videoId = ''; this.view = null;
+	}
+	handleEvent() { // unload
+		this.detach();
 	}
 }
 
+const formatFilters = [
+	format => (/^audio\//).test(format.type),
+	format => (/^webm$/).test(format.cntainer),
+	format => (/^opus$/).test(format.audioEncoding),
+];
+function getPreferredAudio(formats) {
+	const filtered = formatFilters.reduce((formats, filter) => {
+		const filtered = formats.filter(filter);
+		return filtered.length ? filtered : formats;
+	}, formats);
+	return filtered.sort((a, b) => b.audioBitrate - a.audioBitrate).pop().url;
+}
+
 return (global.VideoInfo = {
+	getData,
 	setData,
 	subscribe,
 	unsubscribe,
 	refresh,
-	makeTabTileClass,
+	makeTileClass,
 });
 
 function getResult(request) {
@@ -265,31 +282,3 @@ function getResult(request) {
 }
 
 }); })(this);
-
-
-
-
-//
-//	let relativeLifetime; options.content.children.displayRatings.children.relativeLifetime.whenChange(([ value, ]) => (relativeLifetime = value));
-//	let totalLifetime; options.content.children.displayRatings.children.totalLifetime.whenChange(([ value, ]) => (totalLifetime = value));
-//
-//	async function getRating(id) {
-//		if (totalLifetime < 0) {
-//			return loadRatingFromServer(id);
-//		}
-//		const stored = (await db.get(id, [ 'meta', 'rating', 'viewed', ]));
-//		const now = Date.now(); let age;
-//		if (
-//			stored.meta && stored.rating
-//			&& (age = now - stored.rating.timestamp) < totalLifetime * 36e5
-//			&& age < (now - stored.meta.published) * (relativeLifetime / 100)
-//		) {
-//			return stored;
-//		}
-//		const loaded = (await loadRatingFromServer(id));
-//		!loaded.meta.title && (delete loaded.meta.title); !loaded.meta.published && (delete loaded.meta.published);
-//		db.set(id, { rating: loaded.rating, });
-//		db.assign(id, 'meta', loaded.meta);
-//		return loaded;
-//	}
-//

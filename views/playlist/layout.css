@@ -16,18 +16,18 @@ body {
 }
 
 /* cursors */
-#controls .button, .tab .remove, #searchbox .remove {
+#controls .button, media-tile .remove, #searchbox .remove {
 	cursor: pointer;
 }
-#controls, .tab .remove, #searchbox .remove {
+#controls, media-tile .remove, #searchbox .remove {
 	-moz-user-select: none;
 	-webkit-user-select: none;
 }
-.tab .icon {
+media-tile .icon {
 	cursor: grab;
 	cursor: -webkit-grab;
 }
-.tab.ghost {
+media-tile.ghost {
 	cursor: grabbing;
 	cursor: -webkit-grabbing;
 }
@@ -64,13 +64,13 @@ body {
 	height: 100%;
 }
 .column>.header {
-	flex: 0 1 auto;
-	position: relative;
 }
 .column>.body {
 	overflow: hidden;
-	flex: 1 1 auto;
+	flex: auto;
 	position: relative;
+}
+.column>.footer {
 }
 #left {
 	left: 0px;
@@ -104,9 +104,30 @@ body {
 	display: none;
 }
 
-#playlist .tabs {
+#playlist .tiles {
 	display: block;
 	min-height: calc(100% - 10px);
+}
+
+/* seek bar */
+#seek-bar>* {
+	display: inline-block;
+	padding: 5px;
+	height: 30px;
+	vertical-align: middle;
+}
+#current-time, #total-time {
+	width: 40px;
+	padding-top: 7px;
+}
+#current-time {
+	text-align: right;
+}
+#progress {
+	width: calc(100% - 90px);
+}
+#progress .slider {
+	width: 100%;
 }
 
 /* search box */
@@ -132,7 +153,7 @@ body:not(.searching) #searchbox .remove {
 }
 
 /* tab tiles */
-.tab {
+media-tile {
 	padding: 5px;
 	margin: 3px;
 	margin-top: 6px;
@@ -143,13 +164,13 @@ body:not(.searching) #searchbox .remove {
 	border-style: solid;
 	border-width: 2px;
 }
-.tab:last-child {
+media-tile:last-child {
 	margin-bottom: 3px;
 }
-.tab.ghost {
+media-tile.ghost {
 	opacity: 0.5;
 }
-.tab .icon {
+media-tile .icon {
 	display: inline-block;
 	width: 80px;
 	height: 45px;
@@ -158,7 +179,7 @@ body:not(.searching) #searchbox .remove {
 	background-position: center;
 	background-repeat: no-repeat;
 }
-.tab .description {
+media-tile .description {
 	position: absolute;
 	top: 0px;
 	left: 92px;
@@ -169,20 +190,20 @@ body:not(.searching) #searchbox .remove {
 	-ms-hyphens: auto;
 	-webkit-hyphens: auto;
 }
-.tab .title {
+media-tile .title {
 	display: block;
 	line-height: 1.22;
 	margin-right: 20px;
 	padding: 0px;
 }
-.tab .duration {
+media-tile .duration {
 	position: absolute;
 	right: 0px;
 	bottom: 0px;
 	padding: 0px 2px;
 	border-radius: 2px;
 }
-.tab .remove, #searchbox .remove {
+media-tile .remove, #searchbox .remove {
 	position: absolute;
 	right: 0px;
 	top: 0px;
@@ -195,27 +216,30 @@ body:not(.searching) #searchbox .remove {
 	border-radius: 8px;
 }
 
-/*  windows (tab groups) */
-#windows { /* align tab tiles in the two columns when both are scrolled to the top or bottom */
+/*  groups (tab groups) */
+#groups { /* align tab tiles in the two columns when both are scrolled to the top or bottom */
 	margin-top: -5px;
 	height: calc(100% + 9px);
 }
-.window {
+.group {
 	margin: 2px 2px 4px 2px;
 	padding: 4px 0px 1px 0px;
 }
-.window .header {
+.group .header {
 	white-space: nowrap;
 	overflow: hidden;
 }
-.window .header label {
+.group .header label {
 	display: block;
 	height: 100%;
 	width: 100%;
 	padding: 2px 10px;
 }
+.group media-tile .remove {
+	display: none;
+}
 
-.searching .window .tab:not(.found) {
+.searching .group media-tile:not(.found) {
 	margin: 0;
 	border-width: 0;
 	padding: 0;
@@ -227,9 +251,8 @@ label.toggleswitch { cursor: pointer; }
 input.toggleswitch { display: none; }
 input.toggleswitch:checked + * { display: none; }
 
-.tab-default,
 .video-default,
-#window-default {
+#group-default {
 	display: none;
 }
 
@@ -258,16 +281,16 @@ input.toggleswitch:checked + * { display: none; }
 /* transitions */
 #left, #right,
 .button, .button *,
-.tab, .tab * {
+media-tile, media-tile * {
 	transition-property: color, fill, background-color, border-color, width, height, padding, margin, transform, transform-origin, left, right;
 	transition-duration: 0.16s;
 }
-.tab {
+media-tile {
 	transition-duration: 0.24s;
 }
 .no-transitions * { transition: none !important; } /* disable transitions during load and theme change */
 
-/* thumbnail-only window list */
+/* thumbnail-only group list */
 @media (max-width: 570px) {
 	#left {
 		left: 0px;
@@ -277,12 +300,12 @@ input.toggleswitch:checked + * { display: none; }
 		right: 0px;
 		width: 92px;
 	}
-	#right .tab {
+	#right media-tile {
 		padding: 0;
 		margin-left: 0;
 		margin-right: 0;
 	}
-	#right .tab .description {
+	#right media-tile .description {
 		display: none;
 	}
 	#searchbox input {
@@ -292,7 +315,7 @@ input.toggleswitch:checked + * { display: none; }
 		display: none;
 	}
 }
-/* smaller thumbnails in window list */
+/* smaller thumbnails in group list */
 @media (max-width: 370px) {
 	#left {
 		left: 0px;
@@ -302,17 +325,17 @@ input.toggleswitch:checked + * { display: none; }
 		right: 0px;
 		width: 72px;
 	}
-	#right .tab .icon {
+	#right media-tile .icon {
 		width: 60px;
 		height: 33.75px;
 	}
 }
 /* smaller thumbnails in playlist, less spacing around control buttons */
 @media (max-width: 330px) {
-	.tab .description {
+	media-tile .description {
 		left: 70px;
 	}
-	.tab .icon {
+	media-tile .icon {
 		width: 60px;
 	}
 	#controls .button {
@@ -323,11 +346,11 @@ input.toggleswitch:checked + * { display: none; }
 }
 /* hide .remove and .duration from playlist tiles, smaller control buttons icons */
 @media (max-width: 305px) {
-	.tab .title {
+	media-tile .title {
 		margin-right: 0;
 	}
-	.tab .remove, #searchbox .remove,
-	.tab .duration {
+	media-tile .remove, #searchbox .remove,
+	media-tile .duration {
 		transform: scale(0);
 	}
 	#controls .button>* {
@@ -338,11 +361,11 @@ input.toggleswitch:checked + * { display: none; }
 	}
 }
 @media (max-width: 275px) {
-	.tab .description {
+	media-tile .description {
 		font-size: 5.12vw;
 	}
 }
-/* slowly hide window list */
+/* slowly hide group list */
 @media (max-width: 230px) {
 	#left {
 		left: 0px;
@@ -352,7 +375,7 @@ input.toggleswitch:checked + * { display: none; }
 		right: 0px;
 		width: calc(72px - calc(230px - 100vw));
 	}
-	#right .tab .icon {
+	#right media-tile .icon {
 		width: calc(60px - calc(230px - 100vw));
 		height: 33.75px;
 	}
@@ -360,7 +383,7 @@ input.toggleswitch:checked + * { display: none; }
 		margin-left: -7px;
 	}
 }
-/* window list hidden */
+/* group list hidden */
 @media (max-width: 180px) {
 	#left {
 		left: 0px;
@@ -373,13 +396,13 @@ input.toggleswitch:checked + * { display: none; }
 		border-left-width: 0px;
 		border-right-width: 0px;
 	}
-	.tab {
+	media-tile {
 		margin-left: 0px;
 		margin-right: 0px;
 		padding-left: 2px;
 		padding-right: 2px;
 	}
-	.tab .description {
+	media-tile .description {
 		left: 67px;
 		right: 3px;
 		font-size: 9.13px;

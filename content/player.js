@@ -1,20 +1,21 @@
 (function(global) { 'use strict'; define(({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
-	'node_modules/es6lib/concurrent': { Resolvable, PromiseCapability, },
+	'node_modules/web-ext-utils/browser/messages': messages,
+	'node_modules/web-ext-utils/loader/content': { onUnload, connect, },
+	'node_modules/es6lib/concurrent': { sleep, before, },
 	'node_modules/es6lib/dom':  { createElement, getParent, },
-	'node_modules/es6lib/network': { HttpRequest, },
-	'node_modules/es6lib/object': { Class, },
+	'node_modules/es6lib/functional': { debounce, },
 	'node_modules/es6lib/observer':  { RemoveObserver, },
 	'node_modules/es6lib/port': Port,
-	'node_modules/es6lib/string': { QueryObject, },
 	'common/event-emitter': EventEmitter,
+	dom,
 	Templates,
 	'./player.js': playerJS,
-}) => { /* globals WheelEvent */
-
-let Instance = null;
+	require,
+	exports,
+}) => { /* globals document, location, WheelEvent, MutationObserver, URLSearchParams, */
 
 // table of public members, which all remotely call methods in ./player.js.js
-const methods = [
+const player = { }; [
 	'play',
 	'pause',
 	'togglePlayPause',
@@ -38,169 +39,212 @@ const methods = [
 	'getLoaded',
 	'showVideoInfo',
 	'hideVideoInfo',
-];
+].forEach(method => (player[method] = (exports[method] = async function(...args) {
+	console.log('Player request', method, ...args);
+	return (await getContent).request(method, ...args).then(value => { console.log('player resolve', method, value); return value; });
+})));
 
-const Player = new Class({
-	extends: { public: EventEmitter, },
+const events = new EventEmitter;
+[ 'on', 'once', 'off', 'promise', ].forEach(method => (exports[method] = function() { return events[method](...arguments); }));
 
-	constructor: (Super, Private, Protected) => (function Player(main) {
-		if (Instance) { try { Private(Instance).destroy(); } catch (_) { } }
-		Super.call(this);
-		const self = Private(this), _this = Protected(this);
+let video = null; // the current <video> element
+let root = null; // the current root element of the html5-video-player
+let suspended = [ ];
+let loaded = null;
 
-		self.main = main;
-		self.queue = [ ]; // [ name, args, promise, ] queue of calls meant for the player while it is not loaded yet
-		self.suspended = [ ]; // stack of players that already existed when a new one showed up
-		this.video = self.video = null; // the current <video> element
-		this.root = self.root = null; // the current root element of the html5-video-player
-		self.removePlayer = self.removePlayer.bind(self);
+Object.defineProperty(exports, 'video', { get() { return video; }, enumerable: true, });
+Object.defineProperty(exports, 'root', { get() { return root; }, enumerable: true, });
+Object.defineProperty(exports, 'loaded', { get() { return loaded; }, enumerable: true, });
 
-		// inject unsafe script
-		const getPort = new Resolvable;
-		const frame = self.commFrame = document.documentElement.appendChild(createElement('iframe', { style: { display: 'none', }, }));
-		frame.contentWindow.addEventListener('message', event => {
-			self.port = new Port(event.ports[0], Port.MessagePort)
-			.addHandler('emit', _this.emitSync, _this)
-			.addHandler((/^tab\./), (name, ...args) => main.port[self.port.isRequest() ? 'request' : 'post'](name, ...args));
-			main.port.addHandler((/^player\./), (name, ...args) => self.port[main.port.isRequest() ? 'request' : 'post'](name.slice('player.'.length), ...args));
-			getPort.resolve();
-			// frame.remove(); // removing the iframe would close the channel
-		});
-		document.documentElement.appendChild(createElement('script', { textContent: playerJS, })).remove();
+messages.addHandler(function navigated() { events._emitSync('navigated'); });
 
-		Promise.all([ getPort, self.main.promise('observerCreated'), ]).then(() => {
-			self.main.observer.all('.html5-video-player', self.initPlayer.bind(self));
-			self.main.observer.all('#watch7-player-age-gate-content', self.loadExternalPlayer.bind(self, { reason: 'age', }));
-		});
+const getOptions = require.async('./options');
 
-		Instance = this;
-		main.once(Symbol.for('destroyed'), () => self.destroy());
-	}),
+/*const getBackground =*/ connect('player').then(bg => bg
+	.addHandler((/^(?:on|once|off|promise)$/), (name, ...args) => events[name](...args))
+	.addHandler((/./), async (name, ...args) => {
+		const method = bg.isRequest() ? 'request' : 'post';
+		return (await getContent)[method](name, ...args);
+	})
+);
 
-	public: Private => {
-		const members = { };
-		methods.forEach(method => {
-			members[method] = function(...args) {
-				if (Instance !== this) { return new Error('"'+ method +'" called on dead Player'); }
-				// return Private(this).request(method, ...args)
-				const self = Private(this);
-				console.log('player request', method, ...args);
-				return self.request(method, ...args).then(value => { console.log('player resolve', method, value); return value; });
-			};
-		});
-		return members;
-	},
-
-	private: (Private, Protected, Public) => ({
-
-		destroy() {
-			Instance === this && (Instance = null);
-			Protected(this).destroy(new Error('Player was destroyed'));
-			this.port && this.port.post('destroy');
-			this.removePlayer();
-			this.commFrame.remove();
-		},
-
-		handleEvent(event) {
-			switch (event.type) {
-				case 'visibilitychange': {
-					if (document.hidden || !this.root) { return; }
-					this.root.dataset.visible = true;
-					this.main.removeDomListener(document, 'visibilitychange', this, false);
-				} break;
-			}
-		},
-
-		request(name, ...args) {
-			if (!this.queue) {
-				return this.port.request(name, ...args);
-			}
-			const cap = new PromiseCapability;
-			this.queue.push([ name, args, cap, ]);
-			return cap.promise;
-		},
-
-		initPlayer(element) {
-			const self = Public(this), _this = Protected(this);
-			this.root && this.suspendPlayer();
-			this.port.post('initPlayer', element.ownerDocument !== document);
-			this.root = self.root = element;
-			this.video = self.video = element.querySelector('video');
-			this.queue && this.queue.forEach(([ method, args, { resolve, reject, }, ]) => this.port.request(method, ...args).then(resolve, reject));
-			this.queue = null;
-			_this.emit('loaded', element);
-			RemoveObserver.on(this.root, this.removePlayer);
-			if (!element.dataset.visible) {
-				if (!(element.dataset.visible = !document.hidden)) {
-					this.main.addDomListener(document, 'visibilitychange', this, false);
-				}
-			}
-		},
-
-		removePlayer() {
-			if (!this.root) { return; }
-			const self = Public(this), _this = Protected(this);
-			_this.emit('unloaded', this.root);
-			RemoveObserver.off(this.root, this.removePlayer);
-			this.main.removeDomListener(document, 'visibilitychange', this, false);
-			!this.queue && (this.queue = [ ]);
-			this.root = self.root = null;
-			this.video = self.video = null;
-			this.suspended.length && this.initPlayer(this.suspended.pop());
-		},
-
-		suspendPlayer() {
-			if (!this.root) { return; }
-			const old = this.root;
-			const suspended = this.suspended.concat(old);
-			RemoveObserver.on(old, () => (this.suspended = this.suspended.filter(value => value !== old)));
-			this.suspended = [ ];
-			this.removePlayer();
-			this.suspended = suspended;
-		},
-
-		loadExternalPlayer({ reason, } = { }) {
-			if (reason === 'age' && !this.main.options.player.children.bypassAge.value) { return; }
-			this.removePlayer();
-			const { videoId, } = this.main;
-			document.querySelector('#player-unavailable').classList.add('hid');
-			const container = document.querySelector('#player-api');
-			container.classList.remove('off-screen-target');
-			container.innerHTML = Templates.youtubeIframe(videoId);
-			const iframe = container.querySelector('#external_player');
-
-			// call initPlayer
-			iframe.onload = (() => {
-				const cd = iframe.contentDocument;
-				const element = cd.querySelector('.html5-video-player');
-				if (element) {
-					this.initPlayer(element);
-				} else {
-					const observer = new MutationObserver(mutations => mutations.forEach(({ addedNodes, }) => Array.prototype.forEach.call(addedNodes, element => {
-						if (!element.matches || !element.matches('.html5-video-player')) { return; }
-						observer.disconnect();
-						this.initPlayer(element);
-					})));
-					observer.observe(cd, { subtree: true, childList: true, });
-				}
-
-				// catch link clicks
-				cd.addEventListener('mousedown', ({ target, button, }) => !button && target.matches && target.matches('a *, a') && (location.href = getParent(target, 'a').href));
-				// forward mouse wheel events (bug in Firefox?)
-				cd.addEventListener('wheel', event => { iframe.dispatchEvent(new WheelEvent('wheel', event)); event.stopPropagation(); event.ctrlKey && event.preventDefault(); });
-			});
-
-			// load related videos
-			new HttpRequest('https://www.youtube.com/get_video_info?asv=3&hl=en_US&video_id='+ videoId)
-			.then(({ responseText, }) => (document.getElementById('watch7-sidebar-modules').innerHTML = Templates.relatedVideoList(
-				decodeURIComponent(new QueryObject(responseText).rvs).split(',')
-				.map(string => Templates.relatedVideoListItem(new QueryObject(string, '&', '=', decodeURIComponent)))
-			))).catch(error =>console.error('failed to load related videos', error));
-		},
-
-	}),
+const getContent = new Promise((resolve, reject) => {
+	// inject unsafe script
+	const frame = document.documentElement.appendChild(createElement('iframe', { style: { display: 'none', }, }));
+	frame.contentWindow.addEventListener('message', event => { try {
+		const content = new Port(event.ports[0], Port.MessagePort)
+		.addHandler(function emit() { loaded && events._emitSync(...arguments); })
+		.addHandler('focusTabTemporary', () => messages.post('focusTabTemporary'))
+		.addHandler('replyAfter', time => messages.request('replyAfter', time));
+		onUnload.addListener(() => { content.post('destroy'); frame.remove(); }); // removing the iframe closes the channel
+		resolve(content);
+	} catch (error) { reject(error); } });
+	document.documentElement.appendChild(createElement('script', { textContent: playerJS, })).remove();
 });
 
-return (Player.Player = Player);
+Promise.all([ require.async('./observer'), getContent, ]).then(([ Observer, ]) => {
+	Observer.all('.html5-video-player', initPlayer);
+	Observer.all('#watch7-player-age-gate-content', loadExternalPlayer.bind(null, { reason: 'age', }));
+});
+
+onUnload.addListener(() => {
+	events._destroy(new Error('Player was destroyed'));
+	removePlayer();
+});
+
+function onVisibilitychange(event) {
+	if (document.hidden || !root) { return; }
+	root.dataset.visible = true;
+	dom.off(document, 'visibilitychange', onVisibilitychange, false);
+}
+
+function initPlayer(element) {
+	root && suspendPlayer();
+	getContent.then(_=>_.post('initPlayer', element.ownerDocument !== document));
+	root = element;
+	video = element.querySelector('video');
+	events._emit('loaded', element);
+	RemoveObserver.on(root, removePlayer);
+	if (!element.dataset.visible) {
+		if (document.hidden) {
+			dom.on(document, 'visibilitychange', onVisibilitychange, false);
+		} else {
+			element.dataset.visible = true;
+		}
+	}
+}
+
+function removePlayer() {
+	if (!root) { return; }
+	events._emit('unloaded', root);
+	RemoveObserver.off(root, removePlayer);
+	dom.off(document, 'visibilitychange', onVisibilitychange, false);
+	root = video = null;
+	suspended.length && initPlayer(suspended.pop());
+}
+
+function suspendPlayer() {
+	if (!root) { return; }
+	const old = root;
+	const backup = suspended.concat(old);
+	RemoveObserver.on(old, () => (suspended = suspended.filter(_=>_ !== old)));
+	suspended = [ ];
+	removePlayer();
+	suspended = backup;
+}
+
+async function loadExternalPlayer({ reason, } = { }) {
+	if (reason === 'age' && !(await getOptions).player.children.bypassAge.value) { return; }
+	removePlayer(); // suspend instead?
+	const videoId = new global.URL(global.location).searchParams.get('v');
+	document.querySelector('#player-unavailable').classList.add('hid');
+	const container = document.querySelector('#player-api');
+	container.classList.remove('off-screen-target');
+	container.innerHTML = Templates.youtubeIframe(videoId);
+	const iframe = container.querySelector('#external_player');
+
+	// call initPlayer
+	iframe.onload = (() => {
+		const cd = iframe.contentDocument;
+		const element = cd.querySelector('.html5-video-player');
+		if (element) {
+			initPlayer(element);
+		} else {
+			const observer = new MutationObserver(mutations => mutations.forEach(({ addedNodes, }) => Array.prototype.forEach.call(addedNodes, element => {
+				if (!element.matches || !element.matches('.html5-video-player')) { return; }
+				observer.disconnect();
+				initPlayer(element);
+			})));
+			observer.observe(cd, { subtree: true, childList: true, });
+		}
+
+		// catch link clicks
+		cd.addEventListener('mousedown', ({ target, button, }) => !button && target.matches && target.matches('a *, a') && (location.href = getParent(target, 'a').href));
+		// forward mouse wheel events (bug in Firefox?)
+		cd.addEventListener('wheel', event => { iframe.dispatchEvent(new WheelEvent('wheel', event)); event.stopPropagation(); event.ctrlKey && event.preventDefault(); });
+	});
+
+	// load related videos
+	const target = document.getElementById('watch7-sidebar-modules');
+	const data = new URLSearchParams((await (await global.fetch('https://www.youtube.com/get_video_info?asv=3&hl=en_US&video_id='+ videoId)).text()));
+	if (data.get('status') !== 'ok') { target.innerHTML = `<h4>Can't load related videos</h4>`; return; }
+
+	const related = data.get('rvs').split(',').map(parseQuery).map(Templates.relatedVideoListItem);
+	target.innerHTML = Templates.relatedVideoList(related);
+}
+
+function parseQuery(query) {
+	const data = { }; for (const [ key, value, ] of new URLSearchParams(query)) {
+		data[key] = value;
+	} return data;
+}
+
+async function setQuality() {
+	let quality, _try = 0; while (
+		!(quality = (await exports.getQuality()))
+		|| quality.current === 'unknown'
+	) {
+		if (++_try > 30) { return; }
+		(await sleep(33 + 10 * _try));
+	}
+	const wanted = ((await getOptions).player.children.defaultQualities.values.current).find(level => quality.available.includes(level));
+	if (!wanted || wanted === "auto") { return; }
+	if (wanted !== quality.current) {
+		(await player.setQuality(wanted));
+	} else {
+		player.setQuality(wanted);
+	}
+}
+
+// set initial video quality and playback state according to the options and report to the background script
+async function onNavigated() {
+	const videoId = new global.URL(global.location).searchParams.get('v');
+	if (loaded !== null) {
+		console.log('player removed');
+		events._emit('removed', loaded);
+	}
+	if (!videoId) { loaded = null; return; }
+
+	if (!root && (await before(/*main.promise('navigated')*/new Promise(() => null), events.promise('loaded', 'unloaded')))) { return void console.log('cancel navigation'); }
+	console.log('player loaded', videoId);
+	messages.post('muteTab');
+	const options = (await getOptions);
+
+	// play, stop or pause
+	const should = options.player.children.onStart.value;
+	const play = !should
+	|| should === 'visible' && !document.hidden
+	|| should === 'focused' && document.hasFocus();
+	if (play) {
+		console.log('control at load: play');
+		(await setQuality());
+		(await player.play(false)) < 20 && (await player.seekTo(0));
+	} else if (
+		options.player.children.onStart.children.stop.value
+		&& (await player.getLoaded()) < 0.5
+	) {
+		console.log('control at load: stop');
+		(await player.stop());
+	} else {
+		console.log('control at load: pause');
+		(await setQuality());
+		(await player.pause(false)) < 20 && (await player.seekTo(0));
+	}
+
+	!play && (video.volume = 0);
+	!play && events.once('playing', () => player.unMute());
+	messages.post('unmuteTab');
+
+	console.log('control done', videoId);
+	loaded = videoId;
+	events._emit('created', videoId);
+	play && events._emit('playing', video.currentTime || 0);
+}
+
+events.on('playing', debounce(setQuality, 1000));
+events.on('navigated', onNavigated);
+onNavigated();
+
+Object.freeze(exports);
 
 }); })(this);

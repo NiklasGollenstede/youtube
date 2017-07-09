@@ -1,51 +1,49 @@
 (function(global) { 'use strict'; define(({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
 	'node_modules/es6lib/dom': { createElement, saveAs, },
-	'node_modules/es6lib/network': { HttpRequest, },
 	'node_modules/es6lib/string': { hhMmSsToSeconds, secondsToHhMmSs, QueryObject, },
+	options,
+	player,
+	dom,
 }) => {
 /* global window, document, location, prompt, */
 
+const keyMap = new Map;
+
 const actions = {
-	videoIncreaseQuality({ player, }) {
-		player.getQuality().then(({ available, current, }) => {
-			const quality = available[available.indexOf(current) - 1];
-			quality && player.setQuality(quality);
-		});
+	async videoIncreaseQuality() {
+		const { available, current, } = (await player.getQuality());
+		const quality = available[available.indexOf(current) - 1];
+		quality && player.setQuality(quality);
 	},
-	videoDecreaseQuality({ player, }) {
-		player.getQuality().then(({ available, current, }) => {
-			const quality = available[available.indexOf(current) + 1];
-			quality && player.setQuality(quality);
-		});
+	async videoDecreaseQuality() {
+		const { available, current, } = (await player.getQuality());
+		const quality = available[available.indexOf(current) + 1];
+		quality && player.setQuality(quality);
 	},
-	videoIncreaseSpeed({ player, }) {
-		player.getSpeed().then(({ available, current, }) => {
-			const speed = available[available.indexOf(current) + 1];
-			speed && player.setSpeed(speed);
-		});
+	async videoIncreaseSpeed() {
+		const { available, current, } = (await player.getSpeed());
+		const speed = available[available.indexOf(current) + 1];
+		speed && player.setSpeed(speed);
 	},
-	videoDecreaseSpeed({ player, }) {
-		player.getSpeed().then(({ available, current, }) => {
-			const speed = available[available.indexOf(current) - 1];
-			speed && player.setSpeed(speed);
-		});
+	async videoDecreaseSpeed() {
+		const { available, current, } = (await player.getSpeed());
+		const speed = available[available.indexOf(current) - 1];
+		speed && player.setSpeed(speed);
 	},
 	videoToggleFullscreen() {
 		document.querySelector('.ytp-fullscreen-button').click();
 	},
-	videoPromptPosiotion({ player, }) {
+	videoPromptPosiotion() {
 		const seconds = hhMmSsToSeconds(prompt('Seek to (hh:mm:SS.ss): '));
-		if (seconds >= 0) {
-			player.seekTo(seconds);
-		}
+		seconds >= 0 && player.seekTo(seconds);
 	},
-	videoPromptVolume({ player, }) {
+	videoPromptVolume() {
 		player.volume(Math.min(Math.max(0, parseInt(prompt('Volume in %: '))), 100) || 0);
 	},
-	playlistNext({ player, }) {
+	playlistNext() {
 		player.next();
 	},
-	playlistPrevious({ player, }) {
+	playlistPrevious() {
 		player.previous();
 	},
 	playlistToggleShuffle() {
@@ -54,7 +52,7 @@ const actions = {
 	playlistToggleLoop() {
 		document.querySelector('.toggle-loop').click();
 	},
-	playlistClear({ player, }) {
+	playlistClear() {
 		const queryObject = new QueryObject(window.location.search);
 		if (!queryObject.list) { return; }
 		delete queryObject.list;
@@ -62,28 +60,28 @@ const actions = {
 		queryObject.t = Math.floor(player.getTime());
 		window.location = window.location.href.split('?')[0] +'?'+ queryObject.toString();
 	},
-	videoTogglePause({ player, }) {
+	videoTogglePause() {
 		player.togglePlayPause(true);
 	},
-	videoPlay({ player, }) {
+	videoPlay() {
 		player.play(true);
 	},
-	videoPause({ player, }) {
+	videoPause() {
 		player.pause(true);
 	},
-	videoStop({ player, }) {
+	videoStop() {
 		player.stop();
 	},
-	videoStart({ player, }) {
+	videoStart() {
 		player.start(true);
 	},
-	videoEnd({ player, }) {
+	videoEnd() {
 		player.end();
 	},
-	videoToggleMute({ player, }) {
+	videoToggleMute() {
 		player.toggleMute();
 	},
-	videoToggleInfoScreen({ player, }) {
+	videoToggleInfoScreen() {
 		const element = document.querySelector('.html5-video-info-panel');
 		if (!element || element.style.display === 'none') {
 			player.showVideoInfo();
@@ -91,7 +89,7 @@ const actions = {
 			player.hideVideoInfo();
 		}
 	},
-	videoPushScreenshot({ player, }) {
+	videoPushScreenshot() {
 		const { video, } = player;
 		if (!video || !video.videoWidth || !video.videoHeight) { return; }
 		let canvas; const time = video.currentTime;
@@ -143,7 +141,7 @@ const actions = {
 	videoPopScreenshot() {
 		document.querySelector('.screenshot-preview').remove();
 	},
-	videoSave({ player, }) { // works only with simple html-player
+	videoSave() { // works only with simple html-player
 		let url = player.video.src;
 		const title = (document.querySelector('#eow-title') || { textContent: 'cover', }).textContent.trim();
 		if (url.startsWith('mediasource:')) {
@@ -151,51 +149,44 @@ const actions = {
 		}
 		saveAs(url +'?title='+ encodeURIComponent(title), title +'.jpg');
 	},
-	videoDownloadCover() {
+	async videoDownloadCover() {
 		const url = `https://i.ytimg.com/vi/${ new QueryObject(location.search).v }/maxresdefault.jpg`;
 		const title = (document.querySelector('#eow-title') || { textContent: 'cover', }).textContent.trim();
-		HttpRequest({ url, responseType: 'blob', })
-		.then(({ response, }) => saveAs(response, title +'.jpg'))
-		.catch(() => saveAs(url, title +'.jpg'));
+		const image = (await global.fetch(url).then(_=>_.blob()).catch(() => url));
+		saveAs(image, title +'.jpg');
 	},
-	openRelatedModifier(_, { key, }) {
+	openRelatedModifier({ key, }) {
 		document.querySelectorAll('li.video-list-item.related-list-item')[key - 1].querySelector('a').click();
 	},
 };
 
-return class Actions {
-	constructor(main) {
-		this.main = main;
-		this.keyMap = new Map;
-		this.main.addDomListener(window, 'keydown', this._key.bind(this), true);
-		main.once('optionsLoaded', this._optionsLoaded.bind(this));
-	}
+function setAction(name, action) {
+	return (actions[name] = action);
+}
 
-	setAction(name, action) {
-		return (actions[name] = action);
-	}
+function onKey(event) {
+	if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') { return; }
+	const key = (event.ctrlKey ? 'Ctrl+' : '') + (event.altKey ? 'Alt+' : '') + (event.shiftKey ? 'Shift+' : '') + event.code;
+	const name = keyMap.get(key);
+	if (!name || !actions[name]) { return; }
+	console.log('keypress', key, name);
+	event.stopPropagation(); event.preventDefault();
+	actions[name](event);
+}
 
-	_optionsLoaded() {
-		this.options = this.main.options;
-		this.options.keys.children.forEach(command => command.whenChange((now, old) => {
-			if (command.name === 'openRelatedModifier') {
-				now = [1,2,3,4,5,6,7,8,9,0,].map(i => now[0] +'Digit'+ i);
-				old = [1,2,3,4,5,6,7,8,9,0,].map(i => old[0] +'Digit'+ i);
-			}
-			old.forEach(key => this.keyMap.delete(key));
-			now.forEach(key => this.keyMap.set(key, command.name));
-		}));
+options.keys.children.forEach(command => command.whenChange((now, old) => {
+	if (command.name === 'openRelatedModifier') {
+		now = [1,2,3,4,5,6,7,8,9,0,].map(i => now[0] +'Digit'+ i);
+		old = [1,2,3,4,5,6,7,8,9,0,].map(i => old[0] +'Digit'+ i);
 	}
+	old.forEach(key => keyMap.delete(key));
+	now.forEach(key => keyMap.set(key, command.name));
+}));
 
-	_key(event) {
-		if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') { return; }
-		const key = (event.ctrlKey ? 'Ctrl+' : '') + (event.altKey ? 'Alt+' : '') + (event.shiftKey ? 'Shift+' : '') + event.code;
-		const name = this.keyMap.get(key);
-		if (!name || !actions[name]) { return; }
-		console.log('keypress', key, name);
-		event.stopPropagation(); event.preventDefault();
-		actions[name](this.main, event);
-	}
+dom.on(window, 'keydown', onKey, true);
+
+return {
+	setAction,
 };
 
 }); })(this);

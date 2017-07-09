@@ -1,4 +1,5 @@
 (function(global) { 'use strict'; define([ 'node_modules/es6lib/port', 'require', ], (Port, require) => `(function(global) { 'use strict'; (`+ (function(Port) { // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
+/* global window, document, MessageChannel, URL, */
 
 let player, video;
 
@@ -122,7 +123,7 @@ async function pause(smooth) {
 async function play(smooth) {
 
 	if (player.dataset.visible !== 'true') { // YouTube won't start playing if the tab was never visible
-		(await port.request('tab.focus_temporary'));
+		(await port.request('focusTabTemporary'));
 	}
 
 	if (video.readyState === 4) { // video is ready to play
@@ -155,7 +156,7 @@ async function fadeVolume(on) {
 	while (on ? volume < dest : volume > dest) {
 		video.volume = volume = Math.min(volume * factor, 1);
 		should += 25;
-		(await port.request('tab.reply_after', should - Date.now()));
+		(await port.request('replyAfter', should - Date.now()));
 	}
 	player.setVolume(player.getVolume());
 }

@@ -1,6 +1,6 @@
 {
 	"name": "youtubeoverhaul",
-	"version": "0.6.0",
+	"version": "0.7.0",
 	"title": "YouTube Overhaul",
 	"description": "",
 	"author": "Niklas Gollenstede",
@@ -24,8 +24,8 @@
 		"es6lib": "NiklasGollenstede/es6lib#9f38a84",
 		"regexpx": "NiklasGollenstede/regexpx#eebed29",
 		"sortablejs": "rubaxa/Sortable#1.4.2",
-		"web-ext-build": "NiklasGollenstede/web-ext-build#52daebd",
-		"web-ext-utils": "NiklasGollenstede/web-ext-utils#177b17d",
+		"web-ext-build": "NiklasGollenstede/web-ext-build#6ec5533",
+		"web-ext-utils": "0.0.3",
 		"ytdl-core": "0.14.4"
 	},
 	"devDependencies": {
@@ -36,7 +36,7 @@
 	"scripts": {
 		"postinstall": "npm run build-ytdl && npm start",
 		"start": "web-ext-build",
-		"build-ytdl": "browserify node_modules/ytdl-core/lib/index.js -o background/lib/ytdl.js -s ytdl",
+		"build-ytdl": "browserify node_modules/ytdl-core/lib/index.js -s ytdl -o background/lib/ytdl.js",
 		"lint": "eslint --ignore-path .gitignore ."
 	},
 	"eslintConfig": {

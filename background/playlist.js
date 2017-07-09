@@ -1,22 +1,23 @@
 (function(global) { 'use strict'; define(({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
+	'node_modules/web-ext-utils/utils/event': { setEvent, },
 }) => {
 
-class PlayList extends Array {
+class Playlist extends Array {
 
 	/**
 	 * Creates a PlayList, which is an Array with a current position (index).
 	 * @param  {Array}     options.values    Optional initial values.
 	 * @param  {integer}   options.index     Optional initial position.
 	 * @param  {bool}      options.loop      Optional initial value of this.loop. While this.loop is true, .next() and .pref() will wrap around instead of seeking past the end / before the beginning.
-	 * @param  {function}  options.onSeek    Optional function that will be called with (currentIndex) whenever this.index changes to a different value slot in this.
-	 * @param  {function}  options.onAdd     Optional function that will be called with (atIndex, newValue) whenever a value is added to this.
-	 * @param  {function}  options.onRemove  Optional function that will be called with (fromIndex, oldValue) whenever a value is removed from this.
 	 */
-	constructor({ values, index, loop, } = { }) {
-		super(...(values || [ ]));
-		this.onSeek = new Event;
-		this.onAdd = new Event;
-		this.onRemove = new Event;
+	constructor({ values = [ ], index, loop, } = { }) {
+		super(...values);
+		// called with (currentIndex) whenever this.index changes to a different value slot in this.
+		this._fireSeek = setEvent(this, 'onSeek', { lazy: false, });
+		// called with (atIndex, newValue) whenever a value is added to this.
+		this._fireAdd = setEvent(this, 'onAdd', { lazy: false, });
+		// called with (fromIndex, oldValue) whenever a value is removed from this.
+		this._fireRemove = setEvent(this, 'onRemove', { lazy: false, });
 		this._index = 0;
 		this.index = index;
 		this.loop = !!loop;
@@ -33,7 +34,7 @@ class PlayList extends Array {
 		else { value <<= 0; }
 		const old = this._index;
 		this._index = value;
-		old !== value && this.onSeek._fire(value, old);
+		old !== value && this._fireSeek([ value, old, ]);
 	}
 	get index() {
 		return this._index;
@@ -151,14 +152,14 @@ class PlayList extends Array {
 		const length = this.length;
 		super.push(...arguments);
 		for (let i = 0; i < arguments.length; ++i) {
-			this.onAdd._fire(length + i, arguments[i]);
+			this._fireAdd([ length + i, arguments[i], ]);
 		}
 		return this.length;
 	}
 
 	pop() {
 		const value = super.pop();
-		this.onRemove._fire(this.length, value);
+		this._fireRemove([ this.length, value, ]);
 		this.index === this.length && this.next();
 		return value;
 	}
@@ -170,7 +171,7 @@ class PlayList extends Array {
 
 	shift() {
 		const value = super.shift();
-		this.onRemove._fire(0, value);
+		this._fireRemove([ 0, value, ]);
 		this.index >= 0 && (this.index -= 1);
 		return value;
 	}
@@ -178,7 +179,7 @@ class PlayList extends Array {
 	unshift() {
 		super.unshift(...arguments);
 		for (let i = 0; i < arguments.length; ++i) {
-			this.onAdd._fire(i, arguments[i]);
+			this._fireAdd([ i, arguments[i], ]);
 		}
 		return this.length;
 	}
@@ -187,33 +188,16 @@ class PlayList extends Array {
 		const removed = super.splice(...arguments);
 		remove = removed.length;
 		for (let i = 0; i < removed.length; ++i) {
-			this.onRemove._fire(at, removed[i]);
+			this._fireRemove([ at, removed[i], ]);
 		}
 		for (let i = 0; i < items.length; ++i) {
-			this.onAdd._fire(at + i, items[i]);
+			this._fireAdd([ at + i, items[i], ]);
 		}
 		this.index >= at && (this.index <= at + remove ? (this.index = at + items.length) : (this.index += items.length - remove));
 		return removed;
 	}
 }
 
-return new PlayList({ });
-
-function Event() {
-	const listeners = new Set;
-	return {
-		_listeners: listeners,
-		_fire() {
-			listeners.forEach(listener => { try { listener.apply(null, arguments); } catch (error) { console.error(error); } });
-		},
-		addListener(listener, { owner, } = { }) {
-			if (typeof listener !== 'function') { return; }
-			listeners.add(listener);
-			owner && owner.addEventListener('unload', () => listeners.delete(listener));
-		},
-		hasListener(listener) { return listeners.has(listener); },
-		removeListener(listener) { listeners.delete(listener); },
-	};
-}
+return Playlist;
 
 }); })(this);

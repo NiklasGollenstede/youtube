@@ -9,35 +9,24 @@ const content = new ContentScript({
 	runAt: 'document_start',
 	include: [ 'https://www.youtube.com/*', 'https://gaming.youtube.com/*', ],
 	modules: [
-		'node_modules/es6lib/concurrent',
+		// every script in the /content/ folder
+		...readdir('content').filter(_=>_.endsWith('.js')).map(name => 'content/'+ name.slice(0, -3)),
+
+		// and their dependencies (this is just for a slight performance increase)
+		'node_modules/es6lib/concurrent', // check for removal
 		'node_modules/es6lib/dom',
 		'node_modules/es6lib/functional',
-		'node_modules/es6lib/namespace',
-		'node_modules/es6lib/network',
 		'node_modules/es6lib/object',
 		'node_modules/es6lib/observer',
-		'node_modules/es6lib/port',
+		'node_modules/es6lib/port', // TODO: remove (used by content/player.js(.js))
 		'node_modules/es6lib/string',
 		'node_modules/web-ext-utils/browser/index',
+		'node_modules/web-ext-utils/browser/messages',
 		'node_modules/web-ext-utils/browser/version',
 		'node_modules/web-ext-utils/options/index',
+		'node_modules/web-ext-utils/utils/event',
+		'node_modules/web-ext-utils/node_modules/multiport/',
 		'common/event-emitter',
-
-		// these need to be in dependency order
-		'content/options',
-		'content/layout-new.css',
-		'content/layout-old.css',
-		'content/player.js',
-		'content/utils',
-		'content/templates',
-		'content/player',
-		'content/ratings',
-		'content/passive',
-		'content/actions',
-		'content/layout',
-		'content/control',
-		'content/index',
-		// ...readdir('content').filter(_=>_.endsWith('.js')).map(name => 'content/'+ name.slice(0, -3)), // this can be used once the loader keeps track of loaded scripts in the background
 	],
 });
 

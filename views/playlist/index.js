@@ -1,25 +1,22 @@
 (function(global) { 'use strict'; define(({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
-	'node_modules/es6lib/string': { secondsToHhMmSs, fuzzyIncludes, },
+	'node_modules/es6lib/string': { fuzzyIncludes, secondsToHhMmSs, },
 	'node_modules/es6lib/dom': { createElement, },
 	'node_modules/sortablejs/Sortable.min': Sortable,
 	'node_modules/web-ext-utils/browser/': { manifest, runtime, Tabs, Windows, },
 	'node_modules/web-ext-utils/utils/': { showExtensionTab, reportError, },
-	'background/commands': commands,
-	'background/db': db,
-	'background/playlist': playlist,
-	'background/tab': { actives: players, onOpen, onClose, onPlay, },
-	'background/video-info': { makeTabTileClass, },
+	'background/player': Player,
+	'background/video-info': { makeTileClass, },
 	'common/context-menu': ContextMenu,
 	'common/options': options,
 	'fetch!./body.html': Body,
 	require,
 }) => {
 
-async function View(window) {
+return async function View(window) {
 
 	const { document, } = window;
 	const off = { owner: window, };
-	const TabTile = window.TabTile = makeTabTileClass(window);
+	const Tile = window.Tile = makeTileClass(window);
 
 	document.title = 'Playlist - '+ manifest.name;
 	const theme = document.head.appendChild(createElement('link', { rel: 'stylesheet', }));
@@ -31,71 +28,78 @@ async function View(window) {
 	document.body.innerHTML = Body;
 	document.body.classList = 'no-transitions loading';
 	document.body.classList.remove('loading'); // TODO: remove CSS
-	global.setTimeout(() => document.documentElement.classList.remove('no-transitions'), 200);
+	global.setTimeout(() => document.body.classList.remove('no-transitions'), 200);
 
-	const windowList = document.querySelector('#windows .windows');
-	const tabList = document.querySelector('#playlist .tabs');
-	const defaultWindow = document.querySelector('#window-default');
-	defaultWindow.remove();
+	const groupList = document.querySelector('#groups .groups');
+	const playlistTiles = document.querySelector('#playlist .tiles');
 
-	const tabs = Array.from(players.values());
-	const windows = { }; tabs.forEach(tab => {
-		!windows[tab.windowId] && (windows[tab.windowId] = { id: tab.windowId, tabs: [ ], });
-		windows[tab.windowId].tabs.push(tab);
-	});
+	{ // videos open in tabs
+		const ids = (await Player.getOpenVideos());
+		const group = groupList.appendChild(createGroup('tabs', 'Open Tabs'));
+		const tiles = group.querySelector('.tiles');
+		enableDragOut(tiles);
+		const addTile = id => tiles.appendChild(Object.assign(new Tile, { videoId: id, }));
+		ids.forEach(addTile);
 
-	Object.values(windows).forEach(window => {
-		const tabList = windowList.appendChild(updateWindow(defaultWindow.cloneNode(true), window)).querySelector('.tabs');
-		window.tabs.sort((a, b) => a.index - b.index).forEach(tab => tabList.appendChild(Object.assign(new TabTile, { className: 'tab', videoId: tab.videoId, })));
-		enableDragOut(tabList);
-	});
-	playlist.forEach(tab => tabList.appendChild(windowList.querySelector(`.tab[video-id="${ tab.videoId }"]`).cloneNode(true)).classList.add('in-playlist'));
-	enableDragIn(tabList);
-
-	playlist.onSeek.addListener(seek, off); seek(playlist.index);
-	function seek(active) {
-		Array.prototype.forEach.call(tabList.querySelectorAll('.active'), tab => tab.classList.remove('active'));
-		if (!tabList.children[active]) { return; }
-		tabList.children[active].classList.add('active');
-		if (tabList.matches(':hover')) { return; }
-		scrollToCenter(tabList.children[active]);
+		Player.onVideoOpen(addTile, off);
+		Player.onVideoClose(id => tiles.querySelector(`media-tile[video-id="${ id }"]`).remove(), off);
 	}
 
-	options.playlist.children.loop.whenChange(value => document.querySelector('#loop').classList[value ? 'add' : 'remove']('active'), off);
+	{ // playlist
+		const ids = Player.playlist.current;
+		const tiles = playlistTiles;
+		enableDragIn(tiles);
+		const createTile = id => { const tile = new Tile; tile.videoId = id; tile.classList.add('in-playlist'); return tile; };
+		ids.forEach(id => tiles.appendChild(createTile(id)));
 
-	onPlay.addListener(playing, off); playlist.is(_=>_.playing) && playing(true);
-	function playing(playing) {
-		document.querySelector( playing ? '#play' : '#pause').classList.add('active');
-		document.querySelector(!playing ? '#play' : '#pause').classList.remove('active');
+		Player.playlist.onAdd((index, id) => tiles.insertBefore(createTile(id), tiles.children[index]), off);
+		Player.playlist.onRemove(index => removeTile(tiles.children[index]), off);
+
+		Player.playlist.onSeek(seek, off); seek(Player.playlist.index);
+		function seek(index) {
+			tiles.querySelectorAll('.active').forEach(tab => tab.classList.remove('active'));
+			if (!tiles.children[index]) { return; }
+			tiles.children[index].classList.add('active');
+			if (tiles.matches(':hover')) { return; }
+			scrollToCenter(tiles.children[index]);
+		}
 	}
 
-	playlist.onAdd.addListener(async (index, tab) => {
-		const other = windowList.querySelector(`.tab[data-tab="${ tab.tabId }"]`);
-		const self = /*other ?*/ other.cloneNode(true) /*: updateTab(defaultTab.cloneNode(true), tab)*/;
-		tabList.insertBefore(self, tabList.children[index]).classList.add('in-playlist');
-	}, off);
-
-	playlist.onRemove.addListener((index, tab) => {
-		if (tabList.children[index].dataset.tab !== tab.id +'') { throw new Error; }
-		removeTabElement(tabList.children[index]);
-	}, off);
-
-	onOpen.addListener(tab => {
-		let element = windowList.querySelector(`.tab[data-tab="${ tab.tabId }"]`);
-		if (!element) { element = updateTab(defaultTab.cloneNode(true), tab); }
-		else { document.querySelectorAll(`.tab[data-tab="${ tab.tabId }"]`).forEach(element => updateTab(element, tab)); }
-		const tabList = windowList.querySelector(`#window-${ tab.windowId } .tabs`)
-		|| windowList.appendChild(updateWindow(defaultWindow.cloneNode(true), { id: tab.windowId, title: tab.windowId, })).querySelector('.tabs');
-		const next = Array.prototype.find.call(tabList.children, ({ dataset: { index, }, }) => index > tab.index); // TODO: the index of the other tabs in the list may be incorrect if they were shifted due to other tabs movement/open/close
-		tabList.insertBefore(element, next);
-	}, off);
-
-	onClose.addListener(tabId => {
-		document.querySelectorAll(`.tab[data-tab="${ tabId }"]`).forEach(tab => removeTabElement(tab));
-	}, off);
+	{ // controls
+		options.playlist.children.loop.whenChange(([ value, ]) => document.querySelector('#loop').classList[value ? 'add' : 'remove']('active'), off);
+		Player.onPlay(playing, off); Player.playing && playing(true);
+		function playing(playing) {
+			document.querySelector( playing ? '#play' : '#pause').classList.add('active');
+			document.querySelector(!playing ? '#play' : '#pause').classList.remove('active');
+		}
+	}
+	{ // seek-bar
+		let looping = false, lastSec = -1;
+		const progress = document.querySelector('#progress>input'), time = document.querySelector('#current-time');
+		const next = window.requestAnimationFrame;
+		Player.onPlay(check, off); Player.onDurationChange(check, off); check();
+		async function check() { if (!Player.duration) { // stop & hide
+			document.querySelector('#seek-bar').classList.add('hidden');
+			looping = false;
+		} else if (Player.playing) { // start & show
+			if (!looping) { looping = true; loop(); }
+			document.querySelector('#seek-bar').classList.remove('hidden');
+			document.querySelector('#total-time').textContent = secondsToHhMmSs(Player.duration);
+			progress.max = Player.duration;
+		} else { // stop
+			looping = false;
+		} }
+		function loop() {
+			const current = Player.currentTime;
+			progress.value = current;
+			const sec = current <<0;
+			sec !== lastSec && (time.textContent = secondsToHhMmSs((lastSec = sec)));
+			looping && next(loop);
+		}
+	}
 
 	[ 'prev', 'play', 'pause', 'next', 'loop', ]
-	.forEach(command => document.querySelector('#'+ command).addEventListener('click', ({ button, }) => !button && commands[command]()));
+	.forEach(command => document.querySelector('#'+ command).addEventListener('click', ({ button, }) => !button && Player[command]()));
 
 	document.querySelector('#more').addEventListener('click', showMainMenu);
 	document.addEventListener('contextmenu', showContextMenu);
@@ -103,9 +107,7 @@ async function View(window) {
 	document.addEventListener('click', onClick);
 	document.addEventListener('keydown', onKeydown);
 	document.addEventListener('input', onInput);
-}
-View.instances = [ ];
-return View;
+};
 
 function showMainMenu(event) {
 	if (event.button) { return; }
@@ -131,53 +133,51 @@ function showMainMenu(event) {
 function showContextMenu(event) {
 	const { target, clientX: x, clientY: y, } = event;
 	if (!target.matches) { return; }
-	const document = event.target.ownerDocument, window = document.defaultView;
-	const windowList = document.querySelector('#windows .windows');
-	const tabList = document.querySelector('#playlist .tabs');
+	const document = event.target.ownerDocument;
+	const others = document.querySelector('#groups');
+	const playlist = document.querySelector('#playlist .tiles');
 	const items = [ ];
-	const tab = target.closest('.tab');
-	const _window = target.closest('.window');
-	const _playlist = target.matches('#playlist, #playlist *');
-	if (target.matches('.tab, .tab *')) {
-		const tabId = +tab.dataset.tab;
+	const tile = target.closest('media-tile');
+	const group = target.closest('.group');
+	const inList = target.matches('#playlist, #playlist *');
+	if (tile) {
+		const id = tile.videoId;
+		const hasTab = Player.frameFor(id);
 		items.push(
-			             { icon: '▶',	 label: 'Play video',       action: () => players.get(+tabId).play(),   default: tab.matches('#playlist :not(.active)') && !target.matches('.remove, .icon'), },
-			             { icon: '👁',	 label: 'Show tab',         action: () => focusTab(+tabId),          default: tab.matches('#windows *, .active') && !target.matches('.remove, .icon'), },
-			             { icon: '⨉',	 label: 'Close tab',        action: () => Tabs.remove(tabId),        default: target.matches('#windows .remove'), },
-			_playlist && { icon: '❏',	 label: 'Duplicate',        action: () => playlist.splice(positionInParent(tab), 0, players.get(+tabId)), },
-			_playlist && { icon: '⨉',	 label: 'Remove entry',     action: () => playlist.splice(positionInParent(tab), 1), default: target.matches('#playlist .remove'), },
-			_playlist && { icon: '🔍',	 label: 'Find in window',   action: () => highlight(windowList.querySelector(`.tab[data-tab="${ tabId }"]`)), },
-			_window   && { icon: '🔍',	 label: 'Find in playist',  action: () => highlight(tabList.querySelector(`.tab[data-tab="${ tabId }"]`) || _window.querySelector(`.tab[data-tab="${ tabId }"]`)), },
-			_window   && { icon: '➕',	 label: 'Add video',        action: () => playlist.push(players.get(+tabId)), }
+			           { icon: '▶',		label: 'Play video',       action: () => { Player.current = id; Player.play(); }, default: tile.matches('#playlist :not(.active)') && !target.matches('.remove, .icon'), },
+			 hasTab && { icon: '👁',	label: 'Show tab',         action: () => { focusTab(id); }, default: tile.matches('#group-tabs *, .active') && !target.matches('.remove, .icon'), },
+			!hasTab && { icon: '◳',		label: 'Open in tab',      action: () => { Tabs.create({ url: 'https://www.youtube.com/watch?v='+ id, }); }, },
+			 inList && { icon: '❏',		label: 'Duplicate',        action: () => Player.playlist.splice(positionInParent(tile), 0, id), },
+			 inList && { icon: '⨉',		label: 'Remove entry',     action: () => Player.playlist.splice(positionInParent(tile), 1), default: target.matches('#playlist .remove'), },
+			 inList && { icon: '🔍',	label: 'Highlight',        action: () => highlight(others.querySelector(`media-tile[video-id="${ id }"]`)), },
+			!inList && { icon: '🔍',	label: 'Highlight',        action: () => highlight(playlist.querySelector(`media-tile[video-id="${ id }"]`)), },
+			!inList && { icon: '➕',	label: 'Add video',        action: () => Player.playlist.splice(Infinity, 0, id), },
 		);
 	}
-	if (_playlist) {
+	if (inList) {
 		items.push(
 			{ icon: '⇵',	 label: 'Sort by',                      type: 'menu', children: [
-				{ icon:'⌖',		 label: 'position',                     action: () => sortPlaylist('position'), },
+				{ icon:'⌖',		 label: 'position',                     action: () => Player.playlist.sort('position').catch(reportError.bind(null, 'Sorting failed')), },
 				{ icon: '👓',	 label: 'views',                        type: 'menu', children: [
-					{ icon: '🌐',	 label: 'global',                       action: () => sortPlaylist('viewsGlobal'), },
-					{ icon: '⏱',	 label: 'yours in total duration',      action: () => sortPlaylist('viewsDuration'), },
-					{ icon: '↻',	 label: 'yours in times viewed',        action: () => sortPlaylist('viewsTimes'), },
+					{ icon: '🌐',	 label: 'global',                       action: () => Player.playlist.sort('viewsGlobal').catch(reportError.bind(null, 'Sorting failed')), },
+					{ icon: '⏱',	 label: 'yours in total duration',      action: () => Player.playlist.sort('viewsDuration').catch(reportError.bind(null, 'Sorting failed')), },
+					{ icon: '↻',	 label: 'yours in times viewed',        action: () => Player.playlist.sort('viewsTimes').catch(reportError.bind(null, 'Sorting failed')), },
 				], },
-				{ icon: '🔀',	 label: 'Shuffle',                      action: () => sortPlaylist('random'), },
+				{ icon: '🔀',	 label: 'Shuffle',                      action: () => Player.playlist.sort('random').catch(reportError.bind(null, 'Sorting failed')), },
 			], },
-			{ icon: '🛇',	 label: 'Clear list',                   action: () => playlist.splice(0, Infinity) === commands.pause(), }
+			{ icon: '🛇',	 label: 'Clear list',                   action: () => Player.playlist.splice(0, Infinity), },
 		);
 	}
-	if (target.matches('.window .header .title')) {
-		const box = windowList.querySelector('#'+ target.htmlFor);
+	if (target.matches('.group .header .title')) {
+		const box = document.querySelector('#'+ target.htmlFor);
 		items.push(
 			{ icon: '⇳',	 label: (box.checked ? 'Expand' : 'Collapse') +' tab list', action: () => (box.checked = !box.checked), default: true, }
 		);
 	}
-	if (_window) {
-		const _tabs = Array.from(_window.querySelectorAll(document.body.classList.contains('searching') ? '.tab.found' : '.tab'));
-		_tabs.length > 1 && items.push(
-			{ icon: '⋯',	 label: 'Add all '+   _tabs.length, action: () => playlist.push(..._tabs.map(tab => players.get(+tab.dataset.tab))), },
-			{ icon: '❌',	 label: 'Close all '+ _tabs.length, action: () => {
-				window.confirm('Close all '+ _tabs.length +' tabs in this window?') && _tabs.forEach(tab => Tabs.remove(+tab.dataset.tab));
-			}, }
+	if (group) {
+		const tiles = Array.from(others.querySelectorAll(document.body.classList.contains('searching') ? 'media-tile.found' : 'media-tile'));
+		tiles.length > 1 && items.push(
+			{ icon: '⋯',	 label: 'Add all '+   tiles.length, action: () => Player.playlist.splice(0, Infinity, ...tiles.map(_=>_.videoId)), },
 		);
 	}
 	// ' 🔉 🔈 🔇 🔂 🔁 🔜 🌀 🔧 ⫶ 🔞 '; // some more icons
@@ -189,20 +189,19 @@ function showContextMenu(event) {
 
 // focus tab (windows) or play tab on dblclick
 function onDblckick({ target, button, }) {
-	if (button || !target.matches || !target.matches('.description, .description :not(.remove)')) { return; }
+	if (button || !target.matches) { return; }
 	const document = target.ownerDocument;
 
-	target = target.closest('.tab');
-	if (target.matches('#playlist *')) {
-		if (target.matches('.active')) {
-			focusTab(+target.dataset.tab);
+	const tile = target.closest('media-tile');
+	if (!tile) { return; }
+	if (tile.matches('#playlist *')) {
+		if (tile.matches('.active')) {
+			focusTab(tile.videoId);
 		} else {
-			const playing = playlist.is(_=>_.playing);
-			playlist.index = positionInParent(target);
-			playing && playlist.is(_=>_.play());
+			Player.playlist.index = positionInParent(tile);
 		}
-	} else if (target.matches('#windows *')) {
-		focusTab(+target.dataset.tab);
+	} else {
+		focusTab(tile.videoId);
 	}
 	document.defaultView.getSelection().removeAllRanges();
 }
@@ -212,13 +211,9 @@ function onClick({ target, button, }) {
 	if (button || !target.matches) { return; }
 	const document = target.ownerDocument;
 
-	if (target.matches('.tab .remove, .tab .remove *')) {
-		const tab = target.closest('.tab');
-		if (tab.matches('#playlist *')) {
-			playlist.splice(positionInParent(tab), 1);
-		} else if (tab.matches('#windows *')) {
-			Tabs.remove(+tab.dataset.tab);
-		}
+	if (target.matches('#playlist media-tile .remove, #playlist media-tile .remove *')) {
+		const tile = target.closest('media-tile');
+		Player.playlist.splice(positionInParent(tile), 1);
 	} else if (target.matches('#searchbox .remove, #searchbox .remove *')) {
 		const box = document.querySelector('#searchbox>input');
 		box.value = ''; box.blur();
@@ -235,6 +230,14 @@ function onKeydown(event) {
 			const box = document.querySelector('#searchbox>input');
 			box.focus(); box.select();
 		} break;
+		case 'o': {
+			if (!event.ctrlKey) { return; }
+			const reply = document.defaultView.prompt('Paste a comma or space separated list of YouTube video IDs below:');
+			const ids = reply.trim().split(/[\s,;]+/g).map(string => { switch (true) {
+				case (/^[\w-]{11}$/).test(string): return string;
+			} return null; }).filter(_=>_);
+			Player.playlist.splice(Infinity, 0, ...ids);
+		} break;
 		case 'Escape': {
 			if (event.ctrlKey || !event.target.matches('#searchbox>input')) { return; }
 			event.target.value = ''; event.target.blur();
@@ -242,31 +245,30 @@ function onKeydown(event) {
 		} break;
 		case ' ': {
 			if (inInput) { return; }
-			commands.toggle();
+			Player.toggle();
 		} break;
 		default: return;
 	}
 	event.preventDefault(); event.stopPropagation();
 }
 
-function onInput(event) {
-	const document = event.target.ownerDocument;
-	if (event.target.matches('#searchbox>input')) {
-		const windowList = document.querySelector('#windows .windows');
-		const term = event.target.value.trim();
+function onInput({ target, }) {
+	const document = target.ownerDocument;
+	if (target.matches('#searchbox>input')) {
+		const term = target.value.trim();
 		const lTerm = term.toLowerCase();
-		const tabs = Array.from(windowList.querySelectorAll('.tab'));
-		tabs.forEach(_=>_.classList.remove('found'));
+		const tiles = Array.from(document.querySelectorAll('#groups media-tile'));
+		tiles.forEach(_=>_.classList.remove('found'));
 
 		if (term.length < 3) { document.body.classList.remove('searching'); return; }
 		else { document.body.classList.add('searching'); }
 
 		// looking for trigrams makes it quite unlikely to match just anything, but a typo will have quite an impact
-		const found = tabs.filter(tab => fuzzyIncludes(tab.querySelector('.icon').title.toLowerCase(), lTerm, 3) > 0.6);
-		term.length === 11 && found.push(...tabs.filter(_=>_.dataset.video === term));
+		const found = tiles.filter(tile => fuzzyIncludes(tile.querySelector('.icon').title.toLowerCase(), lTerm, 3) > 0.6);
+		term.length === 11 && found.push(...tiles.filter(_=>_.dataset.video === term));
 		found.forEach(_=>_.classList.add('found'));
-	} else {
-		return;
+	} else if (target.matches('#progress>input')) {
+		Player.seekTo(target.value);
 	}
 }
 
@@ -297,15 +299,15 @@ function highlight(element) {
 }
 
 // enable drag & drop
-function enableDragOut(element) {
-	return (element.sortable = new Sortable(element, {
+function enableDragOut(tiles) {
+	return (tiles.sortable = new Sortable(tiles, {
 		group: {
 			name: 'playlist',
 			pull: 'clone',
 			put: false,
 		},
 		handle: '.icon',
-		draggable: '.tab',
+		draggable: 'media-tile',
 		ghostClass: 'ghost',
 		animation: 500,
 		scroll: true,
@@ -317,17 +319,15 @@ function enableDragOut(element) {
 		},
 	}));
 }
-function enableDragIn(element) {
-	const document = element.ownerDocument;
-	const tabList = document.querySelector('#playlist .tabs');
-	return (element.sortable = new Sortable(element, {
+function enableDragIn(tiles) {
+	return (tiles.sortable = new Sortable(tiles, {
 		group: {
 			name: 'playlist',
 			pull: false,
 			put: true,
 		},
 		handle: '.icon',
-		draggable: '.tab',
+		draggable: 'media-tile',
 		ghostClass: 'ghost',
 		animation: 500,
 		scroll: true,
@@ -338,44 +338,30 @@ function enableDragIn(element) {
 			dataTransfer.setData('text', 'https://www.youtube.com/watch?v='+ item.dataset.video);
 		},
 		onAdd({ item, newIndex, }) { global.setTimeout(() => { // inserted, async for the :hover test
-			Array.prototype.forEach.call(tabList.querySelectorAll('.tab:not(.in-playlist)'), _=>_.remove()); // remove any inserted items
-			if (!tabList.matches(':hover')) { return; } // cursor is not over drop target ==> invalid drop
-			playlist.splice(newIndex, 0, players.get(+item.dataset.tab));
+			Array.prototype.forEach.call(tiles.querySelectorAll('media-tile:not(.in-playlist)'), _=>_.remove()); // remove any inserted items
+			if (!tiles.matches(':hover')) { return; } // cursor is not over drop target ==> invalid drop
+			Player.playlist.splice(newIndex, 0, item.videoId);
 		}); },
 		onUpdate({ item, newIndex, oldIndex, }) { // sorted within
 			console.log('onUpdate');
-			item.remove(); tabList.insertBefore(item, tabList.children[oldIndex]); // put back to old position
-			playlist.splice(oldIndex, 1);
-			playlist.splice(newIndex, 0, players.get(+item.dataset.tab));
-			item.matches('.active') && (playlist.index = newIndex);
+			item.remove(); tiles.insertBefore(item, tiles.children[oldIndex]); // put back to old position
+			Player.playlist.splice(oldIndex, 1);
+			Player.playlist.splice(newIndex, 0, item.videoId);
+			item.matches('.active') && (Player.playlist.index = newIndex);
 		},
 	}));
 }
 
-function updateWindow(element, { id, title, }) {
-	element.id = 'window-'+ id;
-	element.querySelector('label.toggleswitch').htmlFor = 'windowToggle-'+ id;
-	element.querySelector('input.toggleswitch').id = 'windowToggle-'+ id;
-	element.querySelector('.title').textContent = title || id;
-	return element;
-}
+function createGroup(id, name) { return createElement('div', { id: 'group-'+ id, className: 'group', }, [
+	createElement('div', { className: 'header', }, [
+		createElement('label', { className: 'toggleswitch title', htmlFor: 'groupToggle-'+ id, }, [ name, ]),
+	]),
+	createElement('input', { className: 'toggleswitch', type: 'checkbox', id: 'groupToggle-'+ id, }),
+	createElement('span', { className: 'tiles', }),
+]); }
 
-function updateTab(element, tab) {
-	element.dataset.tab = tab.tabId;
-	element.dataset.video = tab.videoId;
-	const icon = element.querySelector('.icon');
-	icon.style.backgroundImage = `url(${ tab.thumbUrl })`;
-	icon.title = tab.title;
-	element.querySelector('.title').textContent = tab.title;
-	const duration = secondsToHhMmSs(tab.duration);
-	element.querySelector('.duration').textContent = duration;
-	return element;
-}
-
-function removeTabElement(tab) {
+function removeTile(tab) {
 	tab.classList.contains('active') && tab.nextSibling && tab.nextSibling.classList.add('active');
-	const window = tab.matches('.window *') && tab.closest('.window');
-	window && window.querySelectorAll('.tab').length === 1 && window.remove();
 	return tab.remove();
 }
 
@@ -403,34 +389,12 @@ function positionInParent(element) {
 	return Array.prototype.indexOf.call(element.parentNode.children, element);
 }
 
-async function focusTab(tabId) {
-	(await Tabs.update(tabId, { active: true, }));
-	const { windowId, } = (await Tabs.get(tabId));
+async function focusTab(videoId) {
+	const frame = Player.frameFor(videoId);
+	if (!frame) { return; }
+	(await Tabs.update(frame.tabId, { active: true, }));
+	const { windowId, } = (await Tabs.get(frame.tabId));
 	(await Windows.update(windowId, { focused: true, }));
 }
-
-async function sortPlaylist(by, direction = 0) { try {
-	const directed = !!(direction << 0);
-	direction = directed && direction < 0 ? -1 : 1;
-	console.log('playlist_sort', by, direction, directed);
-	const mapper = { // must return a signed 32-bit integer
-		random:        _   => Math.random() * 0xffffffff,
-		position:      tab => tab.tab().then(info => (info.windowId << 16) + info.index),
-		viewsGlobal:   tab => db.get(tab.videoId, [ 'rating', ]).then(({ rating, }) => -rating.views),
-		viewsDuration: tab => db.get(tab.videoId, [ 'viewed', ]).then(({ viewed, }) => -(viewed || 0) * 256),
-		viewsTimes:    tab => db.get(tab.videoId, [ 'viewed', 'meta', ]).then(({ viewed, meta, }) => -(viewed || 0) / (meta && meta.duration || Infinity) * 256),
-	}[by];
-	const data = new WeakMap; // Tab ==> number
-	(await Promise.all(playlist.map(
-		(tab, index) => Promise.resolve(tab).then(mapper)
-		.catch(error => (console.error(error), 0))
-		.then(value => data.set(tab, (value << 0) || 0) * 1024 + index) // add the previous index to make the sorting stable
-	)));
-	const current = playlist.get();
-	const sorted = playlist.slice().sort((a, b) => (data.get(a) - data.get(b)) * direction); // sort a .slice() to avoid updates
-	const reverse = !directed && playlist.every((tab, index) => tab === sorted[index]); // reverse if nothing changed
-	playlist.splice(0, Infinity, ...(reverse ? sorted.reverse() : sorted)); // write change
-	playlist.index = playlist.indexOf(current);
-} catch(error) { reportError('Sorting failed', error); } }
 
 }); })(this);
