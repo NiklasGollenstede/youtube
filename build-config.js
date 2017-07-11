@@ -2,6 +2,7 @@
 module.exports = function({ options, /*packageJson,*/ manifestJson, files, }) {
 
 	manifestJson.permissions.push(
+		'bookmarks',
 		'clipboardWrite',
 		'notifications',
 		'tabs',

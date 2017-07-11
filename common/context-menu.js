@@ -6,6 +6,7 @@
 
 const events = [
 	'click', 'keydown', 'wheel',
+	'unload',
 	'blur', 'resize', // Firefox fires these events in panels directly after the menu is opened
 ];
 
@@ -44,6 +45,9 @@ class ContextMenu {
 		const window = this.host.ownerDocument.defaultView;
 		events.forEach(type => window.removeEventListener(type, this, true));
 		current === this && (current = null);
+	}
+	static remove() {
+		current && current.remove();
 	}
 
 	addMenu(children, item) {
@@ -91,8 +95,15 @@ class ContextMenu {
 		this.active = item || null;
 	}
 
+	destroy() {
+		if (!this.root) { return; }
+		try { this.remove(); } catch (_) { }
+		this.root = this.host = null;
+	}
+
 	handleEvent(event) { // all events
 		switch (event.type) {
+			case 'unload': this.destroy(); return;
 			case 'blur': case 'resize': this.remove(); return; // hide menu but let propagate
 			case 'click': {
 				if (!event.target.matches || event.target.matches('.menu-anchor, .menu-anchor *')) { return; }

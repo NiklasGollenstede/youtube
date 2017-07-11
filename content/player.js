@@ -63,7 +63,7 @@ Object.defineProperty(exports, 'loaded', { get() { return loaded; }, enumerable:
 
 const getOptions = require.async('./options');
 
-/*const getBackground =*/ connect('player').then(bg => bg
+const getBackground = connect('player').then(bg => bg
 	.addHandler((/^(?:on|once|off|promise)$/), (name, ...args) => events[name](...args))
 	.addHandler((/./), async (name, ...args) => {
 		const method = bg.isRequest() ? 'request' : 'post';
@@ -240,10 +240,12 @@ async function onNavigated() {
 
 	console.log('control done', videoId);
 	loaded = videoId;
+	(await waitForStart);
 	events._emit('created', videoId);
 	play && events._emit('playing', video.currentTime || 0);
 }
 
+const waitForStart = new Promise(start => getBackground.then(_=>_.addHandler('start', start)));
 events.on('playing', debounce(setQuality, 1000));
 events.on('navigated', onNavigated);
 onNavigated();

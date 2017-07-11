@@ -35,7 +35,8 @@ options.incognito.whenChange(([ value, ]) => {
 });
 
 content.onMatch(async frame => {
-	(await frame.connect('VideoInfo')).addHandlers(VideoInfo);
+	const port = (await frame.connect('VideoInfo')).addHandlers(VideoInfo);
+	frame.onHide(() => port.destroy());
 });
 
 /*content.onMatch(async frame => {

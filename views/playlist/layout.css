@@ -125,9 +125,15 @@ media-tile.ghost {
 }
 #progress {
 	width: calc(100% - 90px);
+	padding: 7px 5px;
 }
 #progress .slider {
 	width: 100%;
+	--inner-color: #ff8080;
+	--outer-color: #d50000;
+	--background: #3071a9;
+	--track-height: .4;
+	font-size: 16px;
 }
 
 /* search box */
@@ -251,9 +257,11 @@ label.toggleswitch { cursor: pointer; }
 input.toggleswitch { display: none; }
 input.toggleswitch:checked + * { display: none; }
 
-.video-default,
-#group-default {
-	display: none;
+.tiles:empty::after {
+	content: '(none)';
+	opacity: 0.5;
+	font-family: monospace;
+	padding-left: 20px;
 }
 
 /* load spinners */
@@ -408,3 +416,51 @@ media-tile {
 		font-size: 9.13px;
 	}
 }
+
+/* slider */
+input.slider[type=range] {
+	-webkit-appearance: none;
+	margin: calc((1 - var(--track-height)) / 2 * 1em) 0;
+	outline: none;
+	cursor: pointer;
+	position: relative;
+	background: transparent;
+}
+input.slider[type=range]::-webkit-slider-runnable-track {
+	height: calc(var(--track-height) * 1em);
+	background: var(--background);
+	border-radius: 0.5em;
+}
+input.slider[type=range]::-webkit-slider-thumb {
+	box-shadow: inset .0625em .0625em .5625em var(--outer-color);
+	border: .0625em solid var(--outer-color);
+	height: 1em;
+	width: 1em;
+	border-radius: .5em;
+	background: var(--inner-color);
+	-webkit-appearance: none;
+	margin-top: calc((1 - var(--track-height)) / 2 * -1em);
+	box-sizing: border-box;
+}
+/* the next two blocks are the same as the two above */
+input.slider[type=range]::-moz-range-track {
+	height: calc(var(--track-height) * 1em);
+	background: var(--background);
+	border-radius: 0.5em;
+}
+input.slider[type=range]::-moz-range-thumb {
+	box-shadow: inset .0625em .0625em .5625em var(--outer-color);
+	border: .0625em solid var(--outer-color);
+	height: 1em;
+	width: 1em;
+	border-radius: .5em;
+	background: var(--inner-color);
+	-webkit-appearance: none;
+	margin-top: calc((1 - var(--track-height)) / 2 * -1em);
+	box-sizing: border-box;
+}
+/* firefox only */
+@-moz-document url-prefix() { input.slider[type=range] {
+	top: -.125em;
+	margin: 0;
+} }

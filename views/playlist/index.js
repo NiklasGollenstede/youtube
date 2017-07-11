@@ -1,8 +1,10 @@
 (function(global) { 'use strict'; define(({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
 	'node_modules/es6lib/string': { fuzzyIncludes, secondsToHhMmSs, },
 	'node_modules/es6lib/dom': { createElement, writeToClipboard, },
+	'node_modules/es6lib/object': { MultiMap, },
 	'node_modules/sortablejs/Sortable.min': Sortable,
-	'node_modules/web-ext-utils/browser/': { manifest, runtime, Tabs, Windows, },
+	'node_modules/web-ext-utils/browser/': { manifest, runtime, Tabs, Windows, Bookmarks, },
+	'node_modules/web-ext-utils/browser/version': { firefox, },
 	'node_modules/web-ext-utils/utils/': { showExtensionTab, reportError, reportSuccess, },
 	'background/player': Player,
 	'background/video-info': { makeTileClass, },
@@ -33,18 +35,6 @@ return async function View(window) {
 	const groupList = document.querySelector('#groups .groups');
 	const playlistTiles = document.querySelector('#playlist .tiles');
 
-	{ // videos open in tabs
-		const ids = (await Player.getOpenVideos());
-		const group = groupList.appendChild(createGroup('tabs', 'Open Tabs'));
-		const tiles = group.querySelector('.tiles');
-		enableDragOut(tiles);
-		const addTile = id => tiles.appendChild(Object.assign(new Tile, { videoId: id, }));
-		ids.forEach(addTile);
-
-		Player.onVideoOpen(addTile, off);
-		Player.onVideoClose(id => tiles.querySelector(`media-tile[video-id="${ id }"]`).remove(), off);
-	}
-
 	{ // playlist
 		const ids = Player.playlist.current;
 		const tiles = playlistTiles;
@@ -65,6 +55,49 @@ return async function View(window) {
 		}
 	}
 
+	{ // videos open in tabs
+		const ids = (await Player.getOpenVideos());
+		const group = groupList.appendChild(createGroup('tabs', 'Open Tabs'));
+		const tiles = group.querySelector('.tiles');
+		enableDragOut(tiles);
+		const addTile = id => tiles.appendChild(Object.assign(new Tile, { videoId: id, }));
+		ids.forEach(addTile);
+
+		Player.onVideoOpen(addTile, off);
+		Player.onVideoClose(id => tiles.querySelector(`media-tile[video-id="${ id }"]`).remove(), off);
+	}
+
+	if (firefox) { // videos in tabs unloaded
+		const open = new Set((await Player.getOpenVideos()));
+		const group = groupList.appendChild(createGroup('unloaded', 'Unloaded Tabs'));
+		const tiles = group.querySelector('.tiles');
+		enableDragOut(tiles);
+		const addTile = id => tiles.appendChild(Object.assign(new Tile, { videoId: id, }));
+		Tabs.query({ url: [ `https://www.youtube.com/watch?*v=*`, `https://gaming.youtube.com/watch?*v=*`, ], }).then(_=>_
+			.sort((a, b) => (a.windowId << 16 + a.index) - (b.windowId << 16 + b.index))
+			.map(_=>_.url.match(/\bv=([\w-]{11})\b/)).filter(_=>_).map(_=>_[1]).filter(id => !open.has(id)).forEach(addTile)
+		);
+
+		Player.onVideoOpen(id => tiles.querySelector(`media-tile[video-id="${ id }"]`).remove(), off);
+	}
+
+	// bookmarked videos
+	Bookmarks.search({ query: `youtube.com/watch?`, }).then(all => {
+		const parents = new MultiMap; all.forEach(item => parents.add(item.parentId, item));
+		parents.forEach(async (children, parentId) => {
+			const ids = Array.from(children).sort((a, b) => a.index - b.index).map(_=>_.url.match(/\bv=([\w-]{11})\b/)).filter(_=>_).map(_=>_[1]);
+			if (!ids.length) { return; }
+			const [ { title, }, ] = (await Bookmarks.get(parentId));
+			const group = groupList.appendChild(createGroup(parentId, createElement('span', null, [
+				createElement('span', { title: 'Bookmark folder', }, [ '🔖 ', ]), title,
+			])));
+			const tiles = group.querySelector('.tiles');
+			enableDragOut(tiles);
+			const addTile = id => tiles.appendChild(Object.assign(new Tile, { videoId: id, }));
+			ids.forEach(addTile);
+		});
+	});
+
 	{ // controls
 		options.playlist.children.loop.whenChange(([ value, ]) => document.querySelector('#loop').classList[value ? 'add' : 'remove']('active'), off);
 		Player.onPlay(playing, off); Player.playing && playing(true);
@@ -73,28 +106,29 @@ return async function View(window) {
 			document.querySelector(!playing ? '#play' : '#pause').classList.remove('active');
 		}
 	}
+
 	{ // seek-bar
 		let looping = false, lastSec = -1;
 		const progress = document.querySelector('#progress>input'), time = document.querySelector('#current-time');
 		const next = window.requestAnimationFrame;
-		Player.onPlay(check, off); Player.onDurationChange(check, off); check();
-		async function check() { if (!Player.duration) { // stop & hide
-			document.querySelector('#seek-bar').classList.add('hidden');
-			looping = false;
-		} else if (Player.playing) { // start & show
-			if (!looping) { looping = true; loop(); }
-			document.querySelector('#seek-bar').classList.remove('hidden');
-			document.querySelector('#total-time').textContent = secondsToHhMmSs(Player.duration);
-			progress.max = Player.duration;
-		} else { // stop
-			looping = false;
-		} }
-		function loop() {
+		Player.onPlay(check, off); Player.onDurationChange(check, off); check(); async function check() {
+			if (!Player.duration) { // stop & hide
+				document.querySelector('#seek-bar').classList.add('hidden');
+				looping = false;
+			} else { // show
+				document.querySelector('#seek-bar').classList.remove('hidden');
+				document.querySelector('#total-time').textContent = secondsToHhMmSs(Player.duration);
+				progress.max = Player.duration;
+				if (Player.playing) { if (!looping) { looping = true; loop(); } } // start
+				else { looping = false; set(); } // stop
+			}
+		}
+		function loop() { set(); looping && next(loop); }
+		function set() {
 			const current = Player.currentTime;
 			progress.value = current;
 			const sec = current <<0;
 			sec !== lastSec && (time.textContent = secondsToHhMmSs((lastSec = sec)));
-			looping && next(loop);
 		}
 	}
 
@@ -131,6 +165,7 @@ function showMainMenu(event) {
 
 // show context menus
 function showContextMenu(event) {
+	event.preventDefault(); ContextMenu.remove();
 	const { target, clientX: x, clientY: y, } = event;
 	if (!target.matches) { return; }
 	const document = event.target.ownerDocument;
@@ -176,7 +211,7 @@ function showContextMenu(event) {
 		);
 	}
 	if (group) {
-		const tiles = Array.from(others.querySelectorAll(document.body.classList.contains('searching') ? 'media-tile.found' : 'media-tile'));
+		const tiles = Array.from(group.querySelectorAll(document.body.classList.contains('searching') ? 'media-tile.found' : 'media-tile'));
 		tiles.length > 1 && items.push(
 			{ icon: '⋯',	 label: 'Add all '+   tiles.length, action: () => Player.playlist.splice(0, Infinity, ...tiles.map(_=>_.videoId)), },
 		);
@@ -185,7 +220,6 @@ function showContextMenu(event) {
 
 	if (!items.length) { return; }
 	new ContextMenu({ x, y, items, host: document.body, });
-	event.preventDefault();
 }
 
 // focus tab (windows) or play tab on dblclick
@@ -317,7 +351,7 @@ function enableDragOut(tiles) {
 		scrollSpeed: 10,
 		sort: false,
 		setData(dataTransfer, item) { // insert url if dropped somewhere else
-			dataTransfer.setData('text', 'https://www.youtube.com/watch?v='+ item.dataset.video);
+			dataTransfer.setData('text', 'https://www.youtube.com/watch?v='+ item.videoId);
 		},
 	}));
 }
@@ -337,7 +371,7 @@ function enableDragIn(tiles) {
 		scrollSpeed: 10,
 		sort: true,
 		setData(dataTransfer, item) { // insert url if dropped somewhere else
-			dataTransfer.setData('text', 'https://www.youtube.com/watch?v='+ item.dataset.video);
+			dataTransfer.setData('text', 'https://www.youtube.com/watch?v='+ item.videoId);
 		},
 		onAdd({ item, newIndex, }) { global.setTimeout(() => { // inserted, async for the :hover test
 			Array.prototype.forEach.call(tiles.querySelectorAll('media-tile:not(.in-playlist)'), _=>_.remove()); // remove any inserted items

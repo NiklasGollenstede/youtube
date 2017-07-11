@@ -1,4 +1,5 @@
 (function(global) { 'use strict'; define(async ({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
+	'node_modules/es6lib/concurrent': { sleep, },
 	'node_modules/es6lib/dom': { createElement, },
 	'node_modules/es6lib/string': { secondsToHhMmSs, },
 	'common/options': options,
@@ -6,7 +7,7 @@
 }) => {
 
 const db = (await (() => {
-	const db = global.indexedDB.open('video-info', 6); // throws in firefox if cookies are disabled
+	const db = global.indexedDB.open('video-info', 7); // throws in firefox if cookies are disabled
 	const props = { // 0: save and export, 1: save, 2: cache (immutable), 3: cache (mutable), 4: cache (special), 5: don't save
 		title: { type: 'string', level: 2, },
 		published: { type: 'number', level: 2, },
@@ -16,24 +17,26 @@ const db = (await (() => {
 		views: { type: 'number', level: 3, },
 		// viewed: { type: 'number', level: 0, },
 		rating: { type: 'number', level: 3, },
-		audioUrl: { type: 'string', level: 4, }, // only refresh if no audioData
-		loudness: { type: 'number', level: 2, },
+		audioUrl: { type: 'string', level: 5, },
 		// audioData: { type: 'blob', level: 1, },
+		loudness: { type: 'number', level: 2, },
 		thumbUrl: { type: 'string', level: 5, },
 		thumbData: { type: 'blob', level: 2, },
 		fetched: { type: 'number', level: 1, },
 	};
 	db.onupgradeneeded = ({ target: { result: db, }, }) => {
 		const has = Array.from(db.objectStoreNames);
-		const should = Object.keys(props);
+		const should = Object.keys(props).filter(key => props[key].level !== 5);
 		should.forEach(store => !has.includes(store) && db.createObjectStore(store, { }));
 		has.forEach(store => !should.includes(store) && db.deleteObjectStore(store));
 	};
 	return getResult(db).then(db => {
 		db.props = props;
-		db.keys = Object.keys(props);
+		const keys = Object.keys(props).filter(key => props[key].level !== 5);
+		db.keys = new Set(keys);
+		db.keys.array = keys;
 		return db;
-	}); // throws in firefox if ???
+	});
 })());
 
 const handlers = new Map/*<id, InfoHandler>*/;
@@ -55,7 +58,7 @@ class InfoHandler {
 
 	subscribe(listener, filter) {
 		this.listeners.set(listener, filter);
-		console.log('subscribe', this.id, this.listeners.size, filter);
+		// console.log('subscribe', this.id, this.listeners.size, filter);
 
 		const now = Date.now(), age = now - this.data.fetched;
 		if (
@@ -74,7 +77,7 @@ class InfoHandler {
 
 	unsubscribe(listener) {
 		this.listeners.delete(listener);
-		console.log('unsubscribe', this.id, this.listeners.size);
+		// console.log('unsubscribe', this.id, this.listeners.size);
 		global.setTimeout(() => this.listeners && this.listeners.size === 0 && this.destroy(), 5000);
 	}
 
@@ -109,9 +112,12 @@ class InfoHandler {
 	}
 
 	async loadFromServer() {
-		const info = (await Downloader.getInfo(this.id));
+		let info; while (true) { try {
+			info = (await Downloader.getInfo(this.id)); break;
+		} catch (error) { if (
+			error && (/^Failed to fetch$/).test(error.message)
+		) { (await sleep(2000)); } else { throw error; } } } // retry 2s later
 		console.log('fetched', info);
-		console.log('info', info);
 		const data = { id: this.id, fetched: Date.now(), };
 		('title' in info) && (data.title = info.title);
 		('published' in info) && (data.published = info.published);
@@ -125,8 +131,8 @@ class InfoHandler {
 	}
 
 	async loadFromDb() { return new Promise((resolve, reject) => {
-		const transaction = db.transaction(db.keys, 'readonly');
-		const data = { id: this.id, fetched: 0, }; let missing = db.keys.length;
+		const transaction = db.transaction(db.keys.array, 'readonly');
+		const data = { id: this.id, fetched: 0, }; let missing = db.keys.size;
 		db.keys.forEach(key => {
 			const get = transaction.objectStore(key).get(this.id);
 			get.onerror = error => (missing = Infinity) === error.stopPropagation() === reject(error);
@@ -140,11 +146,10 @@ class InfoHandler {
 
 	async save(update) { return new Promise((resolve, reject) => {
 		update = Object.assign({ }, update); delete update.id;
-		const keys = Object.keys(update); let missing = keys.length;
+		const keys = Object.keys(update).filter(key => db.keys.has(key)); let missing = keys.length;
 		if (!missing) { return; }
 		const transaction = db.transaction(keys, 'readwrite');
 		keys.forEach(key => {
-			if (key === 'id' || db.props[key].level === 5) { return void --missing; }
 			const put = transaction.objectStore(key).put(update[key], this.id);
 			put.onerror = error => (missing = Infinity) === error.stopPropagation() === reject(error);
 			put.onsuccess = () => (--missing <= 0 && resolve());
@@ -169,7 +174,7 @@ async function unsubscribe(id, listener) {
 }
 
 const getData = withHandler(_=>_.data);
-const setData = withHandler((handler, data) => handler.set(data));
+const setData = withHandler((handler, data) => handler.set(Object.assign({ }, data)));
 const refresh = withHandler(_=>_.refresh());
 
 function withHandler(run) { return async function(id, ...args) {
@@ -234,14 +239,14 @@ class _TabTile {
 		if (!videoId || this.videoId === videoId || !self.parentNode) { return; }
 		if (this.videoId) { this.detach(); }
 		this.videoId = videoId; this.view = self.ownerDocument.defaultView;
-		console.log('attach', this.videoId, this.rand);
+		// console.log('attach', this.videoId, this.rand);
 		!self.children.length && tabChildren.forEach(node => self.appendChild(node.cloneNode(true)));
 		subscribe(this.videoId, this.onChange, [ 'title', 'duration', 'thumbUrl', ]).then(this.onChange);
 		this.view.addEventListener('unload', this);
 	}
 	async detach() {
 		if (!this.videoId) { return; }
-		console.log('detach', this.videoId, this.rand);
+		// console.log('detach', this.videoId, this.rand);
 		unsubscribe(this.videoId, this.onChange);
 		this.view.removeEventListener('unload', this);
 		this.videoId = ''; this.view = null;

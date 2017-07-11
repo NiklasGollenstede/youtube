@@ -131,12 +131,14 @@ class AudioPlayer extends global.Audio {
 		if (info.audioUrl && Date.now() - info.fetched < 12e5/*20 min*/) {
 			this.src = info.audioUrl;
 			this.volume = loundessToVolume(info.loudness);
+			this.title = info.title;
 		} else {
 			(await VideoInfo.refresh(this.id));
 			const info = (await VideoInfo.getData(this.id));
 			if (!info.audioUrl) { reportError(`Failed to load audio`, `for YouTube video "${ info.title }" (${ this.id })`); }
 			this.src = info.audioUrl;
 			this.volume = loundessToVolume(info.loudness);
+			this.title = info.title;
 		}
 		console.log('audio loaded', this);
 	}
@@ -185,28 +187,29 @@ async function sortPlaylist(by, direction = 0) {
 	console.log('playlist_sort', by, direction, directed);
 	const mapper = { // must return a signed 32-bit integer
 		random:        _   => Math.random() * 0xffffffff,
-		position:      async tile => {
-			const frame = Player.frameFor(tile.videoId); if (!frame) { return 0; }
+		position:      async id => {
+			const frame = Player.frameFor(id); if (!frame) { return 0; }
 			const info = (await Tabs.get(frame.tabId)); return (info.windowId << 16) + info.index;
 		},
-		viewsGlobal:   async tile => { const data = (await VideoInfo.getData(tile.videoId)); return -(data.views); },
-		viewsDuration: async tile => { const data = (await VideoInfo.getData(tile.videoId)); return -(data.viewed || 0); },
-		viewsTimes:    async tile => { const data = (await VideoInfo.getData(tile.videoId)); return -(data.viewed || 0) / (data.duration || Infinity); },
+		viewsGlobal:   async id => { const data = (await VideoInfo.getData(id)); return -(data.views); },
+		viewsDuration: async id => { const data = (await VideoInfo.getData(id)); return -(data.viewed || 0); },
+		viewsTimes:    async id => { const data = (await VideoInfo.getData(id)); return -(data.viewed || 0) / (data.duration || Infinity); },
 	}[by];
-	const data = new Map; // videoId ==> number
+	const data = new Map/*<videoId, number>*/, position = new Map/*<videoId, index>*/;
 	(await Promise.all(playlist.map(
-		(tab, index) => Promise.resolve(tab).then(mapper)
+		(id, index) => Promise.resolve(id).then(mapper)
 		.catch(error => (console.error(error), 0))
-		.then(value => data.set(tab, (value << 0) || 0) * 1024 + index) // add the previous index to make the sorting stable
+		.then(value => data.set(id, value || 0) === position.set(id, index)) // add the previous index to make the sorting stable
 	)));
 	const current = playlist.get();
-	const sorted = playlist.slice().sort((a, b) => (data.get(a) - data.get(b)) * direction); // sort a .slice() to avoid updates
+	const sorted = playlist.slice().sort((a, b) => ((data.get(a) - data.get(b)) || (position.get(a) - position.get(b))) * direction); // sort a .slice() to avoid updates
 	const reverse = !directed && playlist.every((tab, index) => tab === sorted[index]); // reverse if nothing changed
 	playlist.splice(0, Infinity, ...(reverse ? sorted.reverse() : sorted)); // write change
 	playlist.index = playlist.indexOf(current);
 }
 
 playlist.onSeek(index => playlist.index === Infinity || playlist.index < 0 ? setCurrent(null) : loadPlayer(playlist[index]));
+playlist.onRemove(() => (playlist.get() || null) !== (current && current.id) && loadPlayer(playlist.get() || null));
 
 Player.onPlay(playing => { if (playing) { // play
 	const id = playlist.get();
@@ -253,6 +256,8 @@ content.onMatch(async frame => {
 	});
 
 	frame.onHide(() => { player && player.destroy(); player = null; });
+
+	port.post('start');
 });
 
 return Object.freeze(Player);
