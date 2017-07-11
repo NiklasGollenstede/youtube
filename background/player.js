@@ -32,10 +32,6 @@ assignDescriptors(Player, {
 	set current(value) { if (!value) { setCurrent(null); } else { setCurrent(loadPlayer(value)); } },
 	get playing() { return playing; },
 	get duration() { return duration; },
-	/*get duration() { return (async () =>
-		!current || !(current instanceof AudioPlayer) ? NaN : !isNaN(current.duration) ? current.duration
-		: new Promise(done => current.addEventListener('durationchange', () => done(current.duration)))
-	)(); },*/
 	get currentTime() { return current && (current instanceof AudioPlayer) ? current.currentTime : NaN; },
 
 	play() {
@@ -91,11 +87,18 @@ class RemotePlayer {
 		players.add(this.id, this);
 		videos.add(this);
 		fireVideoOpen([ this.id, ]);
-		this.ready = Promise.resolve();
 		this.duration = NaN; // const
+		port.ended.then(() => this.destroy());
 	}
 
+	play() { return this.port.request('play', true); }
+	pause() { return this.port.request('pause', true); }
+	start() { return this.port.request('start'); }
+	seekTo(v) { return this.port.request('seekTo', v); }
+
 	destroy() {
+		if (!this.port) { return; } this.port = null;
+		this.playing = false;
 		players.delete(this.id, this);
 		videos.delete(this);
 		if (current === this) {
@@ -105,9 +108,6 @@ class RemotePlayer {
 		fireVideoClose([ this.id, ]);
 	}
 }
-[ 'play', 'pause', 'start', 'seekTo', ].forEach(method => (
-	RemotePlayer.prototype[method] = function() { return this.port.request(method, ...arguments); }
-));
 
 
 class AudioPlayer extends global.Audio {
@@ -123,17 +123,20 @@ class AudioPlayer extends global.Audio {
 	handleEvent(event) { switch (event.type) {
 		case 'durationchange': this.duration !== duration && fireDurationChange([ duration = this.duration, ]); break;
 		case 'ended': current === this && Player.next(); current === this && this.start(); break;
+		case 'pause': case 'playing':  case 'stalled': current === this && this.playing !== playing && firePlay([ playing = this.playing, ]) ;
 	} }
 
 	async load() {
 		const info = (await VideoInfo.getData(this.id));
 		if (info.audioUrl && Date.now() - info.fetched < 12e5/*20 min*/) {
 			this.src = info.audioUrl;
+			this.volume = loundessToVolume(info.loudness);
 		} else {
 			(await VideoInfo.refresh(this.id));
 			const info = (await VideoInfo.getData(this.id));
 			if (!info.audioUrl) { reportError(`Failed to load audio`, `for YouTube video "${ info.title }" (${ this.id })`); }
 			this.src = info.audioUrl;
+			this.volume = loundessToVolume(info.loudness);
 		}
 		console.log('audio loaded', this);
 	}
@@ -150,10 +153,11 @@ class AudioPlayer extends global.Audio {
 	}
 }
 
-
-function loopCurrent() {
-	if (playlist.length === 1 && playlist.index === 0 && playlist.loop) { Player.start(); return true; } return false;
+function loundessToVolume(loundess) {
+	if (!(loundess > 0)) { return 1; } // default is 0, everything below is left at 100% volume by YouTube. One *could* use the WebAudio AIP to increase it above 100%
+	return 0.89125 ** loundess; // used a couple of samples: it's defensively an exponential function and the base is quite close to 0.89125
 }
+
 
 function setCurrent(player) {
 	current && current !== player && current.pause();
@@ -189,7 +193,7 @@ async function sortPlaylist(by, direction = 0) {
 		viewsDuration: async tile => { const data = (await VideoInfo.getData(tile.videoId)); return -(data.viewed || 0); },
 		viewsTimes:    async tile => { const data = (await VideoInfo.getData(tile.videoId)); return -(data.viewed || 0) / (data.duration || Infinity); },
 	}[by];
-	const data = new WeakMap; // Tab ==> number
+	const data = new Map; // videoId ==> number
 	(await Promise.all(playlist.map(
 		(tab, index) => Promise.resolve(tab).then(mapper)
 		.catch(error => (console.error(error), 0))
@@ -224,6 +228,7 @@ content.onMatch(async frame => {
 		playing() {
 			player.playing = true;
 			const wasPlaying = playing; playing = true;
+			current && current.id === player.id && (current instanceof AudioPlayer) && player.seekTo(current.currentTime);
 			setCurrent(player);
 			!wasPlaying && firePlay([ true, ]);
 		},
@@ -239,6 +244,7 @@ content.onMatch(async frame => {
 		},
 		removed() {
 			player.destroy();
+			player = null;
 		},
 	};
 	Object.keys(on).forEach(event => {
@@ -246,7 +252,7 @@ content.onMatch(async frame => {
 		port.afterEnded('off', event, on[event]);
 	});
 
-	frame.onHide(() => player && player.destroy());
+	frame.onHide(() => { player && player.destroy(); player = null; });
 });
 
 return Object.freeze(Player);

@@ -33,7 +33,7 @@ define(`
 */
 .watchpage.fullscreen body
 {
-    overflow: hidden;
+    overflow: hidden !important;
 }
 .watchpage.fullscreen #masthead-positioner,
 .watchpage.fullscreen #content
@@ -53,6 +53,7 @@ define(`
 .watchpage body
 {
     overflow-x: hidden !important;
+    overflow-y: auto !important;
 }
 .watchpage #watch7-main-container
 {

@@ -1,5 +1,6 @@
 (function(global) { 'use strict'; define(async ({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
 	'node_modules/web-ext-utils/browser/': { Commands, Tabs, Windows, browserAction, manifest, rootUrl, },
+	'node_modules/web-ext-utils/loader/': { getFrame, },
 	'node_modules/web-ext-utils/browser/messages': messages,
 	'node_modules/web-ext-utils/browser/version': { fennec, gecko, opera, },
 	'node_modules/web-ext-utils/loader/views': { getUrl, openView, getViews, },
@@ -69,6 +70,7 @@ async function activateTabIfWindowIsIdle(tabId, windowId) {
 	return false;
 }
 
+
 // report location changes to the content scripts
 Tabs.onUpdated.addListener(async (tabId, { url, }) => {
 	if (!url || !(await content.appliedToFrame(tabId))) { return; }
@@ -76,10 +78,10 @@ Tabs.onUpdated.addListener(async (tabId, { url, }) => {
 });
 
 
-// apply content script to existing tabs
-const attachedTo = (await content.applyNow());
-options.debug.value && console.log(`attached to ${ attachedTo.size } tabs:`, attachedTo);
-
+{ // apply content script to existing tabs
+	const frames = (await content.applyNow());
+	options.debug.value && console.log(`attached to ${ frames.size } tabs:`, frames);
+}
 
 // debug stuff
 Object.assign(global, {

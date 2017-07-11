@@ -1,9 +1,9 @@
 (function(global) { 'use strict'; define(({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
 	'node_modules/es6lib/string': { fuzzyIncludes, secondsToHhMmSs, },
-	'node_modules/es6lib/dom': { createElement, },
+	'node_modules/es6lib/dom': { createElement, writeToClipboard, },
 	'node_modules/sortablejs/Sortable.min': Sortable,
 	'node_modules/web-ext-utils/browser/': { manifest, runtime, Tabs, Windows, },
-	'node_modules/web-ext-utils/utils/': { showExtensionTab, reportError, },
+	'node_modules/web-ext-utils/utils/': { showExtensionTab, reportError, reportSuccess, },
 	'background/player': Player,
 	'background/video-info': { makeTileClass, },
 	'common/context-menu': ContextMenu,
@@ -146,18 +146,19 @@ function showContextMenu(event) {
 		items.push(
 			           { icon: '▶',		label: 'Play video',       action: () => { Player.current = id; Player.play(); }, default: tile.matches('#playlist :not(.active)') && !target.matches('.remove, .icon'), },
 			 hasTab && { icon: '👁',	label: 'Show tab',         action: () => { focusTab(id); }, default: tile.matches('#group-tabs *, .active') && !target.matches('.remove, .icon'), },
-			!hasTab && { icon: '◳',		label: 'Open in tab',      action: () => { Tabs.create({ url: 'https://www.youtube.com/watch?v='+ id, }); }, },
+			!hasTab && { icon: '◳',		label: 'Open in tab',      action: () => { openTab(id); }, },
 			 inList && { icon: '❏',		label: 'Duplicate',        action: () => Player.playlist.splice(positionInParent(tile), 0, id), },
 			 inList && { icon: '⨉',		label: 'Remove entry',     action: () => Player.playlist.splice(positionInParent(tile), 1), default: target.matches('#playlist .remove'), },
 			 inList && { icon: '🔍',	label: 'Highlight',        action: () => highlight(others.querySelector(`media-tile[video-id="${ id }"]`)), },
 			!inList && { icon: '🔍',	label: 'Highlight',        action: () => highlight(playlist.querySelector(`media-tile[video-id="${ id }"]`)), },
 			!inList && { icon: '➕',	label: 'Add video',        action: () => Player.playlist.splice(Infinity, 0, id), },
+			           { icon: '📋',	label: 'Copy ID',          action: () => writeToClipboard(id).then(() => reportSuccess('Copied', id), reportError), },
 		);
 	}
 	if (inList) {
 		items.push(
 			{ icon: '⇵',	 label: 'Sort by',                      type: 'menu', children: [
-				{ icon:'⌖',		 label: 'position',                     action: () => Player.playlist.sort('position').catch(reportError.bind(null, 'Sorting failed')), },
+				{ icon: '⌖',	 label: 'position',                     action: () => Player.playlist.sort('position').catch(reportError.bind(null, 'Sorting failed')), },
 				{ icon: '👓',	 label: 'views',                        type: 'menu', children: [
 					{ icon: '🌐',	 label: 'global',                       action: () => Player.playlist.sort('viewsGlobal').catch(reportError.bind(null, 'Sorting failed')), },
 					{ icon: '⏱',	 label: 'yours in total duration',      action: () => Player.playlist.sort('viewsDuration').catch(reportError.bind(null, 'Sorting failed')), },
@@ -269,6 +270,7 @@ function onInput({ target, }) {
 		found.forEach(_=>_.classList.add('found'));
 	} else if (target.matches('#progress>input')) {
 		Player.seekTo(target.value);
+		(document.querySelector('#current-time').textContent = secondsToHhMmSs(+target.value));
 	}
 }
 
@@ -395,6 +397,14 @@ async function focusTab(videoId) {
 	(await Tabs.update(frame.tabId, { active: true, }));
 	const { windowId, } = (await Tabs.get(frame.tabId));
 	(await Windows.update(windowId, { focused: true, }));
+}
+
+async function openTab(id) {
+	const [ tab, ] = (await Tabs.query({ url: [ `https://www.youtube.com/watch?*v=${ id }*`, `https://gaming.youtube.com/watch?*v=${id}*`, ], }));
+	if (!tab) { return Tabs.create({ url: 'https://www.youtube.com/watch?v='+ id, }); }
+	(await Tabs.update(tab.id, { active: true, }));
+	(await Windows.update(tab.windowId, { focused: true, }));
+	return tab;
 }
 
 }); })(this);

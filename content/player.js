@@ -56,7 +56,10 @@ Object.defineProperty(exports, 'video', { get() { return video; }, enumerable: t
 Object.defineProperty(exports, 'root', { get() { return root; }, enumerable: true, });
 Object.defineProperty(exports, 'loaded', { get() { return loaded; }, enumerable: true, });
 
-messages.addHandler(function navigated() { events._emitSync('navigated'); });
+{ // Firefox tends to send unnecessary url updates
+	let old = location.href;
+	messages.addHandler(function navigated(url) { old !== url && events._emitSync('navigated', old = url); });
+}
 
 const getOptions = require.async('./options');
 
@@ -201,11 +204,11 @@ async function onNavigated() {
 	const videoId = new global.URL(global.location).searchParams.get('v');
 	if (loaded !== null) {
 		console.log('player removed');
-		events._emit('removed', loaded);
+		events._emit('removed');
 	}
 	if (!videoId) { loaded = null; return; }
 
-	if (!root && (await before(/*main.promise('navigated')*/new Promise(() => null), events.promise('loaded', 'unloaded')))) { return void console.log('cancel navigation'); }
+	if (!root && (await before(events.promise('navigated'), events.promise('loaded', 'unloaded')))) { return void console.log('cancel navigation'); }
 	console.log('player loaded', videoId);
 	messages.post('muteTab');
 	const options = (await getOptions);

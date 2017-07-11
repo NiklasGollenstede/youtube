@@ -6,7 +6,7 @@
 }) => {
 
 const db = (await (() => {
-	const db = global.indexedDB.open('video-info', 4); // throws in firefox if cookies are disabled
+	const db = global.indexedDB.open('video-info', 6); // throws in firefox if cookies are disabled
 	const props = { // 0: save and export, 1: save, 2: cache (immutable), 3: cache (mutable), 4: cache (special), 5: don't save
 		title: { type: 'string', level: 2, },
 		published: { type: 'number', level: 2, },
@@ -17,15 +17,17 @@ const db = (await (() => {
 		// viewed: { type: 'number', level: 0, },
 		rating: { type: 'number', level: 3, },
 		audioUrl: { type: 'string', level: 4, }, // only refresh if no audioData
-		audioData: { type: 'blob', level: 1, },
+		loudness: { type: 'number', level: 2, },
+		// audioData: { type: 'blob', level: 1, },
 		thumbUrl: { type: 'string', level: 5, },
 		thumbData: { type: 'blob', level: 2, },
 		fetched: { type: 'number', level: 1, },
 	};
 	db.onupgradeneeded = ({ target: { result: db, }, }) => {
-		const existing = db.objectStoreNames;
-		const includes = existing.includes ? 'includes' : 'contains';
-		Object.keys(props).forEach(store => !existing[includes](store) && db.createObjectStore(store, { }));
+		const has = Array.from(db.objectStoreNames);
+		const should = Object.keys(props);
+		should.forEach(store => !has.includes(store) && db.createObjectStore(store, { }));
+		has.forEach(store => !should.includes(store) && db.deleteObjectStore(store));
 	};
 	return getResult(db).then(db => {
 		db.props = props;
@@ -117,6 +119,7 @@ class InfoHandler {
 		('view_count' in info) && (data.views = +info.view_count);
 		('avg_rating' in info) && (data.rating = (info.avg_rating - 1) / 4);
 		('formats' in info) && (!this.data || !this.data.audioData) && (data.audioUrl = getPreferredAudio(info.formats));
+		('relative_loudness' in info) && (data.loudness = +info.relative_loudness);
 		console.log('extracted', data);
 		return data;
 	}
@@ -141,7 +144,7 @@ class InfoHandler {
 		if (!missing) { return; }
 		const transaction = db.transaction(keys, 'readwrite');
 		keys.forEach(key => {
-			if (key === 'id') { return void --missing; }
+			if (key === 'id' || db.props[key].level === 5) { return void --missing; }
 			const put = transaction.objectStore(key).put(update[key], this.id);
 			put.onerror = error => (missing = Infinity) === error.stopPropagation() === reject(error);
 			put.onsuccess = () => (--missing <= 0 && resolve());
@@ -248,17 +251,22 @@ class _TabTile {
 	}
 }
 
-const formatFilters = [
-	format => (/^audio\//).test(format.type),
-	format => (/^webm$/).test(format.cntainer),
-	format => (/^opus$/).test(format.audioEncoding),
+const itags = [
+	251, // webm/opus 160
+	140, // m4a/aac 128
+	171, // webm/vorbis 128
+	250, // webm/opus 64
+	239, // webm/opus 48
+	139, // m4a/aac 48
+	// 18,  // mp4/aac+H.264 96
+	// 43,  // webm/vorbis+VP8 128
 ];
 function getPreferredAudio(formats) {
-	const filtered = formatFilters.reduce((formats, filter) => {
-		const filtered = formats.filter(filter);
-		return filtered.length ? filtered : formats;
-	}, formats);
-	return filtered.sort((a, b) => b.audioBitrate - a.audioBitrate).pop().url;
+	for (const itag of itags) {
+		const format = formats.find(_=>+_.itag === itag);
+		if (format) { return format.url; }
+	}
+	return null;
 }
 
 return (global.VideoInfo = {

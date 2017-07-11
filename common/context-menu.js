@@ -1,10 +1,13 @@
 (function(global) { 'use strict'; define(({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
 	'node_modules/web-ext-utils/browser/version': { gecko, },
+	'node_modules/web-ext-utils/loader/views': { getViews, },
 	'node_modules/es6lib/dom': { createElement, },
 }) => {
 
-const events = [ 'click', 'blur', 'keydown', 'wheel', ];
-gecko && events.push('resize'); // for some reason Firefox fires a number of resize events in panels directly after the menu is opened
+const events = [
+	'click', 'keydown', 'wheel',
+	'blur', 'resize', // Firefox fires these events in panels directly after the menu is opened
+];
 
 let current = null;
 
@@ -30,7 +33,8 @@ class ContextMenu {
 			rect.right  > width  && menu.classList.add('to-left');
 			rect.bottom > height && menu.classList.add('to-top');
 		});
-		events.forEach(type => window.addEventListener(type, this, true));
+		(gecko && getViews().find(_=>_.view === window).type === 'panel' ? events.slice(0, -2) : events) // remove 'blur' and 'resize'
+		.forEach(type => window.addEventListener(type, this, true));
 		current && current.remove();
 		current = this;
 	}

@@ -25,7 +25,10 @@ class EventEmitter {
 	promise(name, cancel = destroyed) {
 		return new Promise((resolve, reject) => {
 			const good = value => { this._on && this._on[cancel].delete(bad); resolve(value); };
-			const bad = value => { this._on && this._on[name].delete(good); reject(value); };
+			const bad = error => { this._on && this._on[name].delete(good); reject(
+				typeof error === 'object' && error !== null && (/error|exception/i).test(error.name)
+				? error : new Error(`Cancel event ${ cancel } occurred before ${ name }`)
+			); };
 			add(this, name, good, true);
 			add(this, cancel, bad, true);
 		});
