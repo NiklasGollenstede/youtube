@@ -1,23 +1,35 @@
 (function(global) { 'use strict'; define(async ({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
-	'node_modules/web-ext-utils/browser/': { Tabs, Storage, },
+	'node_modules/web-ext-utils/browser/': { Tabs, Windows, Storage, },
+	'node_modules/web-ext-utils/browser/messages': messages,
+	'node_modules/web-ext-utils/browser/version': { fennec, gecko, },
+	'node_modules/web-ext-utils/loader/views': { getViews, },
 	'node_modules/web-ext-utils/utils/': { reportError, },
+	'node_modules/web-ext-utils/utils/event': { setEvent, },
 	'node_modules/es6lib/functional': { debounce, },
 	'node_modules/es6lib/object': { MultiMap, assignDescriptors, },
-	'node_modules/web-ext-utils/utils/event': { setEvent, },
+	'node_modules/es6lib/concurrent': { sleep, },
 	'common/options': options,
 	content,
 	Playlist,
 	VideoInfo,
 }) => {
 
+/**
+ * declarations
+ */
+
 const Player = { };
 const players = new MultiMap, videos = new Set;
+const container = global.document.head.appendChild(global.document.createElement('players'));
 let current = null, duration = NaN, playing = false;
 const playlist = new Playlist((await Storage.local.get('playlist')).playlist);
 options.playlist.children.loop.whenChange(([ value, ]) => (playlist.loop = value));
 const savePlaylist = debounce(() => Storage.local.set({ playlist: { values: Player.playlist.current, index: playlist.index, }, }), 1e4);
 playlist.onAdd(savePlaylist); playlist.onRemove(savePlaylist); playlist.onSeek(savePlaylist); // TODO: split into two independent entries
 
+/**
+ * exports
+ */
 const fireVideoOpen = setEvent(Player, 'onVideoOpen', { lazy: false, }); // (id)
 const fireVideoClose = setEvent(Player, 'onVideoClose', { lazy: false, }); // (id)
 const firePlay = setEvent(Player, 'onPlay', { lazy: false, }); // (bool)
@@ -78,7 +90,102 @@ assignDescriptors(Player, {
 		return null;
 	},
 });
+Object.freeze(Player);
 
+/**
+ * event and message handlers
+ */
+
+playlist.onSeek(index => playlist.index === Infinity || playlist.index < 0 ? setCurrent(null) : loadPlayer(playlist[index]));
+playlist.onRemove(() => (playlist.get() || null) !== (current && current.id) && loadPlayer(playlist.get() || null));
+
+Player.onPlay(playing => { if (playing) { // play
+	const id = playlist.get();
+	loadPlayer(id);
+	current && !current.playing && current.play();
+} else { // pause
+	current && current.playing && current.pause();
+} });
+
+content.onMatch(async frame => {
+	const port = (await frame.connect('player'));
+
+	let player = null;
+
+	const on = {
+		created(id) {
+			player = new RemotePlayer({ id, port, frame, });
+			if (current && current.id === player.id && (current instanceof AudioPlayer))
+			{ player.seekTo(current.currentTime); setCurrent(player); }
+		},
+		async playing() {
+			player.playing = true;
+			const wasPlaying = playing; playing = true;
+			current && current.id === player.id && (current instanceof AudioPlayer) && player.seekTo(current.currentTime);
+			setCurrent(player);
+			!wasPlaying && firePlay([ true, ]);
+
+			// focus tab
+			const { windowId, active, } = (await Tabs.get(frame.tabId));
+			!active && (await windowIsIdle(windowId)) && (await Tabs.update(frame.tabId, { active: true, }));
+		},
+		paused() {
+			player.playing = false;
+			if (current !== player) { return; }
+			const wasPlaying = playing; playing = false;
+			wasPlaying && firePlay([ false, ]);
+		},
+		ended() {
+			player.playing = false;
+			player === current && Player.next();
+			current === this && this.start();
+		},
+		removed() {
+			player.destroy();
+			player = null;
+		},
+	};
+	Object.keys(on).forEach(event => {
+		port.post('on', event, on[event]);
+		port.afterEnded('off', event, on[event]);
+	});
+
+	frame.onHide(() => { player && player.destroy(); player = null; });
+
+	port.post('start');
+});
+
+messages.addHandlers({
+	reportError, // allow content to report errors
+	replyAfter(ms) { return sleep(ms); }, // setTimeout doesn't work reliably in background tabs
+	async   muteTab() { return void (await !fennec && Tabs.update(this.tab.id, { muted: true, })); },
+	async unmuteTab() { return void (await !fennec && Tabs.update(this.tab.id, { muted: false, })); },
+	async focusTabTemporary() { // in chrome (and probably other browsers) YouTube refuses to/can't play until the tab was active once
+		if (gecko) { return; } // let's not do Firefox until it becomes necessary again
+		const tabId = this.tab.id, { index, windowId, active, pinned, } = (await Tabs.get(tabId));
+		console.log('focus_temporary', { index, windowId, active, pinned, });
+		if (active) { return; } // moving the tab won't do anything positive
+
+		// avoid moving the tab if not necessary
+		if ((await windowIsIdle(windowId))) { return void (await Tabs.update(tabId, { active: true, })); } // playing the video would do this anyway
+		console.log('focus_temporary the long way');
+
+		(await Windows.create({ tabId: tabId, state: 'minimized', type: 'popup', })); // move into own window ==> focuses
+		(await Tabs.move(tabId, { index, windowId, })); // move back into original window
+		(await Tabs.update(tabId, { active, pinned, })); // need to pin again if it was pinned
+		(await Tabs.move(tabId, { index, windowId, })); // move to the correct position within (the pinned tabs of) the window
+	},
+});
+
+// report location changes to the content scripts
+Tabs.onUpdated.addListener(async (tabId, { url, }) => {
+	if (!url || !(await content.appliedToFrame(tabId))) { return; }
+	messages.post({ tabId, }, 'navigated', url);
+});
+
+/**
+ * classes
+ */
 
 class RemotePlayer {
 	constructor({ id, port, frame, }) {
@@ -109,21 +216,22 @@ class RemotePlayer {
 	}
 }
 
-
 class AudioPlayer extends global.Audio {
 	constructor(id) {
 		super();
 		this.id = id;
 		players.add(this.id, this);
 		this.load();
-		this.addEventListener('durationchange', this);
-		this.addEventListener('ended', this);
+		[ 'durationchange', 'ended', 'error', 'pause', 'playing', 'stalled', ]
+		.forEach(event => this.addEventListener(event, this));
+		container.appendChild(this);
 	}
 
 	handleEvent(event) { switch (event.type) {
 		case 'durationchange': this.duration !== duration && fireDurationChange([ duration = this.duration, ]); break;
 		case 'ended': current === this && Player.next(); current === this && this.start(); break;
-		case 'pause': case 'playing':  case 'stalled': current === this && this.playing !== playing && firePlay([ playing = this.playing, ]) ;
+		case 'error': reportError(`Audio playback error`, event); this.load(); break;
+		/*case 'pause': case 'playing':*/ case 'stalled': current === this && this.playing !== playing && firePlay([ playing = this.playing, ]) ;
 	} }
 
 	async load() {
@@ -140,6 +248,7 @@ class AudioPlayer extends global.Audio {
 			this.volume = loundessToVolume(info.loudness);
 			this.title = info.title;
 		}
+		current === this && this.playing !== playing && (playing ? this.play() : this.pause());
 		console.log('audio loaded', this);
 	}
 
@@ -150,16 +259,23 @@ class AudioPlayer extends global.Audio {
 		console.log('destroyed audioPlayer', this.id);
 		this.src = '';
 		players.delete(this.id, this);
-		this.removeEventListener('durationchange', this);
-		this.removeEventListener('ended', this);
+		[ 'durationchange', 'ended', 'error', 'pause', 'playing', 'stalled', ]
+		.forEach(event => this.removeEventListener(event, this));
+		this.remove();
 	}
 }
 
+return Player;
+
+/**
+ * functions
+ */
+
+/// maps the relative loudness analyzed by YouTube to the appropriate playback volume
 function loundessToVolume(loundess) {
 	if (!(loundess > 0)) { return 1; } // default is 0, everything below is left at 100% volume by YouTube. One *could* use the WebAudio AIP to increase it above 100%
 	return 0.89125 ** loundess; // used a couple of samples: it's defensively an exponential function and the base is quite close to 0.89125
 }
-
 
 function setCurrent(player) {
 	current && current !== player && current.pause();
@@ -208,58 +324,16 @@ async function sortPlaylist(by, direction = 0) {
 	playlist.index = playlist.indexOf(current);
 }
 
-playlist.onSeek(index => playlist.index === Infinity || playlist.index < 0 ? setCurrent(null) : loadPlayer(playlist[index]));
-playlist.onRemove(() => (playlist.get() || null) !== (current && current.id) && loadPlayer(playlist.get() || null));
+/// returns true, if a tab in the window can be activated without interrupting the user because the window is actively used
+async function windowIsIdle(windowId) {
+	if (fennec) { return false; } // only one "window"
+	if (hasFocusedSidebar()) { return true; }
+	if (gecko) { return hasPanel() || hasFocusedSidebar() || !(await hasFocus()); }
+	return !(await hasFocus()) && !hasPanel();
 
-Player.onPlay(playing => { if (playing) { // play
-	const id = playlist.get();
-	loadPlayer(id);
-	current && !current.playing && current.play();
-} else { // pause
-	current && current.playing && current.pause();
-} });
-
-content.onMatch(async frame => {
-	const port = (await frame.connect('player'));
-
-	let player = null;
-
-	const on = {
-		created(id) {
-			player = new RemotePlayer({ id, port, frame, });
-		},
-		playing() {
-			player.playing = true;
-			const wasPlaying = playing; playing = true;
-			current && current.id === player.id && (current instanceof AudioPlayer) && player.seekTo(current.currentTime);
-			setCurrent(player);
-			!wasPlaying && firePlay([ true, ]);
-		},
-		paused() {
-			player.playing = false;
-			const wasPlaying = playing; playing = false;
-			wasPlaying && firePlay([ false, ]);
-		},
-		ended() {
-			player.playing = false;
-			player === current && Player.next();
-			current === this && this.start();
-		},
-		removed() {
-			player.destroy();
-			player = null;
-		},
-	};
-	Object.keys(on).forEach(event => {
-		port.post('on', event, on[event]);
-		port.afterEnded('off', event, on[event]);
-	});
-
-	frame.onHide(() => { player && player.destroy(); player = null; });
-
-	port.post('start');
-});
-
-return Object.freeze(Player);
+	function hasFocus() { return Windows.get(windowId).then(_=>_.focused); }
+	function hasPanel() { return getViews().some(_=>_.type === 'panel'); }
+	function hasFocusedSidebar() { return getViews().some(_=>_.type === 'sidebar' && _.view.document.hasFocus()); }
+}
 
 }); })(this);

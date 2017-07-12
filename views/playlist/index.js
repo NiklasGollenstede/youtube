@@ -11,35 +11,44 @@
 	'common/context-menu': ContextMenu,
 	'common/options': options,
 	'fetch!./body.html': Body,
+	'fetch!./layout.css': layout_css,
+	'fetch!./theme/dark.css': theme_dark_css,
+	'fetch!./theme/light.css': theme_light_css,
 	require,
 }) => {
+
+const CSS = {
+	layout: layout_css +`\n/*# sourceURL=${ require.toUrl('./layout.css') } */`,
+	theme: {
+		dark: theme_dark_css +`\n/*# sourceURL=${ require.toUrl('./theme/dark.css') } */`,
+		light: theme_light_css +`\n/*# sourceURL=${ require.toUrl('./theme/light.css') } */`,
+	},
+};
 
 return async function View(window) {
 
 	const { document, } = window;
 	const off = { owner: window, };
-	const Tile = window.Tile = makeTileClass(window);
+	const MediaTile = window.MediaTile = makeTileClass(window);
 
 	document.title = 'Playlist - '+ manifest.name;
-	const theme = document.head.appendChild(createElement('link', { rel: 'stylesheet', }));
-	options.playlist.children.theme.whenChange(value => (theme.href = require.toUrl(`./theme/${ value }.css`)), off);
-	document.head.appendChild(createElement('link', { rel: 'stylesheet', href: require.toUrl(`./layout.css`), }));
+	const theme = document.head.appendChild(createElement('style'));
+	options.playlist.children.theme.whenChange(value => (theme.textContent = CSS.theme[value]), off);
+	document.head.appendChild(createElement('style', { textContent: CSS.layout, }));
 	document.head.appendChild(createElement('link', { rel: 'stylesheet', href: `/common/context-menu.css`, }));
 
 	document.body.lang = global.navigator.language;
 	document.body.innerHTML = Body;
-	document.body.classList = 'no-transitions loading';
-	document.body.classList.remove('loading'); // TODO: remove CSS
-	global.setTimeout(() => document.body.classList.remove('no-transitions'), 200);
+	document.body.classList.add('no-transitions');
+	global.setTimeout(() => document.body.classList.remove('no-transitions'), 1e3);
 
 	const groupList = document.querySelector('#groups .groups');
-	const playlistTiles = document.querySelector('#playlist .tiles');
 
 	{ // playlist
 		const ids = Player.playlist.current;
-		const tiles = playlistTiles;
+		const tiles = document.querySelector('#playlist .tiles');
 		enableDragIn(tiles);
-		const createTile = id => { const tile = new Tile; tile.videoId = id; tile.classList.add('in-playlist'); return tile; };
+		const createTile = id => { const tile = new MediaTile; tile.videoId = id; tile.classList.add('in-playlist'); return tile; };
 		ids.forEach(id => tiles.appendChild(createTile(id)));
 
 		Player.playlist.onAdd((index, id) => tiles.insertBefore(createTile(id), tiles.children[index]), off);
@@ -60,7 +69,7 @@ return async function View(window) {
 		const group = groupList.appendChild(createGroup('tabs', 'Open Tabs'));
 		const tiles = group.querySelector('.tiles');
 		enableDragOut(tiles);
-		const addTile = id => tiles.appendChild(Object.assign(new Tile, { videoId: id, }));
+		const addTile = id => tiles.appendChild(Object.assign(new MediaTile, { videoId: id, }));
 		ids.forEach(addTile);
 
 		Player.onVideoOpen(addTile, off);
@@ -72,7 +81,7 @@ return async function View(window) {
 		const group = groupList.appendChild(createGroup('unloaded', 'Unloaded Tabs'));
 		const tiles = group.querySelector('.tiles');
 		enableDragOut(tiles);
-		const addTile = id => tiles.appendChild(Object.assign(new Tile, { videoId: id, }));
+		const addTile = id => tiles.appendChild(Object.assign(new MediaTile, { videoId: id, }));
 		Tabs.query({ url: [ `https://www.youtube.com/watch?*v=*`, `https://gaming.youtube.com/watch?*v=*`, ], }).then(_=>_
 			.sort((a, b) => (a.windowId << 16 + a.index) - (b.windowId << 16 + b.index))
 			.map(_=>_.url.match(/\bv=([\w-]{11})\b/)).filter(_=>_).map(_=>_[1]).filter(id => !open.has(id)).forEach(addTile)
@@ -88,12 +97,12 @@ return async function View(window) {
 			const ids = Array.from(children).sort((a, b) => a.index - b.index).map(_=>_.url.match(/\bv=([\w-]{11})\b/)).filter(_=>_).map(_=>_[1]);
 			if (!ids.length) { return; }
 			const [ { title, }, ] = (await Bookmarks.get(parentId));
-			const group = groupList.appendChild(createGroup(parentId, createElement('span', null, [
+			const group = groupList.appendChild(createGroup('bmk-'+ parentId, createElement('span', null, [
 				createElement('span', { title: 'Bookmark folder', }, [ '🔖 ', ]), title,
 			])));
 			const tiles = group.querySelector('.tiles');
 			enableDragOut(tiles);
-			const addTile = id => tiles.appendChild(Object.assign(new Tile, { videoId: id, }));
+			const addTile = id => tiles.appendChild(Object.assign(new MediaTile, { videoId: id, }));
 			ids.forEach(addTile);
 		});
 	});
@@ -188,6 +197,8 @@ function showContextMenu(event) {
 			!inList && { icon: '🔍',	label: 'Highlight',        action: () => highlight(playlist.querySelector(`media-tile[video-id="${ id }"]`)), },
 			!inList && { icon: '➕',	label: 'Add video',        action: () => Player.playlist.splice(Infinity, 0, id), },
 			           { icon: '📋',	label: 'Copy ID',          action: () => writeToClipboard(id).then(() => reportSuccess('Copied', id), reportError), },
+			group && group.id.startsWith('group-bmk-')
+					&& { icon: '🗑',	label: 'Delete bookmark',  action: async () => Bookmarks.remove((await Bookmarks.search('https://www.youtube.com/watch?v='+ tile.videoId))[0].id).then(() => tile.remove()), },
 		);
 	}
 	if (inList) {
@@ -379,7 +390,6 @@ function enableDragIn(tiles) {
 			Player.playlist.splice(newIndex, 0, item.videoId);
 		}); },
 		onUpdate({ item, newIndex, oldIndex, }) { // sorted within
-			console.log('onUpdate');
 			item.remove(); tiles.insertBefore(item, tiles.children[oldIndex]); // put back to old position
 			Player.playlist.splice(oldIndex, 1);
 			Player.playlist.splice(newIndex, 0, item.videoId);
@@ -406,7 +416,7 @@ function scrollToCenter(element, { ifNeeded = true, duration = 250, } = { }) { r
 	const scroller = element.closest('.scroll-inner'); // firefox bug: .offsetParent is the closest element with a CSS filter.
 	if (ifNeeded && element.offsetTop >= scroller.scrollTop && element.offsetTop + element.offsetHeight <= scroller.scrollTop + scroller.offsetHeight) { return void resolve(); }
 	const to = Math.min(Math.max(0, element.offsetTop + element.offsetHeight / 2 - scroller.offsetHeight / 2), scroller.scrollHeight);
-	if (!duration) { scroller.scrollTop = to; return void resolve(); }
+	if (!duration || element.closest('.no-transitions')) { scroller.scrollTop = to; return void resolve(); }
 	const from = scroller.scrollTop, diff = to - from;
 
 	const { requestAnimationFrame, performance, } = element.ownerDocument.defaultView;
