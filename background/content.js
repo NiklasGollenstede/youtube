@@ -18,14 +18,13 @@ const content = new ContentScript({
 		'node_modules/es6lib/functional',
 		'node_modules/es6lib/object',
 		'node_modules/es6lib/observer',
-		'node_modules/es6lib/port', // TODO: remove (used by content/player.js(.js))
 		'node_modules/es6lib/string',
 		'node_modules/web-ext-utils/browser/index',
 		'node_modules/web-ext-utils/browser/messages',
 		'node_modules/web-ext-utils/browser/version',
 		'node_modules/web-ext-utils/options/index',
 		'node_modules/web-ext-utils/utils/event',
-		'node_modules/web-ext-utils/node_modules/multiport/',
+		'node_modules/web-ext-utils/lib/multiport/',
 		'common/event-emitter',
 	],
 });

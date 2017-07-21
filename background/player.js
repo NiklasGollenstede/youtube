@@ -96,8 +96,9 @@ Object.freeze(Player);
  * event and message handlers
  */
 
-playlist.onSeek(index => playlist.index === Infinity || playlist.index < 0 ? setCurrent(null) : loadPlayer(playlist[index]));
-playlist.onRemove(() => (playlist.get() || null) !== (current && current.id) && loadPlayer(playlist.get() || null));
+playlist.onSeek(() => loadPlayer(playlist.get()));
+playlist.onRemove(async (index, id) => { sleep(0); playlist.get() !== id && loadPlayer(playlist.get()); });
+// TODO: this also triggers if an element before the current one gets removed
 
 Player.onPlay(playing => { if (playing) { // play
 	const id = playlist.get();
@@ -119,6 +120,7 @@ content.onMatch(async frame => {
 			{ player.seekTo(current.currentTime); setCurrent(player); }
 		},
 		async playing() {
+			// TODO: pause if tab is not focused?
 			player.playing = true;
 			const wasPlaying = playing; playing = true;
 			current && current.id === player.id && (current instanceof AudioPlayer) && player.seekTo(current.currentTime);
@@ -230,24 +232,25 @@ class AudioPlayer extends global.Audio {
 	handleEvent(event) { switch (event.type) {
 		case 'durationchange': this.duration !== duration && fireDurationChange([ duration = this.duration, ]); break;
 		case 'ended': current === this && Player.next(); current === this && this.start(); break;
-		case 'error': reportError(`Audio playback error`, event); this.load(); break;
+		case 'error': reportError(`Audio playback error`, `reloading `+ this.title, event); this.load(); break; // TODO: this loops if .load() doesn't throw but causes another error on this
 		/*case 'pause': case 'playing':*/ case 'stalled': current === this && this.playing !== playing && firePlay([ playing = this.playing, ]) ;
 	} }
 
 	async load() {
-		const info = (await VideoInfo.getData(this.id));
-		if (info.audioUrl && Date.now() - info.fetched < 12e5/*20 min*/) {
-			this.src = info.audioUrl;
-			this.volume = loundessToVolume(info.loudness);
-			this.title = info.title;
-		} else {
+		let info = (await VideoInfo.getData(this.id));
+		if (!info.audioUrl || info.error || Date.now() - info.fetched > 12e5/*20 min*/) {
 			(await VideoInfo.refresh(this.id));
-			const info = (await VideoInfo.getData(this.id));
-			if (!info.audioUrl) { reportError(`Failed to load audio`, `for YouTube video "${ info.title }" (${ this.id })`); }
-			this.src = info.audioUrl;
-			this.volume = loundessToVolume(info.loudness);
-			this.title = info.title;
+			info = (await VideoInfo.getData(this.id));
+			if (!info.audioUrl || info.error) {
+				reportError(`Failed to load audio`, `for YouTube video "${ info.title }" (${ this.id })`, info.error ? '\n'+ info.error : '');
+				return;
+			}
 		}
+		const time = this.currentTime || 0;
+		this.src = info.audioUrl;
+		this.volume = loundessToVolume(info.loudness);
+		this.title = info.title;
+		current.currentTime = time;
 		current === this && this.playing !== playing && (playing ? this.play() : this.pause());
 		console.log('audio loaded', this);
 	}
@@ -291,6 +294,7 @@ function setCurrent(player) {
 }
 
 function loadPlayer(id) {
+	if (!id) { return void setCurrent(null); }
 	if (current && current.id === id) { return; }
 	for (const open of players.get(id)) { if (open instanceof RemotePlayer) { return void setCurrent(open); } }
 	for (const open of players.get(id)) { return void setCurrent(open); }

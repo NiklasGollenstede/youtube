@@ -1,1 +1,1 @@
-define([ './playlist/', ], _=>_);
+define([ './playlist/', ], playlist => { 'use strict'; return playlist; });

@@ -135,15 +135,13 @@ const model = {
 					},
 					onStart: {
 						title: `Video start setting`,
-						description: `When the video starts:`,
 						default: 'focused',
-						type: 'menulist',
-						options: [
+						input:{ type: 'menulist', prefix: `When the video starts`, options: [
 							{ value: '', label: `keep playing (YouTube default)`, },
 							{ value: 'pause', label: `pause playback but keep buffering`, },
 							{ value: 'visible', label: `only pause if the tab is not visible`, },
 							{ value: 'focused', label: `only pause if the tab is not focused`, },
-						],
+						], },
 						children: {
 							stop: {
 								title: `Stop`,

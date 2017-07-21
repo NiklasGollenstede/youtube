@@ -1,11 +1,11 @@
 (function(global) { 'use strict'; define(({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
 	'node_modules/web-ext-utils/browser/messages': messages,
+	'node_modules/web-ext-utils/lib/multiport/': Port,
 	'node_modules/web-ext-utils/loader/content': { onUnload, connect, },
 	'node_modules/es6lib/concurrent': { sleep, before, },
 	'node_modules/es6lib/dom':  { createElement, getParent, },
 	'node_modules/es6lib/functional': { debounce, },
 	'node_modules/es6lib/observer':  { RemoveObserver, },
-	'node_modules/es6lib/port': Port,
 	'common/event-emitter': EventEmitter,
 	dom,
 	Templates,

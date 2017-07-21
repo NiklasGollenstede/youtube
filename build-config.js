@@ -50,8 +50,8 @@ module.exports = function({ options, /*packageJson,*/ manifestJson, files, }) {
 				'browser/',
 				'loader/',
 				'utils/',
-				'node_modules/multiport/index.js',
-				'node_modules/pbq/require.js',
+				'lib/multiport/index.js',
+				'lib/pbq/require.js',
 			],
 			options: {
 				'.': [ 'index.js', ],

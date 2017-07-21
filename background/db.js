@@ -1,4 +1,5 @@
 (function(global) { 'use strict'; define(async ({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
+	require,
 }) => {
 
 const types = {
@@ -34,7 +35,7 @@ class TransactionBase {
 
 let Transaction;
 try {
-	let db = window.indexedDB.open('videoInfo', 6); // throws in firefox if cookies are disabled
+	let db = global.indexedDB.open('videoInfo', 6); // throws in firefox if cookies are disabled
 	db.onupgradeneeded = ({ target: { result: db, }, }) => {
 		const existing = db.objectStoreNames;
 		const includes = existing.includes ? 'includes' : 'contains';

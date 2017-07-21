@@ -165,7 +165,7 @@ class Playlist extends Array {
 	}
 
 	reverse() {
-		super.reverse();
+		this.splice(0, Infinity, ...super.reverse()); // trigger event handlers
 		this.index = this.length - 1 - this.index;
 	}
 

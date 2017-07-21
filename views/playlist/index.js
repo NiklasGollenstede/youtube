@@ -33,20 +33,24 @@ return async function View(window) {
 
 	document.title = 'Playlist - '+ manifest.name;
 	const theme = document.head.appendChild(createElement('style'));
-	options.playlist.children.theme.whenChange(value => (theme.textContent = CSS.theme[value]), off);
 	document.head.appendChild(createElement('style', { textContent: CSS.layout, }));
 	document.head.appendChild(createElement('link', { rel: 'stylesheet', href: `/common/context-menu.css`, }));
+	options.playlist.children.theme.whenChange(value => {
+		document.body.classList.add('no-transitions');
+		theme.textContent = CSS.theme[value];
+		global.setTimeout(() => document.body.classList.remove('no-transitions'), 70);
+	}, off);
 
 	document.body.lang = global.navigator.language;
 	document.body.innerHTML = Body;
-	document.body.classList.add('no-transitions');
-	global.setTimeout(() => document.body.classList.remove('no-transitions'), 1e3);
+	document.documentElement.classList.add('no-transitions');
+	global.setTimeout(() => document.documentElement.classList.remove('no-transitions'), 1e3);
 
-	const groupList = document.querySelector('#groups .groups');
+	const groupList = document.querySelector('#groups .groups'); groupList.textContent = '';
 
 	{ // playlist
 		const ids = Player.playlist.current;
-		const tiles = document.querySelector('#playlist .tiles');
+		const tiles = document.querySelector('#playlist .tiles'); tiles.textContent = '';
 		enableDragIn(tiles);
 		const createTile = id => { const tile = new MediaTile; tile.videoId = id; tile.classList.add('in-playlist'); return tile; };
 		ids.forEach(id => tiles.appendChild(createTile(id)));
@@ -83,7 +87,7 @@ return async function View(window) {
 		enableDragOut(tiles);
 		const addTile = id => tiles.appendChild(Object.assign(new MediaTile, { videoId: id, }));
 		Tabs.query({ url: [ `https://www.youtube.com/watch?*v=*`, `https://gaming.youtube.com/watch?*v=*`, ], }).then(_=>_
-			.sort((a, b) => (a.windowId << 16 + a.index) - (b.windowId << 16 + b.index))
+			.sort((a, b) => (/*a.windowId << 16 + */a.index) - (/*b.windowId << 16 + */b.index))
 			.map(_=>_.url.match(/\bv=([\w-]{11})\b/)).filter(_=>_).map(_=>_[1]).filter(id => !open.has(id)).forEach(addTile)
 		);
 
@@ -150,6 +154,8 @@ return async function View(window) {
 	document.addEventListener('click', onClick);
 	document.addEventListener('keydown', onKeydown);
 	document.addEventListener('input', onInput);
+
+	require('background/', _ => Object.assign(window, _));
 };
 
 function showMainMenu(event) {
@@ -159,12 +165,7 @@ function showMainMenu(event) {
 	const items = [
 		runtime.reload
 		&&  { icon: '⚡',	label: 'Restart', action: () => window.confirm(`Restart ${ manifest.name }?`) && runtime.reload(), },
-		    { icon: '◑',	label: 'Dark Theme', checked: options.playlist.children.theme.value === 'dark', action() {
-			    const theme = this.checked ? 'light' : 'dark';
-			    document.body.classList.add('no-transitions');
-			    global.setTimeout(() => document.body.classList.remove('no-transitions'), 70);
-			    options.playlist.children.theme.value = theme;
-		    }, },
+		    { icon: '◑',	label: 'Dark Theme', checked: options.playlist.children.theme.value === 'dark', action() { options.playlist.children.theme.value = this.checked ? 'light' : 'dark'; }, },
 		    { icon: '❐', 	label: 'Show in tab', action: () => showExtensionTab('/view.html#playlist'), },
 		    { icon: '◳', 	label: 'Open in popup', action: () => Windows.create({ url: document.defaultView.location.href, type: 'popup', width: 450, height: 600, }), },
 		    { icon: '⚙', 	label: 'Settings', action: () => showExtensionTab('/view.html#options'), },
@@ -195,10 +196,10 @@ function showContextMenu(event) {
 			 inList && { icon: '⨉',		label: 'Remove entry',     action: () => Player.playlist.splice(positionInParent(tile), 1), default: target.matches('#playlist .remove'), },
 			 inList && { icon: '🔍',	label: 'Highlight',        action: () => highlight(others.querySelector(`media-tile[video-id="${ id }"]`)), },
 			!inList && { icon: '🔍',	label: 'Highlight',        action: () => highlight(playlist.querySelector(`media-tile[video-id="${ id }"]`)), },
-			!inList && { icon: '➕',	label: 'Add video',        action: () => Player.playlist.splice(Infinity, 0, id), },
 			           { icon: '📋',	label: 'Copy ID',          action: () => writeToClipboard(id).then(() => reportSuccess('Copied', id), reportError), },
 			group && group.id.startsWith('group-bmk-')
 					&& { icon: '🗑',	label: 'Delete bookmark',  action: async () => Bookmarks.remove((await Bookmarks.search('https://www.youtube.com/watch?v='+ tile.videoId))[0].id).then(() => tile.remove()), },
+			!inList && { icon: '➕',	label: 'Add video',        action: () => Player.playlist.splice(Infinity, 0, id), },
 		);
 	}
 	if (inList) {

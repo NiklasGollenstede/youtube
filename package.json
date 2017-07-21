@@ -1,6 +1,6 @@
 {
 	"name": "youtubeoverhaul",
-	"version": "0.7.0",
+	"version": "0.7.1",
 	"title": "YouTube Overhaul",
 	"description": "",
 	"author": "Niklas Gollenstede",
@@ -25,13 +25,13 @@
 		"regexpx": "NiklasGollenstede/regexpx#eebed29",
 		"sortablejs": "rubaxa/Sortable#1.4.2",
 		"web-ext-build": "NiklasGollenstede/web-ext-build#6ec5533",
-		"web-ext-utils": "0.0.3",
+		"web-ext-utils": "0.0.4",
 		"ytdl-core": "0.14.4"
 	},
 	"devDependencies": {
 		"babel-eslint": "7.1.1",
 		"eslint": "3.14.1",
-		"eslintrc": "NiklasGollenstede/eslintrc"
+		"eslintrc": "NiklasGollenstede/eslintrc#3872881"
 	},
 	"scripts": {
 		"postinstall": "npm run build-ytdl && npm start",

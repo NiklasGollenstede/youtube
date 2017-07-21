@@ -8,6 +8,7 @@
 	Downloader,
 	Player,
 	require,
+	module,
 }) => {
 options.debug.value && console.info('Ran updates', updated);
 
@@ -31,12 +32,13 @@ content.applyNow().then(frames => options.debug.value && console.log(`Attached t
 
 
 // debug stuff
-Object.assign(global, {
+Object.assign(global, module.exports = {
 	Browser: require('node_modules/web-ext-utils/browser/'),
 	content,
 	Downloader,
 	options,
 	Player,
+	background: global,
 });
 
 }); })(this);

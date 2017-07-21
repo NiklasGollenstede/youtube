@@ -196,6 +196,10 @@ media-tile .description {
 	-ms-hyphens: auto;
 	-webkit-hyphens: auto;
 }
+media-tile .error {
+	font-weight: bold;
+	color: red;
+}
 media-tile .title {
 	display: block;
 	line-height: 1.22;
@@ -398,12 +402,19 @@ input[type=range] {
 	--background: #666;
 	--track-height: .4;
 	-webkit-appearance: none;
-	margin: calc((1 - var(--track-height)) / 2 * 1em) 0;
+    border-color: transparent;
+    border-style: solid;
+    border-width: calc((1 - var(--track-height)) / 2 * 1em) 0;
+    margin: 0;
 	outline: none;
 	cursor: pointer;
 	position: relative;
 	background: transparent;
+	top: .0625em;
 }
+@-moz-document url-prefix() { input[type=range] { /* firefox only */
+	top: -.125em;
+} }
 input[type=range]::-webkit-slider-runnable-track {
 	height: calc(var(--track-height) * 1em);
 	background: var(--background);
@@ -437,8 +448,3 @@ input[type=range]::-moz-range-thumb {
 	margin-top: calc((1 - var(--track-height)) / 2 * -1em);
 	box-sizing: border-box;
 }
-/* firefox only */
-@-moz-document url-prefix() { input[type=range] {
-	top: -.125em;
-	margin: 0;
-} }

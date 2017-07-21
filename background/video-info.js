@@ -23,6 +23,7 @@ const db = (await (() => {
 		thumbUrl: { type: 'string', level: 5, },
 		thumbData: { type: 'blob', level: 2, },
 		fetched: { type: 'number', level: 1, },
+		error: { type: 'string', level: 5, },
 	};
 	db.onupgradeneeded = ({ target: { result: db, }, }) => {
 		const has = Array.from(db.objectStoreNames);
@@ -116,7 +117,11 @@ class InfoHandler {
 			info = (await Downloader.getInfo(this.id)); break;
 		} catch (error) { if (
 			error && (/^Failed to fetch$/).test(error.message)
-		) { (await sleep(2000)); } else { throw error; } } } // retry 2s later
+		) {
+			(await sleep(2000));
+		} else {
+			return { error: error.message, };
+		} } }
 		console.log('fetched', info);
 		const data = { id: this.id, fetched: Date.now(), };
 		('title' in info) && (data.title = info.title);
@@ -126,6 +131,7 @@ class InfoHandler {
 		('avg_rating' in info) && (data.rating = (info.avg_rating - 1) / 4);
 		('formats' in info) && (!this.data || !this.data.audioData) && (data.audioUrl = getPreferredAudio(info.formats));
 		('relative_loudness' in info) && (data.loudness = +info.relative_loudness);
+		(this.data && this.data.error) && (data.error = null);
 		console.log('extracted', data);
 		return data;
 	}
@@ -232,6 +238,13 @@ class _TabTile {
 		('title' in data) && (self.querySelector('.title').textContent = self.querySelector('.icon').title = data.title);
 		('duration' in data) && (self.querySelector('.duration').textContent = data.duration ? secondsToHhMmSs(data.duration / 1000) : '-:--');
 		('thumbUrl' in data) && (self.querySelector('.icon').style.backgroundImage = `url("${ data.thumbUrl }")`);
+		if ('error' in data) { if (data.error) {
+			let error = self.querySelector('.error');
+			!error && (error = self.querySelector('.description').insertBefore(createElement('span', { classList: 'error', }, [ '⚠', ]), self.querySelector('.description').firstChild));
+			error.title = data.error;
+		} else {
+			const error = self.querySelector('.error'); error && error.remove();
+		} }
 	}
 	attach() {
 		const self = this.public;
@@ -241,7 +254,7 @@ class _TabTile {
 		this.videoId = videoId; this.view = self.ownerDocument.defaultView;
 		// console.log('attach', this.videoId, this.rand);
 		!self.children.length && tabChildren.forEach(node => self.appendChild(node.cloneNode(true)));
-		subscribe(this.videoId, this.onChange, [ 'title', 'duration', 'thumbUrl', ]).then(this.onChange);
+		subscribe(this.videoId, this.onChange, [ 'title', 'duration', 'thumbUrl', 'error', ]).then(this.onChange);
 		this.view.addEventListener('unload', this);
 	}
 	async detach() {
