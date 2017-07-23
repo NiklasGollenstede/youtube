@@ -241,9 +241,6 @@ media-tile .remove, #searchbox .remove {
 	width: 100%;
 	padding: 2px 10px;
 }
-.group media-tile .remove {
-	display: none;
-}
 
 .searching .group media-tile:not(.found) {
 	margin: 0;

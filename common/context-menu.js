@@ -13,26 +13,40 @@ const events = [
 let current = null;
 
 class ContextMenu {
-	constructor({ x, y, items, host = global.document.body, }) {
+	constructor({ x, y, width, items, host = global.document.body, }) {
 		this.host = host;
 		const root = this.root = createElement('div', { className: 'menu-anchor', });
 		this.active = null;
 		root.addEventListener('mousemove', ({ target, }) => (target = target.closest && target.closest('.menu-item')) && this.setActive(target));
 		root.addEventListener('mouseleave', () => this.setActive(null));
 		this.addMenu(items, root);
-		this.show(x, y);
+		this.show(x, y, width);
 	}
 
-	show(x, y) {
+	show(x, y, width) {
 		const window = this.host.ownerDocument.defaultView;
 		this.host.appendChild(this.root);
-		const width = window.innerWidth, height = window.innerHeight;
 		this.root.style.top  = y +'px';
 		this.root.style.left = x +'px';
+		this.root.style.width = (width || 0) +'px';
+		const { innerWidth, innerHeight, } = window;
 		Array.prototype.forEach.call(this.root.querySelectorAll('.submenu'), menu => {
-			const rect = menu.getBoundingClientRect();
-			rect.right  > width  && menu.classList.add('to-left');
-			rect.bottom > height && menu.classList.add('to-top');
+			const rect1 = menu.getBoundingClientRect();
+			rect1.right  > innerWidth  && menu.classList.add('to-left');
+			rect1.bottom > innerHeight && menu.classList.add('to-top');
+			const rect2 = menu.getBoundingClientRect();
+			if (rect2.left < 0) { if (rect1.right - innerWidth > 0 - rect2.left) {
+				menu.style.transform += `translateX(${ (-rect2.left).toFixed(4) }px)`;
+			} else {
+				menu.classList.remove('to-left');
+				menu.style.transform += `translateX(${ (innerWidth - rect1.right).toFixed(4) }px)`;
+			} }
+			if (rect2.top < 0) { if (rect1.bottom - innerHeight > 0 - rect2.top) {
+				menu.style.transform += `translateY(${ (-rect2.top).toFixed(4) }px)`;
+			} else {
+				menu.classList.remove('to-top');
+				menu.style.transform += `translateY(${ (innerHeight - rect1.bottom).toFixed(4) }px)`;
+			} }
 		});
 		(gecko && getViews().find(_=>_.view === window).type === 'panel' ? events.slice(0, -2) : events) // remove 'blur' and 'resize'
 		.forEach(type => window.addEventListener(type, this, true));

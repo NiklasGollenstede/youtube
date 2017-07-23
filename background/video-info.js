@@ -122,7 +122,7 @@ class InfoHandler {
 		} else {
 			return { error: error.message, };
 		} } }
-		console.log('fetched', info);
+		// console.log('fetched', info);
 		const data = { id: this.id, fetched: Date.now(), };
 		('title' in info) && (data.title = info.title);
 		('published' in info) && (data.published = info.published);
@@ -132,7 +132,7 @@ class InfoHandler {
 		('formats' in info) && (!this.data || !this.data.audioData) && (data.audioUrl = getPreferredAudio(info.formats));
 		('relative_loudness' in info) && (data.loudness = +info.relative_loudness);
 		(this.data && this.data.error) && (data.error = null);
-		console.log('extracted', data);
+		// console.log('extracted', data);
 		return data;
 	}
 

@@ -82,14 +82,18 @@
 }
 /* place top level menu directly beside the cursor */
 .menu-anchor>.submenu {
-	left: calc(100% + 1px);
-	top: 1px;
+	left: 0;
+	right: unset;
+	top: 0;
+	bottom: unset;
 }
 .menu-anchor>.submenu.to-left {
-	right: calc(100% + 1px);
+	left: unset;
+	right: 0;
 }
 .menu-anchor>.submenu.to-top {
-	bottom: 1px;
+	bottom: 0;
+	top: unset;
 }
 
 /* transitions */

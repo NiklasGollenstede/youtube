@@ -3,9 +3,10 @@
 	'node_modules/es6lib/dom': { createElement, writeToClipboard, },
 	'node_modules/es6lib/object': { MultiMap, },
 	'node_modules/sortablejs/Sortable.min': Sortable,
-	'node_modules/web-ext-utils/browser/': { manifest, runtime, Tabs, Windows, Bookmarks, },
+	'node_modules/web-ext-utils/browser/': { manifest, extension, Tabs, Windows, Bookmarks, },
 	'node_modules/web-ext-utils/browser/version': { firefox, },
-	'node_modules/web-ext-utils/utils/': { showExtensionTab, reportError, reportSuccess, },
+	'node_modules/web-ext-utils/loader/views': { openView, },
+	'node_modules/web-ext-utils/utils/': { reportError, reportSuccess, },
 	'background/player': Player,
 	'background/video-info': { makeTileClass, },
 	'common/context-menu': ContextMenu,
@@ -91,24 +92,29 @@ return async function View(window) {
 			.map(_=>_.url.match(/\bv=([\w-]{11})\b/)).filter(_=>_).map(_=>_[1]).filter(id => !open.has(id)).forEach(addTile)
 		);
 
-		Player.onVideoOpen(id => tiles.querySelector(`media-tile[video-id="${ id }"]`).remove(), off);
+		Player.onVideoOpen(id => { const tile = tiles.querySelector(`media-tile[video-id="${ id }"]`); tile && tile.remove(); }, off);
 	}
 
 	// bookmarked videos
 	Bookmarks.search({ query: `youtube.com/watch?`, }).then(all => {
 		const parents = new MultiMap; all.forEach(item => parents.add(item.parentId, item));
 		parents.forEach(async (children, parentId) => {
-			const ids = Array.from(children).sort((a, b) => a.index - b.index).map(_=>_.url.match(/\bv=([\w-]{11})\b/)).filter(_=>_).map(_=>_[1]);
-			if (!ids.length) { return; }
+			const entries = Array.from(children).sort((a, b) => a.index - b.index).map(entry => {
+				const mId = entry.url.match(/\bv=([\w-]{11})\b/);
+				return mId ? { videoId: mId[1], bookmarkId: entry.id, } : null;
+			}).filter(_=>_);
+			if (!entries.length) { return; }
 			const [ { title, }, ] = (await Bookmarks.get(parentId));
 			const group = groupList.appendChild(createGroup('bmk-'+ parentId, createElement('span', null, [
 				createElement('span', { title: 'Bookmark folder', }, [ '🔖 ', ]), title,
 			])));
 			const tiles = group.querySelector('.tiles');
 			enableDragOut(tiles);
-			const addTile = id => tiles.appendChild(Object.assign(new MediaTile, { videoId: id, }));
-			ids.forEach(addTile);
+			const addTile = ({ videoId, bookmarkId, }) => (tiles.appendChild(Object.assign(new MediaTile, { videoId, })).dataset.bookmarkId = bookmarkId);
+			entries.forEach(addTile);
 		});
+		const onRemoved = bookmarkId => document.querySelector(`media-tile[data-bookmark-id="${ bookmarkId }"]`).remove();
+		Bookmarks.onRemoved.addListener(onRemoved); window.addEventListener('unload', () => Bookmarks.onRemoved.removeListener(onRemoved));
 	});
 
 	{ // controls
@@ -160,17 +166,16 @@ return async function View(window) {
 
 function showMainMenu(event) {
 	if (event.button) { return; }
-	const document = event.target.ownerDocument, window = document.defaultView;
-	const { left: x, bottom: y, } = document.querySelector('#more').getBoundingClientRect();
+	const document = event.target.ownerDocument;
+	const { left: x, bottom: y, width, } = document.querySelector('#more').getBoundingClientRect();
 	const items = [
-		runtime.reload
-		&&  { icon: '⚡',	label: 'Restart', action: () => window.confirm(`Restart ${ manifest.name }?`) && runtime.reload(), },
-		    { icon: '◑',	label: 'Dark Theme', checked: options.playlist.children.theme.value === 'dark', action() { options.playlist.children.theme.value = this.checked ? 'light' : 'dark'; }, },
-		    { icon: '❐', 	label: 'Show in tab', action: () => showExtensionTab('/view.html#playlist'), },
-		    { icon: '◳', 	label: 'Open in popup', action: () => Windows.create({ url: document.defaultView.location.href, type: 'popup', width: 450, height: 600, }), },
-		    { icon: '⚙', 	label: 'Settings', action: () => showExtensionTab('/view.html#options'), },
+		{ icon: '⚡',	label: 'Restart', action: () => extension.getBackgroundPage().location.reload(), },
+		{ icon: '◑',	label: 'Dark Theme', checked: options.playlist.children.theme.value === 'dark', action() { options.playlist.children.theme.value = this.checked ? 'light' : 'dark'; }, },
+		{ icon: '❐', 	label: 'Show in tab', action: () => openView('playlist', 'tab'), },
+		{ icon: '◳', 	label: 'Open in popup', action: () => openView('playlist', 'popup', { useExisting: false, width: 450, height: 600, }), },
+		{ icon: '⚙', 	label: 'Settings', action: () => openView('options', 'tab'), },
 	];
-	new ContextMenu({ x, y, items, host: document.body, });
+	new ContextMenu({ x, y: y + 1, width, items, host: document.body, });
 }
 
 // show context menus
@@ -184,21 +189,25 @@ function showContextMenu(event) {
 	const items = [ ];
 	const tile = target.closest('media-tile');
 	const group = target.closest('.group');
-	const inList = target.matches('#playlist, #playlist *');
+	const inList = !!target.closest('#playlist');
 	if (tile) {
 		const id = tile.videoId;
-		const hasTab = Player.frameFor(id);
+		const tab = Player.frameFor(id);
+		const inTabs = target.closest('#group-tabs');
+		const bmkId = Array.from(others.querySelectorAll(`media-tile[video-id="${ id }"]`), _=>_.dataset.bookmarkId).find(_=>_);
+		const addBmk = inList && !bmkId;
 		items.push(
-			           { icon: '▶',		label: 'Play video',       action: () => { Player.current = id; Player.play(); }, default: tile.matches('#playlist :not(.active)') && !target.matches('.remove, .icon'), },
-			 hasTab && { icon: '👁',	label: 'Show tab',         action: () => { focusTab(id); }, default: tile.matches('#group-tabs *, .active') && !target.matches('.remove, .icon'), },
-			!hasTab && { icon: '◳',		label: 'Open in tab',      action: () => { openTab(id); }, },
+			           { icon: '▶',		label: 'Play video',       action: () => { Player.current = id; Player.play(); }, default: tile.matches('#playlist :not(.active)') && !target.closest('.remove, .icon'), },
+			 tab    && { icon: '👁',	label: 'Show tab',         action: () => { focusTab(id); }, default: tile.matches('#group-tabs *, .active') && !target.closest('.remove, .icon'), },
+			!tab    && { icon: '◳',		label: 'Open in tab',      action: () => { openTab(id); }, },
 			 inList && { icon: '❏',		label: 'Duplicate',        action: () => Player.playlist.splice(positionInParent(tile), 0, id), },
 			 inList && { icon: '⨉',		label: 'Remove entry',     action: () => Player.playlist.splice(positionInParent(tile), 1), default: target.matches('#playlist .remove'), },
+			 inTabs && { icon: '⨉',		label: 'Close tab',        action: () => Tabs.remove(tab.tabId), default: !!target.closest('#group-tabs .remove'), },
+			 bmkId  && { icon: '🗑',	label: 'Delete bookmark',  action: () => Bookmarks.remove(bmkId), default: !!target.closest('media-tile[data-bookmark-id] .remove'), },
+			 addBmk && { icon: '➕',	label: 'Add bookmark',     action: () => Bookmarks.create({ title: tile.querySelector('.title').textContent, url: 'https://www.youtube.com/watch?v='+ tile.videoId, }), },
 			 inList && { icon: '🔍',	label: 'Highlight',        action: () => highlight(others.querySelector(`media-tile[video-id="${ id }"]`)), },
 			!inList && { icon: '🔍',	label: 'Highlight',        action: () => highlight(playlist.querySelector(`media-tile[video-id="${ id }"]`)), },
 			           { icon: '📋',	label: 'Copy ID',          action: () => writeToClipboard(id).then(() => reportSuccess('Copied', id), reportError), },
-			group && group.id.startsWith('group-bmk-')
-					&& { icon: '🗑',	label: 'Delete bookmark',  action: async () => Bookmarks.remove((await Bookmarks.search('https://www.youtube.com/watch?v='+ tile.videoId))[0].id).then(() => tile.remove()), },
 			!inList && { icon: '➕',	label: 'Add video',        action: () => Player.playlist.splice(Infinity, 0, id), },
 		);
 	}
@@ -216,7 +225,7 @@ function showContextMenu(event) {
 			{ icon: '🛇',	 label: 'Clear list',                   action: () => Player.playlist.splice(0, Infinity), },
 		);
 	}
-	if (target.matches('.group .header .title')) {
+	if (target.closest('.group .header .title')) {
 		const box = document.querySelector('#'+ target.htmlFor);
 		items.push(
 			{ icon: '⇳',	 label: (box.checked ? 'Expand' : 'Collapse') +' tab list', action: () => (box.checked = !box.checked), default: true, }
@@ -255,13 +264,18 @@ function onDblckick({ target, button, }) {
 
 // remove tab on leftcklick on ".remove"
 function onClick({ target, button, }) {
-	if (button || !target.matches) { return; }
+	if (button || !target.closest) { return; }
 	const document = target.ownerDocument;
 
-	if (target.matches('#playlist media-tile .remove, #playlist media-tile .remove *')) {
-		const tile = target.closest('media-tile');
+	const tile = target.closest('media-tile');
+	if (target.closest('#playlist media-tile .remove')) {
 		Player.playlist.splice(positionInParent(tile), 1);
-	} else if (target.matches('#searchbox .remove, #searchbox .remove *')) {
+	} else if (target.closest('#group-tabs media-tile .remove')) {
+		const tab = Player.frameFor(tile.videoId);
+		Tabs.remove(tab.tabId);
+	} else if (target.closest('media-tile .remove') && tile.dataset.bookmarkId) {
+		Bookmarks.remove(tile.dataset.bookmarkId);
+	} else if (target.closest('#searchbox .remove')) {
 		const box = document.querySelector('#searchbox>input');
 		box.value = ''; box.blur();
 		document.body.classList.remove('searching');
@@ -270,7 +284,7 @@ function onClick({ target, button, }) {
 
 function onKeydown(event) {
 	const document = event.target.ownerDocument;
-	const inInput = event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA';
+	const inInput = event.target.matches('TEXTAREA, input:not([type="range"])');
 	switch (event.key) {
 		case 'f': {
 			if (!event.ctrlKey) { return; }
