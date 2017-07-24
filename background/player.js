@@ -6,7 +6,7 @@
 	'node_modules/web-ext-utils/utils/': { reportError, },
 	'node_modules/web-ext-utils/utils/event': { setEvent, },
 	'node_modules/es6lib/functional': { debounce, },
-	'node_modules/es6lib/object': { MultiMap, assignDescriptors, },
+	'node_modules/es6lib/object': { MultiMap, },
 	'node_modules/es6lib/concurrent': { sleep, },
 	'common/options': options,
 	content,
@@ -18,24 +18,18 @@
  * declarations
  */
 
-const Player = { };
 const players = new MultiMap, videos = new Set;
 const container = global.document.head.appendChild(global.document.createElement('players'));
 let current = null, duration = NaN, playing = false;
 const playlist = new Playlist((await Storage.local.get('playlist')).playlist);
-options.playlist.children.loop.whenChange(([ value, ]) => (playlist.loop = value));
+let loop = false; options.playlist.children.loop.whenChange(([ value, ]) => (playlist.loop = (loop = value)));
 const savePlaylist = debounce(() => Storage.local.set({ playlist: { values: Player.playlist.current, index: playlist.index, }, }), 1e4);
 playlist.onAdd(savePlaylist); playlist.onRemove(savePlaylist); playlist.onSeek(savePlaylist); // TODO: split into two independent entries
 
 /**
  * exports
  */
-const fireVideoOpen = setEvent(Player, 'onVideoOpen', { lazy: false, }); // (id)
-const fireVideoClose = setEvent(Player, 'onVideoClose', { lazy: false, }); // (id)
-const firePlay = setEvent(Player, 'onPlay', { lazy: false, }); // (bool)
-const fireDurationChange = setEvent(Player, 'onDurationChange', { lazy: false, }); // (bool)
-
-assignDescriptors(Player, {
+const Player = {
 	async getOpenVideos(sortBy) {
 		void sortBy; // TODO: sort
 		return Array.from(videos, _=>_.id);
@@ -72,11 +66,11 @@ assignDescriptors(Player, {
 	loop(value = !playlist.loop) {
 		options.playlist.children.loop.value = playlist.loop = !!value;
 	},
-	next() { playlist.next(); },
-	prev() { playlist.prev(); },
+	next() { Player.playlist.next(); },
+	prev() { Player.playlist.prev(); },
 	playlist: Object.freeze({
-		next() { playlist.next(); },
-		prev() { playlist.prev(); },
+		next() { playlist.index++; },
+		prev() { playlist.index--; },
 		get index() { return playlist.index; }, set index(value) { playlist.index = value; },
 		get current() { return Array.from(playlist); },
 		splice() { return playlist.splice(...arguments); },
@@ -89,16 +83,26 @@ assignDescriptors(Player, {
 		for (const open of players.get(id)) { if (open instanceof RemotePlayer) { return open.frame; } }
 		return null;
 	},
-});
+};
+const fireVideoOpen = setEvent(Player, 'onVideoOpen', { lazy: false, }); // (id)
+const fireVideoClose = setEvent(Player, 'onVideoClose', { lazy: false, }); // (id)
+const firePlay = setEvent(Player, 'onPlay', { lazy: false, }); // (bool)
+const fireDurationChange = setEvent(Player, 'onDurationChange', { lazy: false, }); // (bool)
 Object.freeze(Player);
 
 /**
  * event and message handlers
  */
 
-playlist.onSeek(() => loadPlayer(playlist.get()));
-playlist.onRemove(async (index, id) => { sleep(0); playlist.get() !== id && loadPlayer(playlist.get()); });
-// TODO: this also triggers if an element before the current one gets removed
+playlist.onSeek(async (to, from) => {
+	loadPlayer(playlist.get());
+	if (!loop) { return; }
+	if (to === Infinity && from === playlist.length - 1) {
+		(await null); playlist.index = 0; // loop forward
+	} else if (to === -1 && from === 0) {
+		(await null); playlist.index = playlist.length - 1; // loop backwards
+	}
+});
 
 Player.onPlay(playing => { if (playing) { // play
 	const id = playlist.get();
@@ -107,55 +111,6 @@ Player.onPlay(playing => { if (playing) { // play
 } else { // pause
 	current && current.playing && current.pause();
 } });
-
-content.onMatch(async frame => {
-	const port = (await frame.connect('player'));
-
-	let player = null;
-
-	const on = {
-		created(id) {
-			player = new RemotePlayer({ id, port, frame, });
-			if (current && current.id === player.id && (current instanceof AudioPlayer))
-			{ player.seekTo(current.currentTime); setCurrent(player); }
-		},
-		async playing() {
-			// TODO: pause if tab is not focused?
-			player.playing = true;
-			const wasPlaying = playing; playing = true;
-			current && current.id === player.id && (current instanceof AudioPlayer) && player.seekTo(current.currentTime);
-			setCurrent(player);
-			!wasPlaying && firePlay([ true, ]);
-
-			// focus tab
-			const { windowId, active, } = (await Tabs.get(frame.tabId));
-			!active && (await windowIsIdle(windowId)) && (await Tabs.update(frame.tabId, { active: true, }));
-		},
-		paused() {
-			player.playing = false;
-			if (current !== player) { return; }
-			const wasPlaying = playing; playing = false;
-			wasPlaying && firePlay([ false, ]);
-		},
-		ended() {
-			player.playing = false;
-			player === current && Player.next();
-			current === this && this.start();
-		},
-		removed() {
-			player.destroy();
-			player = null;
-		},
-	};
-	Object.keys(on).forEach(event => {
-		port.post('on', event, on[event]);
-		port.afterEnded('off', event, on[event]);
-	});
-
-	frame.onHide(() => { player && player.destroy(); player = null; });
-
-	port.post('start');
-});
 
 messages.addHandlers({
 	reportError, // allow content to report errors
@@ -185,6 +140,13 @@ Tabs.onUpdated.addListener(async (tabId, { url, }) => {
 	messages.post({ tabId, }, 'navigated', url);
 });
 
+content.onMatch(async frame => {
+	const port = (await frame.connect('player')); frame.onHide(() => port.destroy());
+	port.post('on', 'created', onCreated); port.afterEnded('off', 'created', onCreated);
+	function onCreated(id) { new RemotePlayer({ id, port, frame, }); }
+	port.post('start');
+});
+
 /**
  * classes
  */
@@ -197,17 +159,52 @@ class RemotePlayer {
 		videos.add(this);
 		fireVideoOpen([ this.id, ]);
 		this.duration = NaN; // const
-		port.ended.then(() => this.destroy());
+		if (current && current.id === this.id && (current instanceof AudioPlayer))
+		{ this.seekTo(current.currentTime); setCurrent(this); }
+		port.request('playing').then(_=>_ && on.playing(_));
+
+		const on = this.handlers = {
+			playing: async () => {
+				this.playing = true;
+				const wasPlaying = playing; playing = true;
+				current && current.id === this.id && (current instanceof AudioPlayer) && this.seekTo(current.currentTime);
+				setCurrent(this);
+				!wasPlaying && firePlay([ true, ]);
+
+				// focus tab
+				const { windowId, active, } = (await Tabs.get(this.frame.tabId));
+				!active && (await windowIsIdle(windowId)) && (await Tabs.update(this.frame.tabId, { active: true, }));
+			},
+			paused: () => {
+				this.playing = false;
+				if (current !== this) { return; }
+				const wasPlaying = playing; playing = false;
+				wasPlaying && firePlay([ false, ]);
+			},
+			ended: () => {
+				this.playing = false;
+				this === current && Player.next();
+			},
+			removed: () => {
+				this.destroy();
+			},
+		};
+		Object.keys(on).forEach(event => {
+			port.post('on', event, on[event]);
+			port.afterEnded('off', event, on[event]);
+		});
+		port.ended.then(on.removed);
 	}
 
-	play() { return this.port.request('play', true); }
+	play() { return this.port.request('play', true)/*.then(() => (this.playing = true))*/; }
 	pause() { return this.port.request('pause', true); }
 	start() { return this.port.request('start'); }
 	seekTo(v) { return this.port.request('seekTo', v); }
 
 	destroy() {
-		if (!this.port) { return; } this.port = null;
-		this.playing = false;
+		if (!this.port) { return; }
+		const on = this.handlers; try { this.port.ended !== true && Object.keys(on).forEach(event => this.port.post('off', event, on[event])); } catch (_) { } // TODO: remove catch once port.ended actually returns true
+		this.port = null; this.frame = null; this.playing = false;
 		players.delete(this.id, this);
 		videos.delete(this);
 		if (current === this) {
@@ -231,7 +228,7 @@ class AudioPlayer extends global.Audio {
 
 	handleEvent(event) { switch (event.type) {
 		case 'durationchange': this.duration !== duration && fireDurationChange([ duration = this.duration, ]); break;
-		case 'ended': current === this && Player.next(); current === this && this.start(); break;
+		case 'ended': current === this && Player.next(); break;
 		case 'error': reportError(`Audio playback error`, `reloading `+ this.title, event); this.load(); break; // TODO: this loops if .load() doesn't throw but causes another error on this
 		/*case 'pause': case 'playing':*/ case 'stalled': current === this && this.playing !== playing && firePlay([ playing = this.playing, ]) ;
 	} }

@@ -8,11 +8,10 @@ class Playlist extends Array {
 	 * Creates a PlayList, which is an Array with a current position (index).
 	 * @param  {Array}     options.values    Optional initial values.
 	 * @param  {integer}   options.index     Optional initial position.
-	 * @param  {bool}      options.loop      Optional initial value of this.loop. While this.loop is true, .next() and .pref() will wrap around instead of seeking past the end / before the beginning.
 	 */
-	constructor({ values = [ ], index, loop, } = { }) {
+	constructor({ values = [ ], index, } = { }) {
 		super(...values);
-		// called with (currentIndex) whenever this.index changes to a different value slot in this.
+		// called with (currentIndex, oldIndex) whenever this.index changes to a different value slot in this. Does not fire if the current element is shifted.
 		this._fireSeek = setEvent(this, 'onSeek', { lazy: false, });
 		// called with (atIndex, newValue) whenever a value is added to this.
 		this._fireAdd = setEvent(this, 'onAdd', { lazy: false, });
@@ -20,7 +19,6 @@ class Playlist extends Array {
 		this._fireRemove = setEvent(this, 'onRemove', { lazy: false, });
 		this._index = 0;
 		this.index = index;
-		this.loop = !!loop;
 	}
 	static get [Symbol.species]() { return Array; }
 
@@ -32,8 +30,7 @@ class Playlist extends Array {
 		else if (value < 0) { value = -1; }
 		else if (value >= this.length) { value = Infinity; }
 		else { value <<= 0; }
-		const old = this._index;
-		this._index = value;
+		const old = this._index; this._index = value;
 		old !== value && this._fireSeek([ value, old, ]);
 	}
 	get index() {
@@ -45,36 +42,6 @@ class Playlist extends Array {
 	 */
 	get() {
 		return this[this.index];
-	}
-
-	/**
-	 * Sets this.index to the next value in this.
-	 * @return  {bool}  True iff this.index points at a value in this.
-	 */
-	next() {
-		if (this.index >= this.length - 1) {
-			if (!this.loop) { this.index = Infinity; return false; }
-			this.index = 0; return true;
-		}
-		if (this.index < 0) {
-			this.index = 0; return true;
-		}
-		++this.index; return true;
-	}
-
-	/**
-	 * Sets this.index to the previous value in this.
-	 * @return  {bool}  True iff this.index points at a value in this.
-	 */
-	prev() {
-		if (this.index <= 0) {
-			if (!this.loop) { this.index = -1; return false; }
-			this.index = this.length - 1; return true;
-		}
-		if (this.index >= this.length) {
-			this.index = this.length - 1; return true;
-		}
-		--this.index; return true;
 	}
 
 	/**
@@ -95,17 +62,18 @@ class Playlist extends Array {
 	 * @return {integer}       The new index of value in this or -1 if value was not inserted.
 	 */
 	seek(value) {
-		const index = this.index; let seeked;
-		seeked = this.indexOf(value, this.index);
-		if (seeked !== -1) { this.index = seeked; return -1; }
-		seeked = this.indexOf(value);
-		if (seeked !== -1) { this.index = seeked; return -1; }
+		const index = this.index;
+		let seeked = this.indexOf(value, this.index); seeked === -1 && (seeked = this.indexOf(value));
+		if (seeked !== -1) {
+			seeked !== index && this._fireSeek([ this._index = seeked, index, ]);
+			return -1;
+		}
 		if (index < 0 || index >= this.length) {
 			this.push(value);
-			this.index = this.length - 1;
+			this._fireSeek([ this._index = this.length - 1, index, ]);
 		} else {
 			this.splice(index + 1, 0, value);
-			this.index = index + 1;
+			this._fireSeek([ this._index = index + 1, index, ]);
 		}
 		return this.index;
 	}
@@ -137,8 +105,48 @@ class Playlist extends Array {
 	}
 
 	/**
-	 * Native array methods that change `this`. Modified to logically peserve .index and to call the event handlers.
+	 * Native array methods that change `this`. Modified to logically preserve .index and to call the event handlers.
 	 */
+
+	splice(at, remove, ...items) {
+		if (at >= this.length) { at = this.length; }
+		else { at <<= 0; }
+		if (this._index >= at && this._index < at + remove) {
+			const was = this._index, now = at + remove;
+			this._fireSeek([ this._index = now < this.length ? now : Infinity, was, ]);
+		}
+		let removed = 0; for (let i = 0; i < remove && this.length > at; ++i) {
+			const [ was, ] = super.splice(at, 1); ++removed;
+			this._index > at && --this._index;
+			this._fireRemove([ at, was, ]);
+		}
+		for (let i = 0; i < items.length; ++i) {
+			this._index >= at && ++this._index;
+			super.splice(at, 0, items[i]);
+			this._fireAdd([ at + i, items[i], ]);
+		}
+		return removed;
+	}
+
+	push() {
+		this.splice(this.length - 1, 0, ...arguments);
+		return this.length;
+	}
+
+	pop() {
+		return this.splice(this.length - 1, 1)[0];
+	}
+
+	shift() {
+		return this.splice(0, 1)[0];
+	}
+
+	unshift() {
+		this.splice(0, 0, ...arguments);
+		return this.length;
+	}
+
+	// TODO: .sort() and .reverse() should keep the element at .index and move around it
 
 	sort() {
 		const current = this.get();
@@ -148,53 +156,10 @@ class Playlist extends Array {
 		return this;
 	}
 
-	push() {
-		const length = this.length;
-		super.push(...arguments);
-		for (let i = 0; i < arguments.length; ++i) {
-			this._fireAdd([ length + i, arguments[i], ]);
-		}
-		return this.length;
-	}
-
-	pop() {
-		const value = super.pop();
-		this._fireRemove([ this.length, value, ]);
-		this.index === this.length && this.next();
-		return value;
-	}
-
 	reverse() {
-		this.splice(0, Infinity, ...super.reverse()); // trigger event handlers
-		this.index = this.length - 1 - this.index;
-	}
-
-	shift() {
-		const value = super.shift();
-		this._fireRemove([ 0, value, ]);
-		this.index >= 0 && (this.index -= 1);
-		return value;
-	}
-
-	unshift() {
-		super.unshift(...arguments);
-		for (let i = 0; i < arguments.length; ++i) {
-			this._fireAdd([ i, arguments[i], ]);
-		}
-		return this.length;
-	}
-
-	splice(at, remove, ...items) {
-		const removed = super.splice(...arguments);
-		remove = removed.length;
-		for (let i = 0; i < removed.length; ++i) {
-			this._fireRemove([ at, removed[i], ]);
-		}
-		for (let i = 0; i < items.length; ++i) {
-			this._fireAdd([ at + i, items[i], ]);
-		}
-		this.index >= at && (this.index <= at + remove ? (this.index = at + items.length) : (this.index += items.length - remove));
-		return removed;
+		this.splice(0, Infinity, ...this.slice().reverse()); // trigger event handlers
+		this._index = this.length - 1 - this.index;
+		return this;
 	}
 }
 

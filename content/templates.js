@@ -59,7 +59,7 @@ const Templates = ({
 	<div class="thumb-wrapper">
 		<a href="/watch?v=${ id }" class=" thumb-link spf-link  yt-uix-sessionlink" tabindex="-1" rel="spf-prefetch" aria-hidden="true">
 			<span class="yt-uix-simple-thumb-wrap yt-uix-simple-thumb-related" tabindex="0" data-vid="${ id }">
-				<img alt="" aria-hidden="true" src="//i.ytimg.com/vi/${ id }/default.jpg" width="120" height="90">
+				<img alt="" aria-hidden="true" src="//i.ytimg.com/vi/${ id }/mqdefault.jpg" width="168" height="94">
 			</span>
 		</a>
 		<span class="video-time">${ secondsToHhMmSs(length_seconds) }</span>
@@ -69,10 +69,10 @@ const Templates = ({
 <li class="video-list-item related-list-item show-video-time">
 	<a href="/watch?v=${ video_id }&amp;list=${ list }" class="related-playlist yt-pl-thumb-link  spf-link  yt-uix-sessionlink" rel="spf-prefetch">
 		<span class="yt-pl-thumb  is-small yt-mix-thumb">
-			<span class="video-thumb  yt-thumb yt-thumb-120">
+			<span class="video-thumb  yt-thumb yt-thumb-168">
 				<span class="yt-thumb-default">
 					<span class="yt-thumb-clip">
-						<img aria-hidden="true" alt="" src="//i.ytimg.com/vi/${ video_id }/default.jpg" width="120">
+						<img aria-hidden="true" alt="" src="//i.ytimg.com/vi/${ video_id }/mqdefault.jpg" width="168">
 						<span class="vertical-align"></span>
 					</span>
 				</span>

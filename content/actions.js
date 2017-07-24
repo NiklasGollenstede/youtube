@@ -141,13 +141,8 @@ const actions = {
 	videoPopScreenshot() {
 		document.querySelector('.screenshot-preview').remove();
 	},
-	videoSave() { // works only with simple html-player
-		let url = player.video.src;
-		const title = (document.querySelector('#eow-title') || { textContent: 'cover', }).textContent.trim();
-		if (url.startsWith('mediasource:')) {
-			url = `https://i.ytimg.com/vi/${ new QueryObject(location.search).v }/maxresdefault.jpg`;
-		}
-		saveAs(url +'?title='+ encodeURIComponent(title), title +'.jpg');
+	videoSave() { // TODO: remove
+		return actions.videoDownloadCover();
 	},
 	async videoDownloadCover() {
 		const url = `https://i.ytimg.com/vi/${ new QueryObject(location.search).v }/maxresdefault.jpg`;

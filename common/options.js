@@ -151,12 +151,6 @@ const model = {
 							},
 						},
 					},
-					cinemaMode: {
-						title: `Use Cinema Mode`,
-						description: `Makes seek bar a bit wider`,
-						default: false,
-						input: { type: 'boolean', },
-					},
 					seamlessFullscreen: {
 						title: `Enable seamless full screen`,
 						description: `Hides the sidebar to display the video player across the entire browser window`,

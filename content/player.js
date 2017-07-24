@@ -65,6 +65,7 @@ const getOptions = require.async('./options');
 
 const getBackground = connect('player').then(bg => bg
 	.addHandler((/^(?:on|once|off|promise)$/), (name, ...args) => events[name](...args))
+	.addHandler('playing', () => video && !video.paused && (video.currentTime || Number.EPSILON))
 	.addHandler((/./), async (name, ...args) => {
 		const method = bg.isRequest() ? 'request' : 'post';
 		return (await getContent)[method](name, ...args);

@@ -72,11 +72,9 @@ function onNavigated() {
 	document.documentElement.classList[options.player.children.seamlessFullscreen.children.atStart.value ? 'add' : 'remove']('fullscreen');
 
 	player.promise('loaded', 'unloaded').then(element => {
-		// use cinema mode to make progress-bar a bit larger
-		options.player.children.cinemaMode.value && (element.querySelector('.ytp-size-button') || noop).click();
 
 		// always display volume
-		options.player.children.alwaysVolume.value && ((element.querySelector('.ytp-volume-panel') || noop).style.minWidth = '52px');
+		options.player.children.alwaysVolume.value && ((element.querySelector('.ytp-volume-panel') || noop).style.minWidth = '52px'); // TODO: use CSS and remove options
 
 		// remove title overlay of external player
 		const title = element.querySelector('.ytp-chrome-top');

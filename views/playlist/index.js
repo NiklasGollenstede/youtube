@@ -57,7 +57,7 @@ return async function View(window) {
 		ids.forEach(id => tiles.appendChild(createTile(id)));
 
 		Player.playlist.onAdd((index, id) => tiles.insertBefore(createTile(id), tiles.children[index]), off);
-		Player.playlist.onRemove(index => removeTile(tiles.children[index]), off);
+		Player.playlist.onRemove(index => tiles.children[index].remove(), off);
 
 		Player.playlist.onSeek(seek, off); seek(Player.playlist.index);
 		function seek(index) {
@@ -405,10 +405,13 @@ function enableDragIn(tiles) {
 			Player.playlist.splice(newIndex, 0, item.videoId);
 		}); },
 		onUpdate({ item, newIndex, oldIndex, }) { // sorted within
+			const active = item.matches('.active'), playing = Player.playing;
+			active && (Player.playlist.index = -1);
 			item.remove(); tiles.insertBefore(item, tiles.children[oldIndex]); // put back to old position
 			Player.playlist.splice(oldIndex, 1);
 			Player.playlist.splice(newIndex, 0, item.videoId);
-			item.matches('.active') && (Player.playlist.index = newIndex);
+			active && (Player.playlist.index = newIndex);
+			active && playing && Player.play();
 		},
 	}));
 }
@@ -420,11 +423,6 @@ function createGroup(id, name) { return createElement('div', { id: 'group-'+ id,
 	createElement('input', { className: 'toggleswitch', type: 'checkbox', id: 'groupToggle-'+ id, }),
 	createElement('span', { className: 'tiles', }),
 ]); }
-
-function removeTile(tab) {
-	tab.classList.contains('active') && tab.nextSibling && tab.nextSibling.classList.add('active');
-	return tab.remove();
-}
 
 function scrollToCenter(element, { ifNeeded = true, duration = 250, } = { }) { return new Promise((resolve) => {
 	// const scroller = element.offsetParent;
