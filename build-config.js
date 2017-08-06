@@ -33,13 +33,9 @@ module.exports = function({ options, /*packageJson,*/ manifestJson, files, }) {
 			'concurrent.js',
 			'dom.js',
 			'functional.js',
-			'index.js',
-			'namespace.js',
 			'network.js',
 			'object.js',
 			'observer.js',
-			'port.js',
-			'require.js',
 			'string.js',
 		],
 		regexpx: [

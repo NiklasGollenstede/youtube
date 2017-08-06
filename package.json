@@ -1,6 +1,6 @@
 {
 	"name": "youtubeoverhaul",
-	"version": "0.7.2",
+	"version": "0.7.3",
 	"title": "YouTube Overhaul",
 	"description": "",
 	"author": "Niklas Gollenstede",
@@ -21,11 +21,11 @@
 	],
 	"dependencies": {
 		"browserify": "14.4.0",
-		"es6lib": "NiklasGollenstede/es6lib#9f38a84",
-		"regexpx": "NiklasGollenstede/regexpx#eebed29",
-		"sortablejs": "rubaxa/Sortable#1.4.2",
-		"web-ext-build": "NiklasGollenstede/web-ext-build#6ec5533",
-		"web-ext-utils": "0.0.5",
+		"es6lib": "0.0.2",
+		"regexpx": "0.1.2",
+		"sortablejs": "1.6.0",
+		"web-ext-build": "0.0.5",
+		"web-ext-utils": "0.0.6",
 		"ytdl-core": "0.14.4"
 	},
 	"devDependencies": {

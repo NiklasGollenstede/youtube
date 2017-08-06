@@ -163,7 +163,7 @@ class InfoHandler {
 	}); }
 
 	destroy() {
-		console.log('destroy InfoHanlder', this.id);
+		// console.log('destroy InfoHanlder', this.id);
 		handlers.delete(this.id);
 		this.listeners = this.data = null;
 	}

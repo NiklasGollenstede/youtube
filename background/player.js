@@ -203,7 +203,7 @@ class RemotePlayer {
 
 	destroy() {
 		if (!this.port) { return; }
-		const on = this.handlers; try { this.port.ended !== true && Object.keys(on).forEach(event => this.port.post('off', event, on[event])); } catch (_) { } // TODO: remove catch once port.ended actually returns true
+		const on = this.handlers; this.port.ended !== true && Object.keys(on).forEach(event => this.port.post('off', event, on[event]));
 		this.port = null; this.frame = null; this.playing = false;
 		players.delete(this.id, this);
 		videos.delete(this);

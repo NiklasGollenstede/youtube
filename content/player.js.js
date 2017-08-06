@@ -112,7 +112,7 @@ async function pause(smooth) {
 	if (video.paused) { return player.getCurrentTime(); }
 	if (smooth) {
 		const pos = video.currentTime;
-		(await fadeVolume(false));
+		(await fadeVolume(video, false));
 		video.currentTime = pos;
 	}
 	player.pauseVideo();
@@ -129,7 +129,7 @@ async function play(smooth) {
 	if (video.readyState === 4) { // video is ready to play
 		if (!video.paused) { console.log('playing anyway'); return player.getCurrentTime(); }
 		video.play();
-		smooth && (await fadeVolume(true));
+		smooth && (await fadeVolume(video, true));
 		return waitFor('playing');
 	}
 
@@ -148,17 +148,19 @@ async function play(smooth) {
 	return waitFor('playing');
 }
 
-async function fadeVolume(on) {
-	let volume = on ? 0.05 : video.volume;
-	const dest = on ? video.volume : 0.05;
+async function fadeVolume(media, on) {
+	let volume = on ? 0.05 : media.volume;
+	const dest = on ? media.volume : 0.05;
 	const factor = on ? 1.4 : 1 / 1.4;
 	let should = Date.now();
 	while (on ? volume < dest : volume > dest) {
-		video.volume = volume = Math.min(volume * factor, 1);
+		media.volume = volume = Math.min(volume * factor, 1);
 		should += 25;
-		(await port.request('replyAfter', should - Date.now()));
+		(await sleep(should - Date.now()));
 	}
 	player.setVolume(player.getVolume());
 }
+
+async function sleep(ms) { return void (await port.request('replyAfter', ms)); }
 
 }) +`)((${ require.cache['node_modules/web-ext-utils/lib/multiport/index'].factory })()); })(this); //# sourceURL=${ require.toUrl('./player-injected.js') }`); })(this);

@@ -8,6 +8,7 @@
 	'node_modules/web-ext-utils/loader/views': { openView, },
 	'node_modules/web-ext-utils/utils/': { reportError, reportSuccess, },
 	'background/player': Player,
+	'background/content': content,
 	'background/video-info': { makeTileClass, },
 	'common/context-menu': ContextMenu,
 	'common/options': options,
@@ -193,7 +194,7 @@ function showContextMenu(event) {
 	if (tile) {
 		const id = tile.videoId;
 		const tab = Player.frameFor(id);
-		const inTabs = target.closest('#group-tabs');
+		const inTabs = target.closest('#group-tabs, #group-unloaded');
 		const bmkId = Array.from(others.querySelectorAll(`media-tile[video-id="${ id }"]`), _=>_.dataset.bookmarkId).find(_=>_);
 		const addBmk = inList && !bmkId;
 		items.push(
@@ -202,7 +203,7 @@ function showContextMenu(event) {
 			!tab    && { icon: '◳',		label: 'Open in tab',      action: () => { openTab(id); }, },
 			 inList && { icon: '❏',		label: 'Duplicate',        action: () => Player.playlist.splice(positionInParent(tile), 0, id), },
 			 inList && { icon: '⨉',		label: 'Remove entry',     action: () => Player.playlist.splice(positionInParent(tile), 1), default: target.matches('#playlist .remove'), },
-			 inTabs && { icon: '⨉',		label: 'Close tab',        action: () => Tabs.remove(tab.tabId), default: !!target.closest('#group-tabs .remove'), },
+			 inTabs && { icon: '⨉',		label: 'Close tab',        action: () => inTabs.closest('#group-tabs') ? Tabs.remove(tab.tabId) : closeUnloadedTab(tile), default: !!target.closest('#group-tabs .remove'), },
 			 bmkId  && { icon: '🗑',	label: 'Delete bookmark',  action: () => Bookmarks.remove(bmkId), default: !!target.closest('media-tile[data-bookmark-id] .remove'), },
 			 addBmk && { icon: '➕',	label: 'Add bookmark',     action: () => Bookmarks.create({ title: tile.querySelector('.title').textContent, url: 'https://www.youtube.com/watch?v='+ tile.videoId, }), },
 			 inList && { icon: '🔍',	label: 'Highlight',        action: () => highlight(others.querySelector(`media-tile[video-id="${ id }"]`)), },
@@ -326,7 +327,7 @@ function onInput({ target, }) {
 
 		// looking for trigrams makes it quite unlikely to match just anything, but a typo will have quite an impact
 		const found = tiles.filter(tile => fuzzyIncludes(tile.querySelector('.icon').title.toLowerCase(), lTerm, 3) > 0.6);
-		term.length === 11 && found.push(...tiles.filter(_=>_.dataset.video === term));
+		term.length === 11 && found.push(...tiles.filter(_=>_.videoId === term));
 		found.forEach(_=>_.classList.add('found'));
 	} else if (target.matches('#progress>input')) {
 		Player.seekTo(target.value);
@@ -462,6 +463,14 @@ async function openTab(id) {
 	(await Tabs.update(tab.id, { active: true, }));
 	(await Windows.update(tab.windowId, { focused: true, }));
 	return tab;
+}
+
+async function closeUnloadedTab(tile) {
+	const id = tile.videoId;
+	const tabs = (await Tabs.query({ url: [ `https://www.youtube.com/watch?*v=${ id }*`, `https://gaming.youtube.com/watch?*v=${id}*`, ], }));
+	const exclude = Player.frameFor(id);
+	const tab = tabs.find(tab => tab.id !== (exclude && exclude.tabId));
+	if (!tab) { return; } (await Tabs.remove(tab.id)); tile.remove();
 }
 
 }); })(this);
