@@ -6,4 +6,5 @@ npm-debug.log
 /update/*/versions.json
 files.json
 manifest.json
+package-lock.json
 view.html

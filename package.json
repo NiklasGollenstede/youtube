@@ -25,7 +25,7 @@
 		"regexpx": "0.1.2",
 		"sortablejs": "1.6.0",
 		"web-ext-build": "0.0.5",
-		"web-ext-utils": "0.0.6",
+		"web-ext-utils": "0.0.8",
 		"ytdl-core": "0.14.4"
 	},
 	"devDependencies": {
