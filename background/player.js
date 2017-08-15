@@ -97,11 +97,13 @@ Object.freeze(Player);
 playlist.onSeek(async (to, from) => {
 	loadPlayer(playlist.get());
 	if (!loop) { return; }
+	const play = playing; (await null);
 	if (to === Infinity && from === playlist.length - 1) {
-		(await null); playlist.index = 0; // loop forward
+		playlist.index = 0; // loop forward
 	} else if (to === -1 && from === 0) {
-		(await null); playlist.index = playlist.length - 1; // loop backwards
-	}
+		playlist.index = playlist.length - 1; // loop backwards
+	} else { return; }
+	play && Player.play();
 });
 
 Player.onPlay(playing => { if (playing) { // play

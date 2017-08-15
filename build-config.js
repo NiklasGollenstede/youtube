@@ -65,7 +65,7 @@ module.exports = function({ options, /*packageJson,*/ manifestJson, files, }) {
 			],
 		},
 		sortablejs: [
-			'Sortable.min.js',
+			'Sortable.js',
 		],
 	};
 

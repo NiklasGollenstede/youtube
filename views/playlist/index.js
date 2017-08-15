@@ -2,13 +2,12 @@
 	'node_modules/es6lib/string': { fuzzyIncludes, secondsToHhMmSs, },
 	'node_modules/es6lib/dom': { createElement, writeToClipboard, },
 	'node_modules/es6lib/object': { MultiMap, },
-	'node_modules/sortablejs/Sortable.min': Sortable,
+	'node_modules/sortablejs/Sortable': Sortable,
 	'node_modules/web-ext-utils/browser/': { manifest, extension, Tabs, Windows, Bookmarks, },
-	'node_modules/web-ext-utils/browser/version': { firefox, },
-	'node_modules/web-ext-utils/loader/views': { openView, },
+	'node_modules/web-ext-utils/browser/version': { firefox, gecko, },
+	'node_modules/web-ext-utils/loader/views': { openView, getViews, },
 	'node_modules/web-ext-utils/utils/': { reportError, reportSuccess, },
 	'background/player': Player,
-	'background/content': content,
 	'background/video-info': { makeTileClass, },
 	'common/context-menu': ContextMenu,
 	'common/options': options,
@@ -363,6 +362,7 @@ function highlight(element) {
 
 // enable drag & drop
 function enableDragOut(tiles) {
+	const noDragData = isInGeckoTab(tiles); // for some reason, the drop of the URL won't be prevented in firefox tabs and popups
 	return (tiles.sortable = new Sortable(tiles, {
 		group: {
 			name: 'playlist',
@@ -378,11 +378,12 @@ function enableDragOut(tiles) {
 		scrollSpeed: 10,
 		sort: false,
 		setData(dataTransfer, item) { // insert url if dropped somewhere else
-			dataTransfer.setData('text', 'https://www.youtube.com/watch?v='+ item.videoId);
+			dataTransfer.setData('text', noDragData ? '' : 'https://www.youtube.com/watch?v='+ item.videoId);
 		},
 	}));
 }
 function enableDragIn(tiles) {
+	const noDragData = isInGeckoTab(tiles); // for some reason, the drop of the URL won't be prevented in firefox tabs and popups
 	return (tiles.sortable = new Sortable(tiles, {
 		group: {
 			name: 'playlist',
@@ -398,7 +399,7 @@ function enableDragIn(tiles) {
 		scrollSpeed: 10,
 		sort: true,
 		setData(dataTransfer, item) { // insert url if dropped somewhere else
-			dataTransfer.setData('text', 'https://www.youtube.com/watch?v='+ item.videoId);
+			dataTransfer.setData('text', noDragData ? '' : 'https://www.youtube.com/watch?v='+ item.videoId);
 		},
 		onAdd({ item, newIndex, }) { global.setTimeout(() => { // inserted, async for the :hover test
 			Array.prototype.forEach.call(tiles.querySelectorAll('media-tile:not(.in-playlist)'), _=>_.remove()); // remove any inserted items
@@ -415,6 +416,10 @@ function enableDragIn(tiles) {
 			active && playing && Player.play();
 		},
 	}));
+}
+function isInGeckoTab(element) {
+	const window = element.ownerDocument.defaultView;
+	return gecko && (/^tab$|^popup$/).test(getViews().find(_=>_.view === window).type);
 }
 
 function createGroup(id, name) { return createElement('div', { id: 'group-'+ id, className: 'group', }, [

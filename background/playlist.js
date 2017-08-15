@@ -122,7 +122,7 @@ class Playlist extends Array {
 		}
 		for (let i = 0; i < items.length; ++i) {
 			this._index >= at && ++this._index;
-			super.splice(at, 0, items[i]);
+			super.splice(at + i, 0, items[i]);
 			this._fireAdd([ at + i, items[i], ]);
 		}
 		return removed;

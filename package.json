@@ -1,6 +1,6 @@
 {
 	"name": "youtubeoverhaul",
-	"version": "0.7.3",
+	"version": "0.7.4",
 	"title": "YouTube Overhaul",
 	"description": "",
 	"author": "Niklas Gollenstede",
@@ -25,7 +25,7 @@
 		"regexpx": "0.1.2",
 		"sortablejs": "1.6.0",
 		"web-ext-build": "0.0.5",
-		"web-ext-utils": "0.0.8",
+		"web-ext-utils": "0.0.9",
 		"ytdl-core": "0.14.4"
 	},
 	"devDependencies": {
