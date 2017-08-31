@@ -1,6 +1,8 @@
 .menu-anchor {
 	position: fixed !important;
 	width: 0; height: 0;
+	user-select: none;
+	-moz-user-select: none;
 }
 .submenu {
 	position: absolute;

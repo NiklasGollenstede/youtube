@@ -1,4 +1,3 @@
-define(`
 
 /*
 * always
@@ -342,5 +341,3 @@ define(`
     min-height: 68px !important;
     overflow: hidden;
 }
-
-`);

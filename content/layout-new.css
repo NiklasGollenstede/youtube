@@ -1,0 +1,141 @@
+
+.watchpage #top {
+	position: fixed !important;
+	top: 0 !important;
+	left: 0 !important;
+	bottom: 0 !important;
+	right: 0 !important;
+	width: 100% !important;
+	max-width: 100% !important;
+	margin: 0 !important;
+	padding: 0 !important;
+	overflow-y: auto !important;
+	overflow-x: hidden !important;
+}
+
+/**
+ * header
+ */
+
+	.watchpage ytd-masthead {
+		width: 350px !important;
+		left: calc(100% - 350px) !important;
+		right: 0 !important;
+		top: 0px !important;
+		position: fixed !important;
+		z-index: 99999 !important;
+	}
+	.watchpage.fullscreen ytd-masthead
+	{ display: none; }
+
+	.watchpage ytd-masthead #container {
+		padding: 0 !important;
+	}
+
+	/*always*/ ytd-masthead #ticker /* "privacy" reminder */
+	{ display: none !important; }
+
+	.watchpage ytd-masthead #guide-button /* menu-button */
+	{ margin: 0 !important; }
+
+	.watchpage ytd-masthead ytd-topbar-logo-renderer /* logo */
+	{ max-width: 23px !important; }
+
+	.watchpage ytd-masthead #search {
+		margin: 0 !important;
+		padding: 0 5px !important;
+	}
+
+	.watchpage ytd-masthead #end /* buttons */
+	{ display: none !important; }
+
+
+/**
+ * player
+ */
+
+	.watchpage #top>#player,
+	.watchpage #external_player {
+		position: fixed !important;
+		z-index: 999 !important;
+		margin: 0px !important;
+		padding: 0px !important;
+		left: 0px !important;
+		top: 0px !important;
+		height: 100% !important;
+		width: calc(100% - 350px) !important;
+	}
+	.watchpage.fullscreen #top>#player,
+	.watchpage.fullscreen #external_player
+	{
+		width: 100% !important;
+	}
+
+	.watchpage #top>#player #player-container ,
+	.watchpage #player-container .html5-video-player,
+	.watchpage #player-container .html5-video-container,
+	.watchpage #player-container video
+	{
+		width: 100% !important;
+		height: 100% !important;
+	}
+	.ytp-chrome-bottom { /* player controls */
+	}
+
+
+/**
+ * sidebar
+ */
+
+	.watchpage:not(.fullscreen) #top {
+		top: 50px !important;
+	}
+
+	.watchpage #top>#container>#main {
+		display: table !important;
+		display: flex !important;
+		flex-direction: column !important;
+		right: 0 !important;
+		top: 0 !important;
+		position: absolute !important;
+		padding: 0 !important;
+		width: 344px !important;
+	}
+	.watchpage #top>#container>#main>* {
+		width: 344px !important;
+		padding: 0 3px 0 8px !important;
+	}
+
+	.watchpage #main>#info      { order:  -5 !important; }
+	.watchpage #main>#meta      { order:  -3 !important; }
+	.watchpage #main>#comments  { order:  -1 !important; }
+	.watchpage #main>#related   { order:   1 !important; }
+
+	.watchpage #main>#comments ytd-comments-header-renderer
+	{ margin: 16px 0 !important; }
+	.watchpage #comments #header #title #count
+	{ cursor: pointer !important; }
+	.watchpage body:not(.show-comments) #comments>*>:not(paper-spinner-lite):not(#header),
+	.watchpage body:not(.show-comments) #comments #header>*>:not(#title),
+	.watchpage body:not(.show-comments) #comments #header #title>:not(#count)
+	{ display: none !important; }
+
+	.watchpage #main>#meta ytd-video-secondary-info-renderer
+	{ margin: 0 !important; padding: 8px 0 0 0 !important; }
+
+	.watchpage #main>#related {
+		width: 100% !important;
+		padding: 0 !important;
+	}
+	.watchpage #main>#related ytd-compact-autoplay-renderer {
+		margin: 0 !important;
+		border: none !important;
+	}
+	.watchpage #main>#related ytd-compact-video-renderer {
+		padding: 0 0 8px 0 !important;
+	}
+	.watchpage ytd-compact-autoplay-renderer #head /* sidebar autoplay button */
+	{ display: none !important; }
+
+	.watchpage #main>#content-separator
+	{ display: none !important; }

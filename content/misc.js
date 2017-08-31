@@ -4,7 +4,7 @@
 	'node_modules/es6lib/string': { QueryObject, /*timeToRoundString,*/ },
 	dom,
 	Observer,
-	options,
+	// options,
 	player,
 }) => { /* global window, document, URL, */
 
@@ -21,7 +21,10 @@ player.on('unstarted', async () => {
 });
 
 // another hack to make sure Autoplay is disabled
-player.on('ended', checkbox => (checkbox = document.querySelector('#autoplay-checkbox')) && checkbox.checked && checkbox.click());
+player.on('ended', () => {
+	const checkbox = document.querySelector('#autoplay ~ paper-toggle-button');
+	checkbox.click(); checkbox.matches('[checked]') && checkbox.click(); // click at least once
+});
 // and a hack to force the video to continue if it is stuck at ~5s
 player.on('buffering', async time => {
 	if (!player.loaded || time < 2.5 || time > 8) { return; }
@@ -48,32 +51,32 @@ player.on('buffering', async time => {
 }
 player.on('paused', displayViews); player.on('ended', displayViews);*/
 
-// auto load more list entries when scrolling to the bottom of a list
-function autoExpandListsOnWheel(event) {
-	if ((window.scrollY + window.innerHeight) >= document.getElementById('content').offsetHeight) { // close to the bottom
-		const button =
-		   document.querySelector('#watch-more-related-button') // more related videos
-		|| document.querySelector('.yt-uix-load-more') // more channel videos
-		|| document.querySelector('.browse-items-load-more-button')
-		|| document.querySelector('.load-more-button') // more comments or channel videos
-		;
-		button && button.style.display !== 'none' && button.click();
-	}
-}
-options.autoExpandLists.when({
-	true:  () => dom.on (window, 'scroll', autoExpandListsOnWheel),
-	false: () => dom.off(window, 'scroll', autoExpandListsOnWheel),
-});
+//	// auto load more list entries when scrolling to the bottom of a list
+//	function autoExpandListsOnWheel(event) {
+//		if ((window.scrollY + window.innerHeight) >= document.getElementById('content').offsetHeight) { // close to the bottom
+//			const button =
+//			   document.querySelector('#watch-more-related-button') // more related videos
+//			|| document.querySelector('.yt-uix-load-more') // more channel videos
+//			|| document.querySelector('.browse-items-load-more-button')
+//			|| document.querySelector('.load-more-button') // more comments or channel videos
+//			;
+//			button && button.style.display !== 'none' && button.click();
+//		}
+//	}
+//	options.autoExpandLists.when({
+//		true:  () => dom.on (window, 'scroll', autoExpandListsOnWheel),
+//		false: () => dom.off(window, 'scroll', autoExpandListsOnWheel),
+//	});
 
 dom.on(document, 'mousedown', event => {
 	// expand comments
-	if (event.button === 0 && event.target.matches('.comment-section-header-renderer, .comment-section-header-renderer *')) {
+	if (event.button === 0 && event.target.closest('#comments #header #title #count')) {
 		event.preventDefault(); event.stopPropagation();
 		document.body.classList.toggle('show-comments');
 	}
 
 	// open search results in new tab, may require user to accept popups from youtube.com
-	if (event.button === 1 && event.target.matches('#search-btn, #search-btn *')) {
+	if (event.button === 1 && event.target.closest('#search-icon-legacy')) {
 		event.preventDefault(); event.stopPropagation();
 		window.open('/results?search_query='+ encodeURIComponent(event.target.parentNode.querySelector('#masthead-search-term').value), '_blank');
 	}

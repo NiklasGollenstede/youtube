@@ -143,7 +143,7 @@ Tabs.onUpdated.addListener(async (tabId, { url, }) => {
 });
 
 content.onMatch(async frame => {
-	const port = (await frame.connect('player')); frame.onHide(() => port.destroy());
+	const port = (await frame.connect('player')); frame.onUnload(() => port.destroy());
 	port.post('on', 'created', onCreated); port.afterEnded('off', 'created', onCreated);
 	function onCreated(id) { new RemotePlayer({ id, port, frame, }); }
 	port.post('start');

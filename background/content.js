@@ -35,18 +35,8 @@ options.incognito.whenChange(([ value, ]) => {
 
 content.onMatch(async frame => {
 	const port = (await frame.connect('VideoInfo')).addHandlers(VideoInfo);
-	frame.onHide(() => port.destroy());
+	frame.onUnload(() => port.destroy());
 });
-
-/*content.onMatch(async frame => {
-	const get = frame.connect('player'); frame.connect('player');
-	const port = (await get);
-	port.addHandler(function hello(sender) {
-		console.log('background got hello from', sender);
-	});
-	const reply = (await port.request('hello', 'background'));
-	console.log('background got reply', reply);
-});*/
 
 return content;
 

@@ -1,15 +1,14 @@
 (function(global) { 'use strict'; define(({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
 	'node_modules/web-ext-utils/loader/content': { onUnload, },
-	'./layout-new.css': newCss,
-	'./layout-old.css': oldCss,
 	utils: { getVideoIdFromImageSrc, },
 	dom,
 	options,
 	player,
+	require,
 }) => { /* global document, window, location, setTimeout, */
 
 const noop = document.createElement('p');
-const redesign = !!document.querySelector('ytd-app, ytg-app');
+const redesign = !document.querySelector('body#body');
 redesign && document.documentElement.classList.add('redesign');
 
 const animateThumbsParents  = `img, .ytp-videowall-still,       .ytp-redesign-videowall-still,       .videowall-still,      .thumbnail-container`;
@@ -41,8 +40,8 @@ options.animateThumbs.when({
 	false: () => dom.off(window, 'mouseover', animateThumbsOnMouseover),
 });
 options.player.children.seamlessFullscreen.when({
-	true: () => {
-		dom.setStyle('layout-main', redesign ? newCss : oldCss);
+	true: async () => {
+		dom.setStyle('layout-main', (await loadStyle(redesign ? './layout-new.css' : './layout-old.css')));
 		dom.on(window, 'wheel', fullscreenOnWheel);
 	},
 	false: () => {
@@ -52,7 +51,7 @@ options.player.children.seamlessFullscreen.when({
 });
 options.comments.when({
 	true:   () => dom.setStyle('show-comments', ''),
-	false:  () => dom.setStyle('show-comments', `.watchpage #watch-discussion { display: none !important; }`),
+	false:  () => dom.setStyle('show-comments', `.watchpage #main>#comments { display: none !important; }`),
 });
 options.player.children.seamlessFullscreen.children.showOnMouseRight.when({
 	true:  () => dom.on (window, 'mousemove', fullscreenOnMousemove),
@@ -159,6 +158,10 @@ function fullscreenOnMousemove(event) {
 	event.pageX < (options.player.children.seamlessFullscreen.children.showOnMouseRight.value || 0)
 	&& document.documentElement.classList.contains('watchpage')
 	&& document.documentElement.classList.add('fullscreen');
+}
+
+async function loadStyle(path) {
+	return (await require.async(`fetch!${ path }:text`)) +`\n/*# sourceURL=${ require.toUrl(path) } */`;
 }
 
 }); })(this);
