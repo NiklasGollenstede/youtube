@@ -28,6 +28,8 @@ module.exports = function({ options, /*packageJson,*/ manifestJson, files, }) {
 		},
 	};
 
+	files['.'].push('lib/');
+
 	files.node_modules = {
 		es6lib: [
 			'concurrent.js',

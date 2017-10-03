@@ -193,11 +193,11 @@ function withHandler(run) { return async function(id, ...args) {
 }; }
 
 const tabChildren = [
-	createElement('div', { classList: 'icon', }),
-	createElement('div', { classList: 'description', }, [
-		createElement('div', { classList: 'title', textContent: '...', }),
-		createElement('div', { classList: 'duration', textContent: '-:--', }),
-		createElement('div', { classList: 'remove', textContent: '⨉', }),
+	createElement('div', { className: 'icon', }),
+	createElement('div', { className: 'description', }, [
+		createElement('div', { className: 'title', textContent: '...', }),
+		createElement('div', { className: 'duration', textContent: '-:--', }),
+		createElement('div', { className: 'remove', textContent: '⨉', }),
 	]),
 ];
 

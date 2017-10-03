@@ -1,6 +1,6 @@
 (function(global) { 'use strict'; define(({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
 	'node_modules/es6lib/string': { fuzzyIncludes, secondsToHhMmSs, },
-	'node_modules/es6lib/dom': { createElement, writeToClipboard, },
+	'node_modules/es6lib/dom': { createElement: _createElement, writeToClipboard, },
 	'node_modules/es6lib/object': { MultiMap, },
 	'node_modules/sortablejs/Sortable': Sortable,
 	'node_modules/web-ext-utils/browser/': { manifest, extension, Tabs, Windows, Bookmarks, },
@@ -28,7 +28,15 @@ const CSS = {
 
 return async function View(window) {
 
-	const { document, } = window;
+	const { document, } = window, createElement = _createElement.bind(window);
+
+	if (!document.registerElement) {
+		document.head.appendChild(createElement('script', {
+			src: require.resolve('./lib/webcomponents-lite.min.js'),
+		}));
+		(await new Promise(loaded => window.addEventListener('WebComponentsReady', loaded)));
+	}
+
 	const off = { owner: window, };
 	const MediaTile = window.MediaTile = makeTileClass(window);
 
@@ -71,7 +79,7 @@ return async function View(window) {
 
 	{ // videos open in tabs
 		const ids = (await Player.getOpenVideos());
-		const group = groupList.appendChild(createGroup('tabs', 'Open Tabs'));
+		const group = groupList.appendChild(createGroup(window, 'tabs', 'Open Tabs'));
 		const tiles = group.querySelector('.tiles');
 		enableDragOut(tiles);
 		const addTile = id => tiles.appendChild(Object.assign(new MediaTile, { videoId: id, }));
@@ -83,7 +91,7 @@ return async function View(window) {
 
 	if (firefox) { // videos in tabs unloaded
 		const open = new Set((await Player.getOpenVideos()));
-		const group = groupList.appendChild(createGroup('unloaded', 'Unloaded Tabs'));
+		const group = groupList.appendChild(createGroup(window, 'unloaded', 'Unloaded Tabs'));
 		const tiles = group.querySelector('.tiles');
 		enableDragOut(tiles);
 		const addTile = id => tiles.appendChild(Object.assign(new MediaTile, { videoId: id, }));
@@ -105,7 +113,7 @@ return async function View(window) {
 			}).filter(_=>_);
 			if (!entries.length) { return; }
 			const [ { title, }, ] = (await Bookmarks.get(parentId));
-			const group = groupList.appendChild(createGroup('bmk-'+ parentId, createElement('span', null, [
+			const group = groupList.appendChild(createGroup(window, 'bmk-'+ parentId, createElement('span', null, [
 				createElement('span', { title: 'Bookmark folder', }, [ '🔖 ', ]), title,
 			])));
 			const tiles = group.querySelector('.tiles');
@@ -422,12 +430,12 @@ function isInGeckoTab(element) {
 	return gecko && (/^tab$|^popup$/).test(getViews().find(_=>_.view === window).type);
 }
 
-function createGroup(id, name) { return createElement('div', { id: 'group-'+ id, className: 'group', }, [
-	createElement('div', { className: 'header', }, [
-		createElement('label', { className: 'toggleswitch title', htmlFor: 'groupToggle-'+ id, }, [ name, ]),
+function createGroup(window, id, name) { return _createElement.call(window, 'div', { id: 'group-'+ id, className: 'group', }, [
+	_createElement.call(window, 'div', { className: 'header', }, [
+		_createElement.call(window, 'label', { className: 'toggleswitch title', htmlFor: 'groupToggle-'+ id, }, [ name, ]),
 	]),
-	createElement('input', { className: 'toggleswitch', type: 'checkbox', id: 'groupToggle-'+ id, }),
-	createElement('span', { className: 'tiles', }),
+	_createElement.call(window, 'input', { className: 'toggleswitch', type: 'checkbox', id: 'groupToggle-'+ id, }),
+	_createElement.call(window, 'span', { className: 'tiles', }),
 ]); }
 
 function scrollToCenter(element, { ifNeeded = true, duration = 250, } = { }) { return new Promise((resolve) => {

@@ -6,7 +6,7 @@
 	'common/options': options,
 	'background/db': db,
 	require,
-}) => window => {
+}) => { return window => {
 
 window.document.head.insertAdjacentHTML('beforeend', `<link href="/node_modules/web-ext-utils/options/editor/dark.css" rel="stylesheet">`);
 
@@ -91,4 +91,4 @@ async function onCommand({ name, parent, }, buttonId) { try {
 	}
 } catch (error) { reportError(error); } }
 
-}); })(this);
+}; }); })(this);

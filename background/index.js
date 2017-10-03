@@ -16,7 +16,7 @@ debug && console.info('Ran updates', updated);
 
 
 // browser_action (could not be set in manifest due to fennec incompatibility)
-browserAction.setIcon({ path: manifest.icons, });
+browserAction.setIcon({ path: manifest.icons[1], });
 browserAction.setPopup({ popup: getUrl({ name: 'panel', }).slice(rootUrl.length - 1), });
 fennec && browserAction.onClicked.addListener(() => openView('panel'));
 
@@ -29,7 +29,7 @@ Commands && Commands.onCommand.addListener(command => ({
 }[command]()));
 
 
-// apply content script to existing tabs (don't await the result because that currently doesn't always resolve on Firefox ...)
+// apply content script to existing tabs (don't await the result because that currently doesn't always resolve in Firefox ...)
 content.applyNow().then(frames => options.debug.value && console.log(`Attached to ${ frames.size } tabs:`, frames));
 
 
