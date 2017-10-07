@@ -41,9 +41,9 @@ return async function View(window) {
 	const MediaTile = window.MediaTile = makeTileClass(window);
 
 	document.title = 'Playlist - '+ manifest.name;
-	const theme = document.head.appendChild(createElement('style'));
 	document.head.appendChild(createElement('style', { textContent: CSS.layout, }));
 	document.head.appendChild(createElement('link', { rel: 'stylesheet', href: `/common/context-menu.css`, }));
+	const theme = document.head.appendChild(createElement('style'));
 	options.playlist.children.theme.whenChange(value => {
 		document.body.classList.add('no-transitions');
 		theme.textContent = CSS.theme[value];

@@ -53,6 +53,7 @@ media-tile.active:hover {
 	color: #f7f7f7;
 	fill: #f7f7f7;
 	background-color: #333;
+	border-color: black;
 	/* box-shadow: none; */
 }
 #controls .button:hover {
