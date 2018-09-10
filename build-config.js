@@ -11,7 +11,12 @@ module.exports = function({ options, /*packageJson,*/ manifestJson, files, }) {
 		'https://i.ytimg.com/*', 'https://*.googlevideo.com/*'
 	);
 
+	!options.viewRoot && (options.viewRoot = options.chrome ? 'ytO.html' : 'ytO');
+
 	manifestJson.options_ui.open_in_tab = true;
+
+	manifestJson.browser_action.default_icon = manifestJson.icons;
+	manifestJson.sidebar_action.open_at_install = false;
 
 	manifestJson.commands = {
 		MediaPlayPause: {
@@ -28,48 +33,47 @@ module.exports = function({ options, /*packageJson,*/ manifestJson, files, }) {
 		},
 	};
 
-	files['.'].push('lib/');
-
-	files.node_modules = {
-		es6lib: [
-			'concurrent.js',
-			'dom.js',
-			'functional.js',
-			'network.js',
-			'object.js',
-			'observer.js',
-			'string.js',
-		],
-		regexpx: [
-			'index.js',
-		],
-		'web-ext-utils': {
-			'.': [
-				'browser/',
-				'loader/',
-				'utils/',
-				'lib/multiport/index.js',
-				'lib/pbq/require.js',
-			],
-			options: {
-				'.': [ 'index.js', ],
-				editor: [
-					'about.js',
-					'about.css',
-					'dark.css',
-					'index.js',
-					'index.css',
-					'inline.js',
-				],
-			},
-			update: [
-				'index.js',
-			],
-		},
-		sortablejs: [
-			'Sortable.js',
-		],
-	};
+	files.node_modules = [
+		'es6lib/concurrent.js',
+		'es6lib/dom.js',
+		'es6lib/functional.js',
+		'es6lib/network.js',
+		'es6lib/object.js',
+		'es6lib/observer.js',
+		'es6lib/string.js',
+		'multiport/index.js',
+		'pbq/require.js',
+		'regexpx/index.js',
+		'web-ext-utils/browser/index.js',
+		'web-ext-utils/browser/messages.js',
+		'web-ext-utils/browser/storage.js',
+		'web-ext-utils/browser/version.js',
+		'web-ext-utils/loader/_background.html',
+		'web-ext-utils/loader/_background.js',
+		'web-ext-utils/loader/_view.html',
+		'web-ext-utils/loader/_view.js',
+		'web-ext-utils/loader/content.js',
+		'web-ext-utils/loader/home.js',
+		'web-ext-utils/loader/index.js',
+		'web-ext-utils/loader/multiplex.js',
+		'web-ext-utils/loader/views.js',
+		'web-ext-utils/options/editor/about.css',
+		'web-ext-utils/options/editor/about.js',
+		'web-ext-utils/options/editor/dark.css',
+		'web-ext-utils/options/editor/light.css',
+		'web-ext-utils/options/editor/index.css',
+		'web-ext-utils/options/editor/index.js',
+		'web-ext-utils/options/editor/inline.js',
+		'web-ext-utils/options/index.js',
+		'web-ext-utils/update/index.js',
+		'web-ext-utils/utils/icons/',
+		'web-ext-utils/utils/event.js',
+		'web-ext-utils/utils/files.js',
+		'web-ext-utils/utils/index.js',
+		'web-ext-utils/utils/notify.js',
+		'web-ext-utils/utils/semver.js',
+		'sortablejs/Sortable.js',
+	];
 
 	if (options.run && !(options.run.prefs === 0 || options.run.prefs === null)) {
 		const run = typeof options.run === 'object' ? options.run

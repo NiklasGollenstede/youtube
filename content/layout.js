@@ -39,7 +39,7 @@ options.animateThumbs.when({
 	true:  () => dom.on (window, 'mouseover', animateThumbsOnMouseover),
 	false: () => dom.off(window, 'mouseover', animateThumbsOnMouseover),
 });
-options.player.children.seamlessFullscreen.when({
+false && options.player.children.seamlessFullscreen.when({
 	true: async () => {
 		dom.setStyle('layout-main', (await loadStyle(redesign ? './layout-new.css' : './layout-old.css')));
 		dom.on(window, 'wheel', fullscreenOnWheel);
@@ -49,11 +49,11 @@ options.player.children.seamlessFullscreen.when({
 		dom.off(window, 'wheel', fullscreenOnWheel);
 	},
 });
-options.comments.when({
+false && options.comments.when({
 	true:   () => dom.setStyle('show-comments', ''),
 	false:  () => dom.setStyle('show-comments', `.watchpage #main>#comments { display: none !important; }`),
 });
-options.player.children.seamlessFullscreen.children.showOnMouseRight.when({
+false && options.player.children.seamlessFullscreen.children.showOnMouseRight.when({
 	true:  () => dom.on (window, 'mousemove', fullscreenOnMousemove),
 	false: () => dom.off(window, 'mousemove', fullscreenOnMousemove),
 });
@@ -62,7 +62,7 @@ function onNavigated() {
 	const params = new global.URL(global.location).searchParams;
 
 	if (!params.get('v') || location.host !== 'www.youtube.com') {
-		return void document.documentElement.classList.remove('watchpage');
+		document.documentElement.classList.remove('watchpage'); return;
 	}
 
 	// add watchpage, playlist and fullscreen css hints
@@ -139,7 +139,7 @@ function fullscreenOnWheel(event) {
 		|| event.ctrlKey || event.altKey || event.shiftKey
 	) { return; }
 	if (
-		event.deltaY <= 0 && (redesign ? document.querySelector('#top').scrollTop === 0 : window.pageYOffset === 0)
+		event.deltaY <= 0 && (redesign ? document.querySelector('ytd-app').scrollTop === 0 : window.pageYOffset === 0)
 		&& event.target && event.target.matches
 		&& !event.target.matches('#playlist-autoscroll-list *')
 	) { // scroll to top

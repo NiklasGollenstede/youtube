@@ -1,5 +1,6 @@
 (function(global) { 'use strict'; define(async ({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
 	'node_modules/regexpx/': { RegExpX, },
+	'node_modules/web-ext-utils/browser/storage': { sync: storage, },
 	'node_modules/web-ext-utils/options/': Options,
 	'node_modules/web-ext-utils/browser/version': { gecko, },
 }) => { /* eslint-disable no-irregular-whitespace */
@@ -206,7 +207,7 @@ const model = {
 					| Numpad(Subtract | Add | Decimal | Divide | Multiply | Enter | ChangeSign | Paren(Left | Right))
 					| Minus | Equal
 					| BracketLeft | BracketRight
-					| Escape | Backspace | Enter | Tab
+					| Escape | Backspace | Enter | Tab | Space
 					| Control(Left | Right)
 					| Shift(Left | Right) | CapsLock | NumLock
 					| Alt(Left | Right)
@@ -214,22 +215,20 @@ const model = {
 					| Quote | Backquote
 					| Slash | Backslash | IntlBackslash
 					| Semicolon | Comma | Period
-					| Space
 					| Pause | ScrollLock | PrintScreen
 					| Lang[12] | IntlYen
 					| Undo | Paste | Cut | Copy
 					| Media(PlayPause | Stop | Track(Previous | Next) | Select)
-					| LaunchMail
 					| Volume(Down | Up | Mute)
 					| Eject | BrowserHome | Help
 					| Insert | Delete
 					| Home | End
-					| PageUp | PageDown
+					| Page(Up | Down)
 					| Arrow(Up | Down | Left | Right)
 					| ContextMenu
 					| Power
 					| Browser(Search | Favorites | Refresh | Stop | Forward | Back)
-					| Launch(App1 | Mail)
+					| Launch(App1 | App2 | Mail)
 				) $`), unique: '*', message: 'Please enter a valid key combination', },
 				children: {
 					openRelatedModifier: {
@@ -408,7 +407,7 @@ const model = {
 	},
 };
 
-return (await new Options({ model, })).children;
+return (await new Options({ model, storage, prefix: 'options', })).children;
 
 function keybordKey(arg) {
 	return Object.assign({ }, {

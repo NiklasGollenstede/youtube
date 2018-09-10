@@ -79,6 +79,6 @@ media-tile.active:hover {
 	border-color: #5959ED;
 }
 
-@-moz-document url-prefix() { .scroll-inner, .scroll-inner>* { /* dark scrollbars in firefox */
+@media screen and (min--moz-device-pixel-ratio:0) { .scroll-inner, .scroll-inner>* { /* dark scrollbars in firefox */
 	filter: invert(1);
 } }

@@ -50,12 +50,17 @@ media-tile.ghost {
 ::-webkit-scrollbar-thumb { background: #323232; }
 ::-webkit-scrollbar-thumb:hover { background: #595959; }
 ::-webkit-scrollbar-thumb:active { background: #9F9F9F; }
-@-moz-document url-prefix() { .scroll-inner { /* hide parts of the scrollbar where ::-webkit-scrollbar doesn't work */
-	height: calc(100% + 34px);
-	width: calc(100% + 10px);
-	margin: -17px -10px -17px 0;
-	padding: 17px 0;
-} }
+@media screen and (min--moz-device-pixel-ratio:0) { /* firefox doesn't support scrollbar styles */
+	.scroll-inner { /* so hide parts of the scrollbar doesn't work */
+		height: calc(100% + 34px);
+		width: calc(100% + 10px);
+		margin: -17px -10px -17px 0;
+	}
+	.scroll-inner::after, .scroll-inner::before { /* and of course padding-bottom doesn't work as expected either */
+		content: ''; display: block;
+		height: 17px; width: 100%;
+	}
+}
 
 /* general layout */
 .column {

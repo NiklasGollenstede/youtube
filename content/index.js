@@ -8,6 +8,6 @@ dom.on(global, 'unload', () => 'disable BF-cache');
 
 Promise.all(Object.keys(require.cache).filter(_=>_.startsWith('content/')).map(id => require.cache[id].ready))
 .then(() => console.log('all modules loaded'))
-.catch(error => messages.post('reportError', 'Content failed to load', error));
+.catch(error => messages.post('notify.error', 'Content failed to load', error));
 
 }); })(this);

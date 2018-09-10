@@ -216,7 +216,7 @@ return db;
 function get(transaction, id, keys, resolve, reject) {
 	const data = { id, }; let missing = keys.length;
 	keys.forEach(key => {
-		if (key === 'id') { return void --missing; }
+		if (key === 'id') { --missing; return; }
 		const get = transaction.objectStore(key).get(id);
 		get.onerror = error => (missing = Infinity) === error.stopPropagation() === reject(error);
 		get.onsuccess = () => (data[key] = get.result) === (--missing <= 0 && resolve(data));
@@ -226,7 +226,7 @@ function get(transaction, id, keys, resolve, reject) {
 function set(transaction, id, data, resolve, reject) {
 	const keys = Object.keys(data); let missing = keys.length;
 	keys.forEach(key => {
-		if (key === 'id') { return void --missing; }
+		if (key === 'id') { --missing; return; }
 		const put = transaction.objectStore(key).put(data[key], id);
 		put.onerror = error => (missing = Infinity) === error.stopPropagation() === reject(error);
 		put.onsuccess = () => (--missing <= 0 && resolve(data));

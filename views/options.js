@@ -2,7 +2,7 @@
 	'node_modules/es6lib/dom': { loadFile, saveAs, readBlob, writeToClipboard, },
 	'node_modules/web-ext-utils/browser/version': { blink, },
 	'node_modules/web-ext-utils/options/editor/inline': OptionsPage,
-	'node_modules/web-ext-utils/utils/': { reportError, reportSuccess, },
+	'node_modules/web-ext-utils/utils/notify': notify,
 	'common/options': options,
 	'background/db': db,
 	require,
@@ -29,7 +29,7 @@ async function onCommand({ name, parent, }, buttonId) { try {
 				saveAs.call(window, new window.Blob([ json, ], { type: 'application/json', }), 'data.json');
 			} else {
 				(await writeToClipboard({ 'application/json': json, 'text/plain': json, }));
-				reportSuccess('Copied', 'The JSON data has been put into your clipboard');
+				notify.success('Copied', 'The JSON data has been put into your clipboard');
 			}
 		} break;
 		case 'import': {
@@ -50,7 +50,7 @@ async function onCommand({ name, parent, }, buttonId) { try {
 				if (error) { throw new TypeError(`The object at index ${ index } is invalid: ${ error.message }`); }
 			});
 			(await db.import(infos));
-			reportSuccess('Import done', `Imported ${ infos.length } items`);
+			notify.success('Import done', `Imported ${ infos.length } items`);
 		} break;
 		case 'getSize': {
 			const ids = (await data.ids());
@@ -71,11 +71,11 @@ async function onCommand({ name, parent, }, buttonId) { try {
 		} break;
 		case 'clear': {
 			if (window.prompt('If you really mean to delete all your user data type "yes" below') !== 'yes') {
-				return void reportSuccess('Canceled', 'Nothing was deleted');
+				notify.success('Canceled', 'Nothing was deleted'); return;
 			}
 			(await db.clear());
 			if ((await db.ids()).length === 0) {
-				reportSuccess('Data cleared', `It's all gone ...`);
+				notify.success('Data cleared', `It's all gone ...`);
 			} else {
 				throw new Error(`Failed to delete all data`);
 			}
@@ -89,6 +89,6 @@ async function onCommand({ name, parent, }, buttonId) { try {
 			throw new Error('Unhandled command "'+ name +'"');
 		}
 	}
-} catch (error) { reportError(error); } }
+} catch (error) { notify.error(error); } }
 
 }; }); })(this);

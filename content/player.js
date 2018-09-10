@@ -1,11 +1,11 @@
 (function(global) { 'use strict'; define(({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
 	'node_modules/web-ext-utils/browser/messages': messages,
-	'node_modules/web-ext-utils/lib/multiport/': Port,
 	'node_modules/web-ext-utils/loader/content': { onUnload, connect, },
 	'node_modules/es6lib/concurrent': { sleep, before, },
 	'node_modules/es6lib/dom':  { createElement, getParent, },
 	'node_modules/es6lib/functional': { debounce, },
 	'node_modules/es6lib/observer':  { RemoveObserver, },
+	'node_modules/multiport/': Port,
 	'common/event-emitter': EventEmitter,
 	dom,
 	Templates,
@@ -44,8 +44,9 @@ const player = { }; [
 	return (await getContent).request(method, ...args).then(value => { console.log('player resolve', method, value); return value; });
 })));
 
-const events = new EventEmitter;
-[ 'on', 'once', 'off', 'promise', ].forEach(method => (exports[method] = function() { return events[method](...arguments); }));
+const events = new EventEmitter; [ 'on', 'once', 'off', 'promise', ].forEach(method => {
+	exports[method] = function() { return events[method](...arguments); };
+});
 
 let video = null; // the current <video> element
 let root = null; // the current root element of the html5-video-player
@@ -184,6 +185,7 @@ function parseQuery(query) {
 }
 
 async function setQuality() {
+	const broken = true; if (broken) { return; } // TODO: repair ...
 	let quality, _try = 0; while (
 		!(quality = (await exports.getQuality()))
 		|| quality.current === 'unknown'
@@ -209,7 +211,7 @@ async function onNavigated() {
 	}
 	if (!videoId) { loaded = null; return; }
 
-	if (!root && (await before(events.promise('navigated'), events.promise('loaded', 'unloaded')))) { return void console.log('cancel navigation'); }
+	if (!root && (await before(events.promise('navigated'), events.promise('loaded', 'unloaded')))) { console.log('cancel navigation'); return; }
 	console.log('player loaded', videoId);
 	messages.post('muteTab');
 	const options = (await getOptions);

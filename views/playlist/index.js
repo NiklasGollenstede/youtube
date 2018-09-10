@@ -28,16 +28,7 @@ const CSS = {
 
 return async function View(window) {
 
-	const { document, } = window, createElement = _createElement.bind(window);
-
-	if (!document.registerElement) {
-		document.head.appendChild(createElement('script', {
-			src: require.resolve('./lib/webcomponents-lite.min.js'),
-		}));
-		(await new Promise(loaded => window.addEventListener('WebComponentsReady', loaded)));
-	}
-
-	const off = { owner: window, };
+	const { document, } = window, createElement = _createElement.bind(window), off = { owner: window, };
 	const MediaTile = window.MediaTile = makeTileClass(window);
 
 	document.title = 'Playlist - '+ manifest.name;
@@ -78,29 +69,30 @@ return async function View(window) {
 	}
 
 	{ // videos open in tabs
-		const ids = (await Player.getOpenVideos());
+		const openTabs = Player.getOpenVideos();
 		const group = groupList.appendChild(createGroup(window, 'tabs', 'Open Tabs'));
-		const tiles = group.querySelector('.tiles');
-		enableDragOut(tiles);
-		const addTile = id => tiles.appendChild(Object.assign(new MediaTile, { videoId: id, }));
-		ids.forEach(addTile);
+		const tiles = group.querySelector('.tiles'); enableDragOut(tiles);
+		function addTile(tiles, { videoId, tabId, }) { const tile = tiles.appendChild(new MediaTile); tile.videoId = videoId; tile.dataset.tabId = tabId; }
+		openTabs.forEach(ids => addTile(tiles, ids));
 
-		Player.onVideoOpen(addTile, off);
-		Player.onVideoClose(id => tiles.querySelector(`media-tile[video-id="${ id }"]`).remove(), off);
-	}
+		Player.onVideoOpen(addTile.bind(null, tiles), off);
+		Player.onVideoClose(({ tabId, }) => tiles.querySelector(`media-tile[data-tab-id="${tabId}"]`).remove(), off);
 
-	if (firefox) { // videos in tabs unloaded
-		const open = new Set((await Player.getOpenVideos()));
-		const group = groupList.appendChild(createGroup(window, 'unloaded', 'Unloaded Tabs'));
-		const tiles = group.querySelector('.tiles');
-		enableDragOut(tiles);
-		const addTile = id => tiles.appendChild(Object.assign(new MediaTile, { videoId: id, }));
-		Tabs.query({ url: [ `https://www.youtube.com/watch?*v=*`, `https://gaming.youtube.com/watch?*v=*`, ], }).then(_=>_
-			.sort((a, b) => (/*a.windowId << 16 + */a.index) - (/*b.windowId << 16 + */b.index))
-			.map(_=>_.url.match(/\bv=([\w-]{11})\b/)).filter(_=>_).map(_=>_[1]).filter(id => !open.has(id)).forEach(addTile)
-		);
+		if (firefox) { // videos in tabs unloaded
+			const group = groupList.appendChild(createGroup(window, 'unloaded', 'Unloaded Tabs'));
+			const tiles = group.querySelector('.tiles'); enableDragOut(tiles);
 
-		Player.onVideoOpen(id => { const tile = tiles.querySelector(`media-tile[video-id="${ id }"]`); tile && tile.remove(); }, off);
+			Tabs.query({ url: [ `https://www.youtube.com/watch?*v=*`, `https://gaming.youtube.com/watch?*v=*`, ], }).then(_=>_
+				.sort((a, b) => (/*a.windowId << 16 + */a.index) - (/*b.windowId << 16 + */b.index))
+				.forEach(tab => {
+					const videoId = (tab.url.match(/\bv=([\w-]{11})\b/) || [ ])[1];
+					videoId && !openTabs.some(_=>_.tabId === tab.id) && addTile(tiles, { videoId, tabId: tab.id, });
+				})
+			);
+
+			function removeTab(tab) { const tile = tiles.querySelector(`media-tile[data-tab-id="${ typeof tab === 'number' ? tab : tab.tabId }"]`); tile && tile.remove(); }
+			Player.onVideoOpen(removeTab, off); Tabs.onRemoved.addListener(removeTab); window.addEventListener('unload', () => Tabs.onRemoved.removeListener(removeTab));
+		}
 	}
 
 	// bookmarked videos
@@ -131,6 +123,8 @@ return async function View(window) {
 		function playing(playing) {
 			document.querySelector( playing ? '#play' : '#pause').classList.add('active');
 			document.querySelector(!playing ? '#play' : '#pause').classList.remove('active');
+			const active = playing && document.querySelector('#playlist:not(:hover) .tiles media-tile.active');
+			active && scrollToCenter(active);
 		}
 	}
 
@@ -150,7 +144,7 @@ return async function View(window) {
 				else { looping = false; set(); } // stop
 			}
 		}
-		function loop() { set(); looping && next(loop); }
+		function loop() { set(); looping && setTimeout(next, 250, loop); } // doing this at 60fps is quite expensive
 		function set() {
 			const current = Player.currentTime;
 			progress.value = current;
@@ -168,6 +162,7 @@ return async function View(window) {
 	document.addEventListener('click', onClick);
 	document.addEventListener('keydown', onKeydown);
 	document.addEventListener('input', onInput);
+	document.addEventListener('dragover', onDragover, true);
 
 	require('background/', _ => Object.assign(window, _));
 };
@@ -275,14 +270,14 @@ function onClick({ target, button, }) {
 	if (button || !target.closest) { return; }
 	const document = target.ownerDocument;
 
-	const tile = target.closest('media-tile');
-	if (target.closest('#playlist media-tile .remove')) {
-		Player.playlist.splice(positionInParent(tile), 1);
-	} else if (target.closest('#group-tabs media-tile .remove')) {
-		const tab = Player.frameFor(tile.videoId);
-		Tabs.remove(tab.tabId);
-	} else if (target.closest('media-tile .remove') && tile.dataset.bookmarkId) {
-		Bookmarks.remove(tile.dataset.bookmarkId);
+	const tile = target.closest('.remove').closest('media-tile'); if (tile) {
+		if (tile.closest('#playlist')) {
+			Player.playlist.splice(positionInParent(tile), 1);
+		} else if ('tabId' in tile.dataset) {
+			Tabs.remove(+tile.dataset.tabId);
+		} else if ('bookmarkId' in tile.dataset) {
+			Bookmarks.remove(tile.dataset.bookmarkId);
+		}
 	} else if (target.closest('#searchbox .remove')) {
 		const box = document.querySelector('#searchbox>input');
 		box.value = ''; box.blur();
@@ -342,6 +337,9 @@ function onInput({ target, }) {
 	}
 }
 
+function onDragover(event) {
+	onDragover.x = event.clientX; onDragover.y = event.clientY;
+}
 
 function highlight(element) {
 	if (!element) { return; }
@@ -409,11 +407,12 @@ function enableDragIn(tiles) {
 		setData(dataTransfer, item) { // insert url if dropped somewhere else
 			dataTransfer.setData('text', noDragData ? '' : 'https://www.youtube.com/watch?v='+ item.videoId);
 		},
-		onAdd({ item, newIndex, }) { global.setTimeout(() => { // inserted, async for the :hover test
+		onAdd({ item, newIndex, }) {
 			Array.prototype.forEach.call(tiles.querySelectorAll('media-tile:not(.in-playlist)'), _=>_.remove()); // remove any inserted items
-			if (!tiles.matches(':hover')) { return; } // cursor is not over drop target ==> invalid drop
+			const { x, y, } = onDragover, { top, left, bottom, right, } = tiles.getBoundingClientRect();
+			if (top > y || bottom < y || left > x || right < x) { return; }
 			Player.playlist.splice(newIndex, 0, item.videoId);
-		}); },
+		},
 		onUpdate({ item, newIndex, oldIndex, }) { // sorted within
 			const active = item.matches('.active'), playing = Player.playing;
 			active && (Player.playlist.index = -1);
@@ -441,9 +440,9 @@ function createGroup(window, id, name) { return _createElement.call(window, 'div
 function scrollToCenter(element, { ifNeeded = true, duration = 250, } = { }) { return new Promise((resolve) => {
 	// const scroller = element.offsetParent;
 	const scroller = element.closest('.scroll-inner'); // firefox bug: .offsetParent is the closest element with a CSS filter.
-	if (ifNeeded && element.offsetTop >= scroller.scrollTop && element.offsetTop + element.offsetHeight <= scroller.scrollTop + scroller.offsetHeight) { return void resolve(); }
+	if (ifNeeded && element.offsetTop >= scroller.scrollTop && element.offsetTop + element.offsetHeight <= scroller.scrollTop + scroller.offsetHeight) { resolve(); return; }
 	const to = Math.min(Math.max(0, element.offsetTop + element.offsetHeight / 2 - scroller.offsetHeight / 2), scroller.scrollHeight);
-	if (!duration || element.closest('.no-transitions')) { scroller.scrollTop = to; return void resolve(); }
+	if (!duration || element.closest('.no-transitions')) { scroller.scrollTop = to; resolve(); return; }
 	const from = scroller.scrollTop, diff = to - from;
 
 	const { requestAnimationFrame, performance, } = element.ownerDocument.defaultView;
@@ -451,9 +450,8 @@ function scrollToCenter(element, { ifNeeded = true, duration = 250, } = { }) { r
 	/// time in [start; end], coefficients from https://github.com/mietek/ease-tween/blob/master/src/index.js (MIT)
 	const pos = time => from + diff * 1.0042954579734844 * Math.exp(-6.4041738958415664 * Math.exp(-7.2908241330981340 * (time - start) / duration));
 	requestAnimationFrame(function step(now) {
-		if (now >= end) { scroller.scrollTop = to; return void resolve(); }
-		scroller.scrollTop = pos(now);
-		requestAnimationFrame(step);
+		if (now >= end) { scroller.scrollTop = to; resolve(); }
+		else { scroller.scrollTop = pos(now); requestAnimationFrame(step); }
 	});
 }); }
 

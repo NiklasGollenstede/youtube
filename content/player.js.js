@@ -1,4 +1,4 @@
-(function(global) { 'use strict'; define([ 'node_modules/web-ext-utils/lib/multiport/', 'require', ], (Port, require) => `(function(global) { 'use strict'; (`+ (function(Port) { // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
+(function(global) { 'use strict'; define([ 'node_modules/multiport/', 'require', ], (Port, require) => `(function(global) { 'use strict'; (`+ (function(Port) { // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
 /* global window, document, MessageChannel, URL, */
 
 let player, video;
@@ -163,4 +163,4 @@ async function fadeVolume(media, on) {
 
 async function sleep(ms) { return void (await port.request('replyAfter', ms)); }
 
-}) +`)((${ require.cache['node_modules/web-ext-utils/lib/multiport/index'].factory })()); })(this); //# sourceURL=${ require.toUrl('./player-injected.js') }`); })(this);
+}) +`)((${ require.cache['node_modules/multiport/index'].factory })()); })(this); //# sourceURL=${ require.toUrl('./player-injected.js') }`); })(this);

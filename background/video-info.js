@@ -89,7 +89,7 @@ class InfoHandler {
 		const keys = Object.keys(update);
 		this.listeners.forEach((filter, listener) => { try {
 			(!filter || filter.some(key => keys.includes(key))) && listener(update);
-		} catch (error) { console.log(error); } });
+		} catch (error) { console.error(error); } });
 	}
 
 	async set(update) {
@@ -203,26 +203,27 @@ const tabChildren = [
 
 const Self = new WeakMap;
 
-const makeTileClass = window => window.document.registerElement('media-tile', { prototype: {
-	__proto__: window.HTMLDivElement.prototype,
-	createdCallback() { // constructor in v1
-		// super();
+const makeTileClass = window => { class MediaTile extends window.HTMLElement {
+	constructor() {
+		super();
 		new _TabTile(this);
-	},
-	set videoId(v) { this.setAttribute('video-id', v); }, get videoId() { return this.getAttribute('video-id'); },
-	attachedCallback() { // connectedCallback in v1
+	}
+	set videoId(v) { this.setAttribute('video-id', v); }
+	get videoId() { return this.getAttribute('video-id'); }
+	connectedCallback() {
 		Self.get(this).attach();
-	},
-	detachedCallback() { // disconnectedCallback in v1
+	}
+	disconnectedCallback() {
 		Self.get(this).detach();
-	},
+	}
 	attributeChangedCallback(name, old, now) {
 		if (name === 'video-id' && old !== now) {
 			old && Self.get(this).detach();
 			now && Self.get(this).attach();
 		}
-	},
-}, });
+	}
+	static get observedAttributes() { return [ 'video-id', ]; }
+} window.customElements.define('media-tile', MediaTile); return MediaTile; };
 
 class _TabTile {
 	constructor(self) {

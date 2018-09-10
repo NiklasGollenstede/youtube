@@ -38,7 +38,7 @@ class Playlist extends Array {
 	}
 
 	/**
-	 * Returns the current value.
+	 * @return  {any}  The current value.
 	 */
 	get() {
 		return this[this.index];

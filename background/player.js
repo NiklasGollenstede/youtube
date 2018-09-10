@@ -1,14 +1,11 @@
 (function(global) { 'use strict'; define(async ({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
-	'node_modules/web-ext-utils/browser/': { Tabs, Windows, Storage, },
-	'node_modules/web-ext-utils/browser/messages': messages,
-	'node_modules/web-ext-utils/browser/version': { fennec, gecko, },
-	'node_modules/web-ext-utils/loader/views': { getViews, },
-	'node_modules/web-ext-utils/utils/': { reportError, },
+	'node_modules/web-ext-utils/browser/': { Tabs, Storage, },
+	'node_modules/web-ext-utils/utils/notify': notify,
 	'node_modules/web-ext-utils/utils/event': { setEvent, },
 	'node_modules/es6lib/functional': { debounce, },
 	'node_modules/es6lib/object': { MultiMap, },
-	'node_modules/es6lib/concurrent': { sleep, },
 	'common/options': options,
+	utils: { windowIsIdle, },
 	content,
 	Playlist,
 	VideoInfo,
@@ -30,9 +27,8 @@ playlist.onAdd(savePlaylist); playlist.onRemove(savePlaylist); playlist.onSeek(s
  * exports
  */
 const Player = {
-	async getOpenVideos(sortBy) {
-		void sortBy; // TODO: sort
-		return Array.from(videos, _=>_.id);
+	getOpenVideos() {
+		return Array.from(videos, ({ id: videoId, frame: { tabId, }, })=> ({ videoId, tabId, }));
 	},
 	get current() { return current && current.id; },
 	set current(value) { if (!value) { setCurrent(null); } else { setCurrent(loadPlayer(value)); } },
@@ -114,36 +110,9 @@ Player.onPlay(playing => { if (playing) { // play
 	current && current.playing && current.pause();
 } });
 
-messages.addHandlers({
-	reportError, // allow content to report errors
-	replyAfter(ms) { return sleep(ms); }, // setTimeout doesn't work reliably in background tabs
-	async   muteTab() { return void (await !fennec && Tabs.update(this.tab.id, { muted: true, })); },
-	async unmuteTab() { return void (await !fennec && Tabs.update(this.tab.id, { muted: false, })); },
-	async focusTabTemporary() { // in chrome (and probably other browsers) YouTube refuses to/can't play until the tab was active once
-		if (gecko) { return; } // let's not do Firefox until it becomes necessary again
-		const tabId = this.tab.id, { index, windowId, active, pinned, } = (await Tabs.get(tabId));
-		console.log('focus_temporary', { index, windowId, active, pinned, });
-		if (active) { return; } // moving the tab won't do anything positive
-
-		// avoid moving the tab if not necessary
-		if ((await windowIsIdle(windowId))) { return void (await Tabs.update(tabId, { active: true, })); } // playing the video would do this anyway
-		console.log('focus_temporary the long way');
-
-		(await Windows.create({ tabId: tabId, state: 'minimized', type: 'popup', })); // move into own window ==> focuses
-		(await Tabs.move(tabId, { index, windowId, })); // move back into original window
-		(await Tabs.update(tabId, { active, pinned, })); // need to pin again if it was pinned
-		(await Tabs.move(tabId, { index, windowId, })); // move to the correct position within (the pinned tabs of) the window
-	},
-});
-
-// report location changes to the content scripts
-Tabs.onUpdated.addListener(async (tabId, { url, }) => {
-	if (!url || !(await content.appliedToFrame(tabId))) { return; }
-	messages.post({ tabId, }, 'navigated', url);
-});
-
 content.onMatch(async frame => {
 	const port = (await frame.connect('player')); frame.onUnload(() => port.destroy());
+	console.log('player', frame);
 	port.post('on', 'created', onCreated); port.afterEnded('off', 'created', onCreated);
 	function onCreated(id) { new RemotePlayer({ id, port, frame, }); }
 	port.post('start');
@@ -156,10 +125,11 @@ content.onMatch(async frame => {
 class RemotePlayer {
 	constructor({ id, port, frame, }) {
 		this.id = id; this.port = port; this.frame = frame;
+		console.log('RemotePlayer', this);
 		this.playing = false;
 		players.add(this.id, this);
 		videos.add(this);
-		fireVideoOpen([ this.id, ]);
+		fireVideoOpen([ { videoId: this.id, tabId: frame.tabId, }, ]);
 		this.duration = NaN; // const
 		if (current && current.id === this.id && (current instanceof AudioPlayer))
 		{ this.seekTo(current.currentTime); setCurrent(this); }
@@ -206,14 +176,14 @@ class RemotePlayer {
 	destroy() {
 		if (!this.port) { return; }
 		const on = this.handlers; this.port.ended !== true && Object.keys(on).forEach(event => this.port.post('off', event, on[event]));
-		this.port = null; this.frame = null; this.playing = false;
+		const frame = this.frame; this.port = null; this.frame = null; this.playing = false;
 		players.delete(this.id, this);
 		videos.delete(this);
 		if (current === this) {
 			current = null;
 			loadPlayer(this.id);
 		}
-		fireVideoClose([ this.id, ]);
+		fireVideoClose([ { videoId: this.id, tabId: frame.tabId, }, ]);
 	}
 }
 
@@ -231,7 +201,7 @@ class AudioPlayer extends global.Audio {
 	handleEvent(event) { switch (event.type) {
 		case 'durationchange': this.duration !== duration && fireDurationChange([ duration = this.duration, ]); break;
 		case 'ended': current === this && Player.next(); break;
-		case 'error': reportError(`Audio playback error`, `reloading `+ this.title, event); this.load(); break; // TODO: this loops if .load() doesn't throw but causes another error on this
+		case 'error': notify.error(`Audio playback error`, `reloading `+ this.title, event); this.load(); break; // TODO: this loops if .load() doesn't throw but causes another error on this
 		/*case 'pause': case 'playing':*/ case 'stalled': current === this && this.playing !== playing && firePlay([ playing = this.playing, ]) ;
 	} }
 
@@ -241,7 +211,7 @@ class AudioPlayer extends global.Audio {
 			(await VideoInfo.refresh(this.id));
 			info = (await VideoInfo.getData(this.id));
 			if (!info.audioUrl || info.error) {
-				reportError(`Failed to load audio`, `for YouTube video "${ info.title }" (${ this.id })`, info.error ? '\n'+ info.error : '');
+				notify.error(`Failed to load audio`, `for YouTube video "${ info.title }" (${ this.id })`, info.error ? '\n'+ info.error : '');
 				return;
 			}
 		}
@@ -293,10 +263,10 @@ function setCurrent(player) {
 }
 
 function loadPlayer(id) {
-	if (!id) { return void setCurrent(null); }
+	if (!id) { setCurrent(null); return; }
 	if (current && current.id === id) { return; }
-	for (const open of players.get(id)) { if (open instanceof RemotePlayer) { return void setCurrent(open); } }
-	for (const open of players.get(id)) { return void setCurrent(open); }
+	for (const open of players.get(id)) { if (open instanceof RemotePlayer) { setCurrent(open); return; } }
+	for (const open of players.get(id)) { setCurrent(open); return; } // use the first, if any
 	setCurrent(new AudioPlayer(id));
 }
 
@@ -325,18 +295,6 @@ async function sortPlaylist(by, direction = 0) {
 	const reverse = !directed && playlist.every((tab, index) => tab === sorted[index]); // reverse if nothing changed
 	playlist.splice(0, Infinity, ...(reverse ? sorted.reverse() : sorted)); // write change
 	playlist.index = playlist.indexOf(current);
-}
-
-/// returns true, if a tab in the window can be activated without interrupting the user because the window is actively used
-async function windowIsIdle(windowId) {
-	if (fennec) { return false; } // only one "window"
-	if (hasFocusedSidebar()) { return true; }
-	if (gecko) { return hasPanel() || hasFocusedSidebar() || !(await hasFocus()); }
-	return !(await hasFocus()) && !hasPanel();
-
-	function hasFocus() { return Windows.get(windowId).then(_=>_.focused); }
-	function hasPanel() { return getViews().some(_=>_.type === 'panel'); }
-	function hasFocusedSidebar() { return getViews().some(_=>_.type === 'sidebar' && _.view.document.hasFocus()); }
 }
 
 }); })(this);
