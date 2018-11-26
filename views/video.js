@@ -2,7 +2,10 @@
 	'node_modules/web-ext-utils/utils/notify': notify,
 	'background/player': Player,
 	'background/video-info': VideoInfo,
+	'./playlist/events': Events,
 }) => async window => {
+
+Events.register(window);
 
 const off = { owner: window, };
 
@@ -13,7 +16,6 @@ window.document.body.insertAdjacentHTML('beforeend', `<style>
 
 const video = window.document.getElementsByTagName('video')[0];
 video.defaultMuted = true; video.volume = 0;
-video.addEventListener('click', event => !event.button && Player.toggle());
 video.stop = function stop() { this.currentTime = 0; this.src = 'data:video/mp4;base64,'; this.removeAttribute('src'); };
 let _id = null; Object.defineProperty(video, 'id', { set(id) {
 	_id = id; id ? video.setAttribute('video-id', id) : video.removeAttribute('video-id');
