@@ -130,6 +130,7 @@ class InfoHandler {
 		('view_count' in info) && (data.views = +info.view_count);
 		('avg_rating' in info) && (data.rating = (info.avg_rating - 1) / 4);
 		('formats' in info) && (!this.data || !this.data.audioData) && (data.audioUrl = getPreferredAudio(info.formats));
+		('formats' in info) && (data.videoUrl = getPreferredVideo(info.formats));
 		('relative_loudness' in info) && (data.loudness = +info.relative_loudness);
 		(this.data && this.data.error) && (data.error = null);
 		// console.log('extracted', data);
@@ -270,23 +271,35 @@ class _TabTile {
 	}
 }
 
-const itags = [
-	251, // webm/opus 160
-	140, // m4a/aac 128
-	171, // webm/vorbis 128
-	250, // webm/opus 64
-	239, // webm/opus 48
-	139, // m4a/aac 48
-	// 18,  // mp4/aac+H.264 96
-	// 43,  // webm/vorbis+VP8 128
-];
 function getPreferredAudio(formats) {
+	const itags = [
+		251, // webm/opus 160
+		140, // m4a/aac 128
+		171, // webm/vorbis 128
+		250, // webm/opus 64
+		239, // webm/opus 48
+		139, // m4a/aac 48
+		// 18,  // mp4/aac+H.264 96
+		// 43,  // webm/vorbis+VP8 128
+	];
 	for (const itag of itags) {
 		const format = formats.find(_=>+_.itag === itag);
 		if (format) { return format.url; }
 	}
 	return null;
 }
+
+function getPreferredVideo(formats) {
+	let score = 0, ret = null; formats.filter(f => (
+		f.resolution && f.size && f.fps
+		&& (f.container === 'mp4' || f.container === 'webm')
+	)).forEach(({ url, size, fps, resolution, }) => {
+		const { 0:x, 1:y, } = size.split('x');
+		const s = x * y * (fps**.5|0) * (resolution.includes('HRD') ? 1.5 : 1);
+		if (s > score) { ret = url; score = s; }
+	}); return ret;
+}
+
 
 return (global.VideoInfo = {
 	getData,

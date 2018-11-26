@@ -3,10 +3,10 @@
 	'node_modules/es6lib/dom': { createElement: _createElement, writeToClipboard, },
 	'node_modules/es6lib/object': { MultiMap, },
 	'node_modules/sortablejs/Sortable': Sortable,
-	'node_modules/web-ext-utils/browser/': { manifest, extension, Tabs, Windows, Bookmarks, },
+	'node_modules/web-ext-utils/browser/': { manifest, extension, Tabs, Windows, Bookmarks, sidebarAction, },
 	'node_modules/web-ext-utils/browser/version': { firefox, gecko, },
-	'node_modules/web-ext-utils/loader/views': { openView, getViews, },
-	'node_modules/web-ext-utils/utils/': { reportError, reportSuccess, },
+	'node_modules/web-ext-utils/loader/views': { openView, },
+	'node_modules/web-ext-utils/utils/notify': notify,
 	'background/player': Player,
 	'background/video-info': { makeTileClass, },
 	'common/context-menu': ContextMenu,
@@ -68,36 +68,37 @@ return async function View(window) {
 		}
 	}
 
-	{ // videos open in tabs
-		const openTabs = Player.getOpenVideos();
-		const group = groupList.appendChild(createGroup(window, 'tabs', 'Open Tabs'));
+	const tabsLoaded = (async () => { // videos open in tabs
+		const openVideos = Player.getOpenVideos();
+		const group = groupList.appendChild(createGroup(window, 'tabs', 'tabs', 'Open Tabs'));
 		const tiles = group.querySelector('.tiles'); enableDragOut(tiles);
 		function addTile(tiles, { videoId, tabId, }) { const tile = tiles.appendChild(new MediaTile); tile.videoId = videoId; tile.dataset.tabId = tabId; }
-		openTabs.forEach(ids => addTile(tiles, ids));
+		openVideos.forEach(ids => addTile(tiles, ids));
 
 		Player.onVideoOpen(addTile.bind(null, tiles), off);
 		Player.onVideoClose(({ tabId, }) => tiles.querySelector(`media-tile[data-tab-id="${tabId}"]`).remove(), off);
 
-		if (firefox) { // videos in tabs unloaded
-			const group = groupList.appendChild(createGroup(window, 'unloaded', 'Unloaded Tabs'));
+		if (firefox) { // videos in unloaded tabs
+			const group = groupList.appendChild(createGroup(window, 'unloaded', 'unloaded', 'Unloaded Tabs'));
 			const tiles = group.querySelector('.tiles'); enableDragOut(tiles);
 
 			Tabs.query({ url: [ `https://www.youtube.com/watch?*v=*`, `https://gaming.youtube.com/watch?*v=*`, ], }).then(_=>_
 				.sort((a, b) => (/*a.windowId << 16 + */a.index) - (/*b.windowId << 16 + */b.index))
 				.forEach(tab => {
 					const videoId = (tab.url.match(/\bv=([\w-]{11})\b/) || [ ])[1];
-					videoId && !openTabs.some(_=>_.tabId === tab.id) && addTile(tiles, { videoId, tabId: tab.id, });
+					videoId && !openVideos.some(_=>_.tabId === tab.id) && addTile(tiles, { videoId, tabId: tab.id, });
 				})
 			);
 
 			function removeTab(tab) { const tile = tiles.querySelector(`media-tile[data-tab-id="${ typeof tab === 'number' ? tab : tab.tabId }"]`); tile && tile.remove(); }
 			Player.onVideoOpen(removeTab, off); Tabs.onRemoved.addListener(removeTab); window.addEventListener('unload', () => Tabs.onRemoved.removeListener(removeTab));
 		}
-	}
+	})();
 
 	// bookmarked videos
-	Bookmarks.search({ query: `youtube.com/watch?`, }).then(all => {
-		const parents = new MultiMap; all.forEach(item => parents.add(item.parentId, item));
+	const bookmarksLoaded = (async () => {
+		const parents = new MultiMap; (await Bookmarks.search({ query: `youtube.com/watch?`, }))
+		.forEach(item => parents.add(item.parentId, item));
 		parents.forEach(async (children, parentId) => {
 			const entries = Array.from(children).sort((a, b) => a.index - b.index).map(entry => {
 				const mId = entry.url.match(/\bv=([\w-]{11})\b/);
@@ -105,7 +106,7 @@ return async function View(window) {
 			}).filter(_=>_);
 			if (!entries.length) { return; }
 			const [ { title, }, ] = (await Bookmarks.get(parentId));
-			const group = groupList.appendChild(createGroup(window, 'bmk-'+ parentId, createElement('span', null, [
+			const group = groupList.appendChild(createGroup(window, 'bmk-'+ parentId, 'bmk-'+ parentId, createElement('span', null, [
 				createElement('span', { title: 'Bookmark folder', }, [ '🔖 ', ]), title,
 			])));
 			const tiles = group.querySelector('.tiles');
@@ -115,7 +116,7 @@ return async function View(window) {
 		});
 		const onRemoved = bookmarkId => document.querySelector(`media-tile[data-bookmark-id="${ bookmarkId }"]`).remove();
 		Bookmarks.onRemoved.addListener(onRemoved); window.addEventListener('unload', () => Bookmarks.onRemoved.removeListener(onRemoved));
-	});
+	})();
 
 	{ // controls
 		options.playlist.children.loop.whenChange(([ value, ]) => document.querySelector('#loop').classList[value ? 'add' : 'remove']('active'), off);
@@ -162,9 +163,12 @@ return async function View(window) {
 	document.addEventListener('click', onClick);
 	document.addEventListener('keydown', onKeydown);
 	document.addEventListener('input', onInput);
+	document.addEventListener('copy', onCopy);
+	document.addEventListener('paste', onPaste);
+	document.addEventListener('drop', onDrop);
 	document.addEventListener('dragover', onDragover, true);
 
-	require('background/', _ => Object.assign(window, _));
+	(await tabsLoaded); (await bookmarksLoaded);
 };
 
 function showMainMenu(event) {
@@ -176,6 +180,8 @@ function showMainMenu(event) {
 		{ icon: '◑',	label: 'Dark Theme', checked: options.playlist.children.theme.value === 'dark', action() { options.playlist.children.theme.value = this.checked ? 'light' : 'dark'; }, },
 		{ icon: '❐', 	label: 'Show in tab', action: () => openView('playlist', 'tab'), },
 		{ icon: '◳', 	label: 'Open in popup', action: () => openView('playlist', 'popup', { useExisting: false, width: 450, height: 600, }), },
+		{ icon: '▶', 	label: 'Show video', action: () => openView('video', 'tab'), },
+		gecko && { icon: '◫', 	label: 'Open sidebar', action: () => sidebarAction.open(), },
 		{ icon: '⚙', 	label: 'Settings', action: () => openView('options', 'tab'), },
 	];
 	new ContextMenu({ x, y: y + 1, width, items, host: document.body, });
@@ -210,20 +216,20 @@ function showContextMenu(event) {
 			 addBmk && { icon: '➕',	label: 'Add bookmark',     action: () => Bookmarks.create({ title: tile.querySelector('.title').textContent, url: 'https://www.youtube.com/watch?v='+ tile.videoId, }), },
 			 inList && { icon: '🔍',	label: 'Highlight',        action: () => highlight(others.querySelector(`media-tile[video-id="${ id }"]`)), },
 			!inList && { icon: '🔍',	label: 'Highlight',        action: () => highlight(playlist.querySelector(`media-tile[video-id="${ id }"]`)), },
-			           { icon: '📋',	label: 'Copy ID',          action: () => writeToClipboard(id).then(() => reportSuccess('Copied', id), reportError), },
+			           { icon: '📋',	label: 'Copy ID',          action: () => writeToClipboard(id).then(() => notify.success('Copied video ID', id), notify.error), },
 			!inList && { icon: '➕',	label: 'Add video',        action: () => Player.playlist.splice(Infinity, 0, id), },
 		);
 	}
 	if (inList) {
 		items.push(
 			{ icon: '⇵',	 label: 'Sort by',                      type: 'menu', children: [
-				{ icon: '⌖',	 label: 'position',                     action: () => Player.playlist.sort('position').catch(reportError.bind(null, 'Sorting failed')), },
+				{ icon: '⌖',	 label: 'position',                     action: () => Player.playlist.sort('position').catch(notify.error.bind(null, 'Sorting failed')), },
 				{ icon: '👓',	 label: 'views',                        type: 'menu', children: [
-					{ icon: '🌐',	 label: 'global',                       action: () => Player.playlist.sort('viewsGlobal').catch(reportError.bind(null, 'Sorting failed')), },
-					{ icon: '⏱',	 label: 'yours in total duration',      action: () => Player.playlist.sort('viewsDuration').catch(reportError.bind(null, 'Sorting failed')), },
-					{ icon: '↻',	 label: 'yours in times viewed',        action: () => Player.playlist.sort('viewsTimes').catch(reportError.bind(null, 'Sorting failed')), },
+					{ icon: '🌐',	 label: 'global',                       action: () => Player.playlist.sort('viewsGlobal').catch(notify.error.bind(null, 'Sorting failed')), },
+					{ icon: '⏱',	 label: 'yours in total duration',      action: () => Player.playlist.sort('viewsDuration').catch(notify.error.bind(null, 'Sorting failed')), },
+					{ icon: '↻',	 label: 'yours in times viewed',        action: () => Player.playlist.sort('viewsTimes').catch(notify.error.bind(null, 'Sorting failed')), },
 				], },
-				{ icon: '🔀',	 label: 'Shuffle',                      action: () => Player.playlist.sort('random').catch(reportError.bind(null, 'Sorting failed')), },
+				{ icon: '🔀',	 label: 'Shuffle',                      action: () => Player.playlist.sort('random').catch(notify.error.bind(null, 'Sorting failed')), },
 			], },
 			{ icon: '🛇',	 label: 'Clear list',                   action: () => Player.playlist.splice(0, Infinity), },
 		);
@@ -246,31 +252,41 @@ function showContextMenu(event) {
 	new ContextMenu({ x, y, items, host: document.body, });
 }
 
+function importVideosFromText(text) {
+	const ids = text.trim().split(/[\s,;]+/g).map(string => { switch (true) {
+		case (/^[\w-]{11}$/).test(string): return string;
+		case string.startsWith('https://www.youtube.com/watch'): return new URL(string).searchParams.get('v');
+	} return null; }).filter(_=>_);
+	Player.playlist.splice(Player.playlist.index + 1, 0, ...ids);
+	notify.success(`Added ${ids.length} video${ ids.length === 1 ? '' : 's' }:`, ids.join(' '));
+}
+
 // focus tab (windows) or play tab on dblclick
 function onDblckick({ target, button, }) {
 	if (button || !target.matches) { return; }
 	const document = target.ownerDocument;
 
 	const tile = target.closest('media-tile');
-	if (!tile) { return; }
-	if (tile.matches('#playlist *')) {
+	if (tile && tile.closest('#playlist')) {
 		if (tile.matches('.active')) {
 			focusTab(tile.videoId);
 		} else {
 			Player.playlist.index = positionInParent(tile);
 		}
-	} else {
-		focusTab(tile.videoId);
+	} else if (tile) {
+		focusTab(tile.videoId); // TODO: use 'data-tab-id'
+	} else if (target.closest('video')) {
+		target.closest('video').requestFullscreen();
 	}
 	document.defaultView.getSelection().removeAllRanges();
 }
 
-// remove tab on leftcklick on ".remove"
+// remove tab on left click on ".remove"
 function onClick({ target, button, }) {
 	if (button || !target.closest) { return; }
 	const document = target.ownerDocument;
 
-	const tile = target.closest('.remove').closest('media-tile'); if (tile) {
+	const tile = target.closest('media-tile'); if (tile && target.closest('.remove')) {
 		if (tile.closest('#playlist')) {
 			Player.playlist.splice(positionInParent(tile), 1);
 		} else if ('tabId' in tile.dataset) {
@@ -282,10 +298,12 @@ function onClick({ target, button, }) {
 		const box = document.querySelector('#searchbox>input');
 		box.value = ''; box.blur();
 		document.body.classList.remove('searching');
+	} else if (target.closest('video')) {
+		Player.toggle();
 	}
 }
 
-function onKeydown(event) {
+function onKeydown(event) { try {
 	const document = event.target.ownerDocument;
 	const inInput = event.target.matches('TEXTAREA, input:not([type="range"])');
 	switch (event.key) {
@@ -296,11 +314,8 @@ function onKeydown(event) {
 		} break;
 		case 'o': {
 			if (!event.ctrlKey) { return; }
-			const reply = document.defaultView.prompt('Paste a comma or space separated list of YouTube video IDs below:');
-			const ids = reply.trim().split(/[\s,;]+/g).map(string => { switch (true) {
-				case (/^[\w-]{11}$/).test(string): return string;
-			} return null; }).filter(_=>_);
-			Player.playlist.splice(Infinity, 0, ...ids);
+			const reply = document.defaultView.prompt('Please paste a comma, space or line separated list of YouTube video IDs or URLs below:');
+			importVideosFromText(reply);
 		} break;
 		case 'Escape': {
 			if (event.ctrlKey || !event.target.matches('#searchbox>input')) { return; }
@@ -314,7 +329,7 @@ function onKeydown(event) {
 		default: return;
 	}
 	event.preventDefault(); event.stopPropagation();
-}
+} catch (error) { notify.error(error); } }
 
 function onInput({ target, }) {
 	const document = target.ownerDocument;
@@ -333,12 +348,40 @@ function onInput({ target, }) {
 		found.forEach(_=>_.classList.add('found'));
 	} else if (target.matches('#progress>input')) {
 		Player.seekTo(target.value);
-		(document.querySelector('#current-time').textContent = secondsToHhMmSs(+target.value));
+		// (document.querySelector('#current-time').textContent = secondsToHhMmSs(+target.value));
 	}
+}
+
+function onCopy(event) {
+	if (event.target.matches('TEXTAREA, input:not([type="range"])')) { return; }
+	if (event.target.ownerDocument.getSelection().type === 'Range') { return; }
+	const tile = event.target.ownerDocument.querySelector('[video-id]:hover'); if (tile) {
+		const url = 'https://www.youtube.com/watch?v='+ tile.getAttribute('video-id');
+		event.clipboardData.setData('text/plain', url);
+		event.clipboardData.setData('text/uri-list', url);
+		notify.success('Copied video URL', url);
+	} else {
+		event.clipboardData.setData('text/plain', Player.playlist.current.join('\n'));
+		notify.success('Copied playlist', `The IDs of the current ${Player.playlist.length} videos were placed in the clipboard`);
+	} event.preventDefault();
+}
+
+function onPaste(event) {
+	if (event.target.matches('TEXTAREA, input:not([type="range"])')) { return; }
+	importVideosFromText(event.clipboardData.getData('text'));
+	event.preventDefault();
+}
+
+function onDrop(event) {
+	event.preventDefault(); // never navigate
+	if (!event.dataTransfer) { return; }
+	if (event.dataTransfer.getData('<yTO-internal>')) { console.log('internal drop'); return; }
+	importVideosFromText(event.dataTransfer.getData('text'));
 }
 
 function onDragover(event) {
 	onDragover.x = event.clientX; onDragover.y = event.clientY;
+	event.preventDefault(); // cause drop to fire
 }
 
 function highlight(element) {
@@ -368,7 +411,6 @@ function highlight(element) {
 
 // enable drag & drop
 function enableDragOut(tiles) {
-	const noDragData = isInGeckoTab(tiles); // for some reason, the drop of the URL won't be prevented in firefox tabs and popups
 	return (tiles.sortable = new Sortable(tiles, {
 		group: {
 			name: 'playlist',
@@ -383,13 +425,15 @@ function enableDragOut(tiles) {
 		scrollSensitivity: 90,
 		scrollSpeed: 10,
 		sort: false,
-		setData(dataTransfer, item) { // insert url if dropped somewhere else
-			dataTransfer.setData('text', noDragData ? '' : 'https://www.youtube.com/watch?v='+ item.videoId);
+		setData(transfer, item) { // insert url if dropped somewhere else
+			transfer.clearData();
+			transfer.setData('text/plain', 'https://www.youtube.com/watch?v='+ item.videoId);
+			transfer.setData('text/uri-list', 'https://www.youtube.com/watch?v='+ item.videoId);
+			transfer.setData('<yTO-internal>', 'pull');
 		},
 	}));
 }
 function enableDragIn(tiles) {
-	const noDragData = isInGeckoTab(tiles); // for some reason, the drop of the URL won't be prevented in firefox tabs and popups
 	return (tiles.sortable = new Sortable(tiles, {
 		group: {
 			name: 'playlist',
@@ -404,34 +448,33 @@ function enableDragIn(tiles) {
 		scrollSensitivity: 90,
 		scrollSpeed: 10,
 		sort: true,
-		setData(dataTransfer, item) { // insert url if dropped somewhere else
-			dataTransfer.setData('text', noDragData ? '' : 'https://www.youtube.com/watch?v='+ item.videoId);
+		setData(transfer, item) { // insert url if dropped somewhere else
+			transfer.clearData();
+			transfer.setData('text/plain', 'https://www.youtube.com/watch?v='+ item.videoId);
+			transfer.setData('text/uri-list', 'https://www.youtube.com/watch?v='+ item.videoId);
+			transfer.setData('<yTO-internal>', 'sort');
 		},
 		onAdd({ item, newIndex, }) {
 			Array.prototype.forEach.call(tiles.querySelectorAll('media-tile:not(.in-playlist)'), _=>_.remove()); // remove any inserted items
 			const { x, y, } = onDragover, { top, left, bottom, right, } = tiles.getBoundingClientRect();
 			if (top > y || bottom < y || left > x || right < x) { return; }
-			Player.playlist.splice(newIndex, 0, item.videoId);
+			Player.playlist.splice(newIndex, 0, item.getAttribute('video-id')); // use getAttribute to retrieve IDs of cross-window drops
 		},
 		onUpdate({ item, newIndex, oldIndex, }) { // sorted within
-			const active = item.matches('.active'), playing = Player.playing;
-			active && (Player.playlist.index = -1);
-			item.remove(); tiles.insertBefore(item, tiles.children[oldIndex]); // put back to old position
-			Player.playlist.splice(oldIndex, 1);
+			// put back to old position (in *this* view), then update list and thereby *all* views
+			item.remove(); tiles.insertBefore(item, tiles.children[oldIndex]);
+			// first insert, then seek, then remove to keep the player playing
+			if (newIndex > oldIndex) { newIndex += 1; } else { oldIndex += 1; } // because of that order, the indices have to be adjusted
 			Player.playlist.splice(newIndex, 0, item.videoId);
-			active && (Player.playlist.index = newIndex);
-			active && playing && Player.play();
+			item.matches('.active') && (Player.playlist.index = newIndex); // this seeks between items with the same ID
+			Player.playlist.splice(oldIndex, 1);
 		},
 	}));
 }
-function isInGeckoTab(element) {
-	const window = element.ownerDocument.defaultView;
-	return gecko && (/^tab$|^popup$/).test(getViews().find(_=>_.view === window).type);
-}
 
-function createGroup(window, id, name) { return _createElement.call(window, 'div', { id: 'group-'+ id, className: 'group', }, [
+function createGroup(window, id, className, title) { return _createElement.call(window, 'div', { id: 'group-'+ id, className: 'group '+className, }, [
 	_createElement.call(window, 'div', { className: 'header', }, [
-		_createElement.call(window, 'label', { className: 'toggleswitch title', htmlFor: 'groupToggle-'+ id, }, [ name, ]),
+		_createElement.call(window, 'label', { className: 'toggleswitch title', htmlFor: 'groupToggle-'+ id, }, [ title, ]),
 	]),
 	_createElement.call(window, 'input', { className: 'toggleswitch', type: 'checkbox', id: 'groupToggle-'+ id, }),
 	_createElement.call(window, 'span', { className: 'tiles', }),

@@ -68,7 +68,9 @@ const Player = {
 		next() { playlist.index++; },
 		prev() { playlist.index--; },
 		get index() { return playlist.index; }, set index(value) { playlist.index = value; },
+		get length() { return playlist.length; },
 		get current() { return Array.from(playlist); },
+		get() { return arguments.length ? playlist[arguments[0]] : playlist.get(); },
 		splice() { return playlist.splice(...arguments); },
 		onAdd: playlist.onAdd,
 		onRemove: playlist.onRemove,
@@ -83,6 +85,7 @@ const Player = {
 const fireVideoOpen = setEvent(Player, 'onVideoOpen', { lazy: false, }); // (id)
 const fireVideoClose = setEvent(Player, 'onVideoClose', { lazy: false, }); // (id)
 const firePlay = setEvent(Player, 'onPlay', { lazy: false, }); // (bool)
+const fireSeek = debounce(setEvent(Player, 'onSeek', { lazy: false, }), 500); // (void)
 const fireDurationChange = setEvent(Player, 'onDurationChange', { lazy: false, }); // (bool)
 Object.freeze(Player);
 
@@ -201,7 +204,7 @@ class AudioPlayer extends global.Audio {
 	handleEvent(event) { switch (event.type) {
 		case 'durationchange': this.duration !== duration && fireDurationChange([ duration = this.duration, ]); break;
 		case 'ended': current === this && Player.next(); break;
-		case 'error': notify.error(`Audio playback error`, `reloading `+ this.title, event); this.load(); break; // TODO: this loops if .load() doesn't throw but causes another error on this
+		case 'error': notify.warn(`Audio playback error`, `reloading `+ this.title, this.error && (this.error.message || 'Code: '+ this.error.code)); this.load(); break; // TODO: this loops if .load() doesn't throw but causes another error on this
 		/*case 'pause': case 'playing':*/ case 'stalled': current === this && this.playing !== playing && firePlay([ playing = this.playing, ]) ;
 	} }
 
@@ -226,7 +229,7 @@ class AudioPlayer extends global.Audio {
 
 	get playing() { return !this.paused; }
 	start() { this.currentTime = 0; this.play(); }
-	seekTo(value) { this.currentTime = value; }
+	seekTo(value) { this.currentTime = value; fireSeek([ ]); }
 	destroy() {
 		console.log('destroyed audioPlayer', this.id);
 		this.src = '';
@@ -271,6 +274,7 @@ function loadPlayer(id) {
 }
 
 async function sortPlaylist(by, direction = 0) {
+	if (by === 'random') { shufflePlaylist(); return; }
 	const directed = !!(direction << 0);
 	direction = directed && direction < 0 ? -1 : 1;
 	console.log('playlist_sort', by, direction, directed);
@@ -288,12 +292,21 @@ async function sortPlaylist(by, direction = 0) {
 	(await Promise.all(playlist.map(
 		(id, index) => Promise.resolve(id).then(mapper)
 		.catch(error => (console.error(error), 0))
-		.then(value => data.set(id, value || 0) === position.set(id, index)) // add the previous index to make the sorting stable
+		.then(value => { data.set(id, value || 0); position.set(id, index); }) // add the previous index to make the sorting stable
 	)));
 	const current = playlist.get();
 	const sorted = playlist.slice().sort((a, b) => ((data.get(a) - data.get(b)) || (position.get(a) - position.get(b))) * direction); // sort a .slice() to avoid updates
 	const reverse = !directed && playlist.every((tab, index) => tab === sorted[index]); // reverse if nothing changed
 	playlist.splice(0, Infinity, ...(reverse ? sorted.reverse() : sorted)); // write change
+	playlist.index = playlist.indexOf(current);
+}
+
+function shufflePlaylist() {
+	const current = playlist.get(), a = playlist.slice();
+	for (let i = 0, l = a.length; i < l; ++i) {
+		const j = Math.random() * l |0;
+		const t = a[j]; a[j] = a[i]; a[i] = t;
+	} playlist.splice(0, Infinity, ...a);
 	playlist.index = playlist.indexOf(current);
 }
 

@@ -4,6 +4,9 @@
 ::-moz-selection {
 	background-color: black;
 }
+:root {
+	scrollbar-color: #555 black;
+}
 html, body, input {
 	color: white;
 	fill: white;
@@ -78,7 +81,3 @@ media-tile.active:hover {
 #searchbox input:focus {
 	border-color: #5959ED;
 }
-
-@media screen and (min--moz-device-pixel-ratio:0) { .scroll-inner, .scroll-inner>* { /* dark scrollbars in firefox */
-	filter: invert(1);
-} }
