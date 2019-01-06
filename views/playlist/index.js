@@ -3,9 +3,9 @@
 	'node_modules/es6lib/dom': { createElement: _createElement, },
 	'node_modules/es6lib/object': { MultiMap, },
 	'node_modules/sortablejs/Sortable': Sortable,
-	'node_modules/web-ext-utils/browser/': { manifest, extension, Tabs, Bookmarks, sidebarAction, },
-	'node_modules/web-ext-utils/browser/version': { firefox, gecko, },
-	'node_modules/web-ext-utils/loader/views': { openView, },
+	'node_modules/web-ext-utils/browser/': { manifest, Runtime, Tabs, Bookmarks, SidebarAction, },
+	'node_modules/web-ext-utils/browser/version': { firefox, },
+	'node_modules/web-ext-utils/loader/views': { showView, openView, },
 	'background/player': Player,
 	'background/video-info': { makeTileClass, },
 	'common/context-menu': ContextMenu,
@@ -54,7 +54,7 @@ return async function View(window) {
 		const ids = Player.playlist.current;
 		const tiles = document.querySelector('#playlist .tiles'); tiles.textContent = '';
 		enableDragIn(tiles);
-		const createTile = id => { const tile = new MediaTile; tile.videoId = id; tile.classList.add('in-playlist'); return tile; };
+		const createTile = id => { const tile = new MediaTile; tile.videoId = id; /*tile.classList.add('in-playlist');*/ return tile; };
 		ids.forEach(id => tiles.appendChild(createTile(id)));
 
 		Player.playlist.onAdd((index, id) => tiles.insertBefore(createTile(id), tiles.children[index]), off);
@@ -169,13 +169,14 @@ function showMainMenu(event) {
 	const document = event.target.ownerDocument;
 	const { left: x, bottom: y, width, } = document.querySelector('#more').getBoundingClientRect();
 	const items = [
-		{ icon: '⚡',	label: 'Restart', action: () => extension.getBackgroundPage().location.reload(), },
+		{ icon: '⚡',	label: 'Restart', action: () => Runtime.reload(), },
 		{ icon: '◑',	label: 'Dark Theme', checked: options.playlist.children.theme.value === 'dark', action() { options.playlist.children.theme.value = this.checked ? 'light' : 'dark'; }, },
-		{ icon: '❐', 	label: 'Show in tab', action: () => openView('playlist', 'tab'), },
-		{ icon: '◳', 	label: 'Open in popup', action: () => openView('playlist', 'popup', { useExisting: false, width: 450, height: 600, }), },
-		{ icon: '▶', 	label: 'Show video', action: () => openView('video', 'tab'), },
-		gecko && { icon: '◫', 	label: 'Open sidebar', action: () => sidebarAction.open(), },
-		{ icon: '⚙', 	label: 'Settings', action: () => openView('options', 'tab'), },
+		{ icon: '❐', 	label: 'Show in tab', action: () => showView('playlist', 'tab'), },
+		{ icon: '◳', 	label: 'Open in popup', action: () => openView('playlist', 'popup', { width: 450, height: 600, }), },
+		SidebarAction && SidebarAction.open &&
+		{ icon: '◫', 	label: 'Open sidebar', action: () => SidebarAction.open(), },
+		{ icon: '▶', 	label: 'Show video', action: () => showView('video', 'tab'), },
+		{ icon: '⚙', 	label: 'Settings', action: () => showView('options', 'tab'), },
 	];
 	new ContextMenu({ x, y: y + 1, width, items, host: document.body, });
 }
@@ -226,7 +227,8 @@ function enableDragIn(tiles) {
 			transfer.setData('<yTO-internal>', 'sort');
 		},
 		onAdd({ item, newIndex, }) {
-			Array.prototype.forEach.call(tiles.querySelectorAll('media-tile:not(.in-playlist)'), _=>_.remove()); // remove any inserted items
+			item.remove();
+			// tiles.querySelectorAll('media-tile:not(.in-playlist)').forEach(_=>_.remove()); // remove any inserted items
 			const { x, y, } = Events.listeners.dragover, { top, left, bottom, right, } = tiles.getBoundingClientRect();
 			if (top > y || bottom < y || left > x || right < x) { return; }
 			Player.playlist.splice(newIndex, 0, item.getAttribute('video-id')); // use getAttribute to retrieve IDs of cross-window drops

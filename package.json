@@ -21,8 +21,9 @@
 		"pbq": "0.3.5",
 		"regexpx": "0.1.4",
 		"sortablejs": "1.7.0",
-		"web-ext-build": "0.0.9",
-		"web-ext-utils": "0.1.7",
+		"video-plus": "github:NiklasGollenstede/video-plus#41b8280",
+		"web-ext-build": "0.0.11",
+		"web-ext-utils": "0.1.9",
 		"ytdl-core": "0.24.0"
 	},
 	"devDependencies": {

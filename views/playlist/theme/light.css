@@ -30,7 +30,7 @@ media-tile,
 	border-color: white;
 	box-shadow: 0 1px 2px rgba(0,0,0,.1);
 }
-media-tile:hover{
+media-tile:hover {
 	background-color: #eee;
 	border-color: #eee;
 }
@@ -41,15 +41,20 @@ media-tile.active {
 media-tile.active:hover {
 	background-color: #ccc;
 }
+media-tile.selected {
+	border-color: #3ebaff;
+}
 .description .duration {
-	background-color: rgba(0, 0, 0, .3);
+	color: white;
+	background-color: rgba(0, 0, 0, .4);
 }
 .remove {
-	background-color: rgba(0, 0, 0, .2);
+	color: white;
+	background-color: rgba(0, 0, 0, .3);
 }
 .remove:hover {
-	color: #E54949;
-	fill: #E54949;
+	color: #FF8B8B; fill: #FF8B8B;
+	background-color: rgba(0, 0, 0, .5);
 }
 
 #controls .button {

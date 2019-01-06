@@ -5,8 +5,11 @@
 	'node_modules/web-ext-utils/utils/notify': notify,
 	'common/options': options,
 	'background/db': db,
+	'./playlist/events': Events,
 	require,
 }) => { return window => {
+
+Events.register(window);
 
 window.document.head.insertAdjacentHTML('beforeend', `<link href="/node_modules/web-ext-utils/options/editor/dark.css" rel="stylesheet">`);
 

@@ -1,8 +1,8 @@
 (function(global) { 'use strict'; define(async ({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
-	'node_modules/web-ext-utils/browser/': { Commands, browserAction, manifest, rootUrl, },
+	'node_modules/web-ext-utils/browser/': { BrowserAction, Commands, ContextMenus, Runtime, SidebarAction, manifest, rootUrl, },
 	'node_modules/web-ext-utils/browser/version': { fennec, },
 	'node_modules/web-ext-utils/loader/': Content,
-	'node_modules/web-ext-utils/loader/views': { getUrl, openView, },
+	'node_modules/web-ext-utils/loader/views': { getUrl, showView, openView, },
 	'node_modules/web-ext-utils/update/': updated,
 	'common/options': options,
 	content,
@@ -15,11 +15,26 @@ let debug; options.debug.whenChange(([ value, ]) => { debug = value; Content.deb
 debug && console.info('Ran updates', updated);
 
 
-// browser_action (could not be set in manifest due to fennec incompatibility)
-browserAction.setIcon({ path: manifest.icons[1], });
-browserAction.setPopup({ popup: getUrl({ name: 'panel', }).slice(rootUrl.length - 1), });
-fennec && browserAction.onClicked.addListener(() => openView('panel'));
+// browser_action (could not be set in manifest due to fennec incompatibility) TODO: that is probably fixed
+BrowserAction.setIcon({ path: manifest.icons[1], });
+BrowserAction.setPopup({ popup: getUrl({ name: 'panel', }).slice(rootUrl.length - 1), });
+fennec && BrowserAction.onClicked.addListener(() => showView('panel'));
 
+ContextMenus.create({ contexts: [ 'browser_action', ], id: 'restart', title: 'Restart', });
+ContextMenus.create({ contexts: [ 'browser_action', ], id: 'pllTab', title: 'Show in tab', });
+ContextMenus.create({ contexts: [ 'browser_action', ], id: 'pllPopup', title: 'Open in popup', });
+SidebarAction && SidebarAction.open &&
+ContextMenus.create({ contexts: [ 'browser_action', ], id: 'pllSB', title: 'Open sidebar', });
+ContextMenus.create({ contexts: [ 'browser_action', ], id: 'videoTab', title: 'Show video', });
+ContextMenus.create({ contexts: [ 'browser_action', ], id: 'settings', title: 'Settings', });
+ContextMenus.onClicked.addListener(({ menuItemId, }) => { switch (menuItemId) {
+	case 'restart': Runtime.reload(); break;
+	case 'pllTab': showView('playlist', 'tab'); break;
+	case 'pllPopup': openView('playlist', 'popup', { useExisting: false, width: 450, height: 600, }); break;
+	case 'pllSB': SidebarAction.open(); break;
+	case 'videoTab': showView('video', 'tab'); break;
+	case 'settings': showView('options', 'tab'); break;
+} });
 
 // global hotkeys
 Commands && Commands.onCommand.addListener(command => ({
@@ -30,7 +45,7 @@ Commands && Commands.onCommand.addListener(command => ({
 
 
 // apply content script to existing tabs (don't await the result because that currently doesn't always resolve in Firefox ...)
-content.applyNow().then(frames => options.debug.value && console.log(`Attached to ${ frames.size } tabs:`, frames));
+content.applyNow().then(frames => debug && console.info(`Attached to ${ frames.size } tabs:`, frames));
 
 
 // debug stuff

@@ -1,5 +1,6 @@
 (function(global) { 'use strict'; define(async ({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
 	'node_modules/web-ext-utils/browser/': { Tabs, Storage, },
+	'node_modules/web-ext-utils/loader/views': { getViews, },
 	'node_modules/web-ext-utils/utils/notify': notify,
 	'node_modules/web-ext-utils/utils/event': { setEvent, },
 	'node_modules/es6lib/functional': { debounce, },
@@ -18,10 +19,10 @@
 const players = new MultiMap, videos = new Set;
 const container = global.document.head.appendChild(global.document.createElement('players'));
 let current = null, duration = NaN, playing = false;
-const playlist = new Playlist((await Storage.local.get('playlist')).playlist);
+const playlist = new Playlist((await Storage.local.get([ 'playlist.values', 'playlist.index', ]).then(_ => ({ values: _['playlist.values'], index: _['playlist.index'], }))));
 let loop = false; options.playlist.children.loop.whenChange(([ value, ]) => (playlist.loop = (loop = value)));
-const savePlaylist = debounce(() => Storage.local.set({ playlist: { values: Player.playlist.current, index: playlist.index, }, }), 1e4);
-playlist.onAdd(savePlaylist); playlist.onRemove(savePlaylist); playlist.onSeek(savePlaylist); // TODO: split into two independent entries
+const savePlaylist = debounce(() => Storage.local.set({ 'playlist.values': Array.from(playlist), }), 1e3); playlist.onAdd(savePlaylist); playlist.onRemove(savePlaylist);
+playlist.onSeek(debounce(() => Storage.local.set({ 'playlist.index': playlist.index, }), 1e3));
 
 /**
  * exports
@@ -59,14 +60,13 @@ const Player = {
 		if (!current) { return; }
 		current.seekTo(sec);
 	},
-	loop(value = !playlist.loop) {
-		options.playlist.children.loop.value = playlist.loop = !!value;
-	},
 	next() { Player.playlist.next(); },
 	prev() { Player.playlist.prev(); },
+	loop() { Player.playlist.loop(); },
 	playlist: Object.freeze({
 		next() { playlist.index++; },
 		prev() { playlist.index--; },
+		loop(value = !playlist.loop) { options.playlist.children.loop.value = playlist.loop = !!value; },
 		get index() { return playlist.index; }, set index(value) { playlist.index = value; },
 		get length() { return playlist.length; },
 		get current() { return Array.from(playlist); },
@@ -94,9 +94,9 @@ Object.freeze(Player);
  */
 
 playlist.onSeek(async (to, from) => {
+	const play = playing;
 	loadPlayer(playlist.get());
-	if (!loop) { return; }
-	const play = playing; (await null);
+	if (!loop) { return; } (await null);
 	if (to === Infinity && from === playlist.length - 1) {
 		playlist.index = 0; // loop forward
 	} else if (to === -1 && from === 0) {
@@ -105,12 +105,11 @@ playlist.onSeek(async (to, from) => {
 	play && Player.play();
 });
 
-Player.onPlay(playing => { if (playing) { // play
-	const id = playlist.get();
-	loadPlayer(id);
-	current && !current.playing && current.play();
-} else { // pause
+Player.onPlay(async playing => { if (!playing) { // pause
 	current && current.playing && current.pause();
+} else { // play
+	loadPlayer(playlist.get());
+	current && !current.playing && current.play();
 } });
 
 content.onMatch(async frame => {
@@ -145,10 +144,6 @@ class RemotePlayer {
 				current && current.id === this.id && (current instanceof AudioPlayer) && this.seekTo(current.currentTime);
 				setCurrent(this);
 				!wasPlaying && firePlay([ true, ]);
-
-				// focus tab
-				const { windowId, active, } = (await Tabs.get(this.frame.tabId));
-				!active && (await windowIsIdle(windowId)) && (await Tabs.update(this.frame.tabId, { active: true, }));
 			},
 			paused: () => {
 				this.playing = false;
@@ -271,6 +266,12 @@ function loadPlayer(id) {
 	for (const open of players.get(id)) { if (open instanceof RemotePlayer) { setCurrent(open); return; } }
 	for (const open of players.get(id)) { setCurrent(open); return; } // use the first, if any
 	setCurrent(new AudioPlayer(id));
+}
+
+async function showPlayer() {
+	const tab = (current instanceof RemotePlayer) ? (await Tabs.get(current.frame.tabId)) : getViews().find(_=>_.name === 'video');
+	tab && (tab.view ? tab.view.document.visibilityState !== 'visible' : !tab.active) && (await windowIsIdle(tab.windowId))
+	&& (await Tabs.update(tab.id || tab.tabId, { active: true, }));
 }
 
 async function sortPlaylist(by, direction = 0) {

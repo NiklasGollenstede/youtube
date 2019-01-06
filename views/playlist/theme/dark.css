@@ -30,7 +30,7 @@ media-tile,
 	border-color: #444;
 	/* box-shadow: none; */
 }
-media-tile:hover{
+media-tile:hover {
 	background-color: #4D4D4D;
 	border-color: #4D4D4D;
 }
@@ -41,10 +41,15 @@ media-tile.active {
 media-tile.active:hover {
 	background-color: #191919;
 }
+media-tile.selected {
+	border-color: #0079bc;
+}
 .description .duration {
+	color: white;
 	background-color: #000;
 }
 .remove {
+	color: white;
 	background-color: #333;
 }
 .remove:hover {

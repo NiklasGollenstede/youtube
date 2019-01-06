@@ -1,8 +1,10 @@
 (function(global) { 'use strict'; define(({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
-	'node_modules/es6lib/string': { fuzzyIncludes, },
+	'node_modules/es6lib/string': { fuzzyIncludes, unescapeHtml, },
 	'node_modules/es6lib/dom': { createElement: _createElement, writeToClipboard, },
 	'node_modules/web-ext-utils/browser/': { Tabs, Windows, Bookmarks, },
+	'node_modules/web-ext-utils/loader/views': { getViews, showView, },
 	'node_modules/web-ext-utils/utils/notify': notify,
+	'node_modules/es6lib/concurrent': { sleep, },
 	'background/player': Player,
 	'common/context-menu': ContextMenu,
 	'common/dom': { scrollToCenter, },
@@ -27,15 +29,15 @@ function contextmenu(event) {
 		const addBmk = inList && !bmkId;
 		items.push(
 			           { icon: '▶',		label: 'Play video',       action: () => { Player.current = id; Player.play(); }, default: tile.matches('#playlist :not(.active)') && !target.closest('.remove, .icon'), },
-			 tab    && { icon: '👁',	label: 'Show tab',         action: () => { focusTab(id); }, default: tile.matches('#group-tabs *, .active') && !target.closest('.remove, .icon'), },
-			!tab    && { icon: '◳',		label: 'Open in tab',      action: () => { openTab(id); }, },
+			 tab    && { icon: '👁',	label: 'Show tab',         action: () => focusTab(id), default: tile.matches('#group-tabs *, .active') && !target.closest('.remove, .icon'), },
+			!tab    && { icon: '◳',		label: 'Open in tab',      action: () => openTab(id), },
 			 inList && { icon: '❏',		label: 'Duplicate',        action: () => Player.playlist.splice(positionInParent(tile), 0, id), },
 			 inList && { icon: '⨉',		label: 'Remove entry',     action: () => Player.playlist.splice(positionInParent(tile), 1), default: target.matches('#playlist .remove'), },
 			 inTabs && { icon: '⨉',		label: 'Close tab',        action: () => inTabs.closest('#group-tabs') ? Tabs.remove(tab.tabId) : closeUnloadedTab(tile), default: !!target.closest('#group-tabs .remove'), },
 			 bmkId  && { icon: '🗑',	label: 'Delete bookmark',  action: () => Bookmarks.remove(bmkId), default: !!target.closest('media-tile[data-bookmark-id] .remove'), },
 			 addBmk && { icon: '➕',	label: 'Add bookmark',     action: () => Bookmarks.create({ title: tile.querySelector('.title').textContent, url: 'https://www.youtube.com/watch?v='+ tile.videoId, }), },
 			           { icon: '🔍',	label: 'Highlight',        action: () => highlight((inList ? others : playlist).querySelector(`media-tile[video-id="${id}"]`)), },
-			           { icon: '📋',	label: 'Copy ID',          action: () => writeToClipboard(id).then(() => notify.success('Copied video ID', id), notify.error), },
+			           { icon: '📋',	label: 'Copy ID',          action: () => writeToClipboard(id).then(() => notify.success('Copied video ID', id)), },
 			!inList && { icon: '➕',	label: 'Add video',        action: () => Player.playlist.splice(Infinity, 0, id), },
 		);
 	}
@@ -71,7 +73,7 @@ function contextmenu(event) {
 	new ContextMenu({ x, y, items, host: document.body, });
 }
 
-function dblclick({ target, button, }) {
+async function dblclick({ target, button, }) {
 	if (button || !target.matches) { return; }
 	const document = target.ownerDocument;
 
@@ -84,14 +86,21 @@ function dblclick({ target, button, }) {
 			Player.playlist.index = positionInParent(tile);
 		}
 	} else if (tile) {
-		focusTab(tile.videoId); // TODO: use 'data-tab-id'
+		if (tile.dataset.tabId) {
+			(await Tabs.update(tile.dataset.tabId, { active: true, }));
+		} else {
+			focusTab(tile.videoId);
+		}
 	} else { const video = target.closest('video'); if (video) {
 		video.matches(':fullscreen') ? document.exitFullscreen() : video.requestFullscreen();
+		if (pendingToggle) { // doubleclick was to slow, second toggle is still pending
+			clearTimeout(pendingToggle); pendingToggle = 0; Player.toggle(); // toggle now
+		}
 	} }
 	document.defaultView.getSelection().removeAllRanges();
 }
 
-function click({ target, button, }) {
+function click({ target, button, ctrlKey, }) {
 	if (button || !target.closest) { return; }
 	const document = target.ownerDocument;
 
@@ -104,42 +113,68 @@ function click({ target, button, }) {
 		} else if ('bookmarkId' in tile.dataset) {
 			Bookmarks.remove(tile.dataset.bookmarkId);
 		}
-	} else if (target.closest('#searchbox .remove')) {
+	} /*else if (tile && ctrlKey) {
+		tile.classList.toggle('selected');
+	}*/ else if (target.closest('#searchbox .remove')) {
 		const box = document.querySelector('#searchbox>input');
 		box.value = ''; box.blur();
 		document.body.classList.remove('searching');
 	} else if (target.closest('video')) {
-		Player.toggle();
+		if (pendingToggle) {
+			clearTimeout(pendingToggle); pendingToggle = 0; // omit both
+		} else {
+			pendingToggle = setTimeout(() => { pendingToggle = 0; Player.toggle(); }, 200);
+		}
 	}
-}
+} let pendingToggle = 0;
 
-function keydown(event) { try {
+function keydown(event) {
 	const document = event.target.ownerDocument;
-	const inInput = event.target.matches('TEXTAREA, input:not([type="range"])');
-	switch (event.key) {
-		case 'f': {
-			if (!event.ctrlKey) { return; }
-			const box = document.querySelector('#searchbox>input');
-			box && box.focus(); box && box.select();
+	const key = (event.target.matches('TEXTAREA, input:not([type="range"])') ? 'Input+' : '')
+	+ (event.ctrlKey ? 'Ctrl+' : '') + (event.altKey ? 'Alt+' : '') + (event.shiftKey ? 'Shift+' : '') + event.code;
+	switch (key) {
+		case 'Ctrl+KeyF': {
+			if (!findElement(event, '#searchbox>input', (box, window) => {
+				window.focus(); box.focus(); box.select(); return true;
+			})) { return; }
 		} break;
-		case 'o': {
-			if (!event.ctrlKey) { return; }
+		case 'KeyF': {
+			cancel: { for (const { document, window, } of event.views) {
+				if (document.fullscreen) {
+					document.exitFullscreen(); break cancel;
+				} else if (document.querySelector('video')) {
+					window.focus(); document.querySelector('video').requestFullscreen();  break cancel;
+				}
+			} return; }
+		} break;
+		case 'Ctrl+KeyO': {
 			const reply = document.defaultView.prompt('Please paste a comma, space or line separated list of YouTube video IDs or URLs below:');
-			reply && importVideosFromText(reply);
+			reply && importVideos(reply);
 		} break;
 		case 'Escape': {
-			if (event.ctrlKey || !event.target.matches('#searchbox>input')) { return; }
+			if (!document.querySelector('media-tile.selected')) { return; }
+			document.querySelectorAll('media-tile.selected').forEach(_=>_.classList.remove('selected'));
+		} break;
+		case 'Input+Escape': {
+			if (!event.target.matches('#searchbox>input')) { return; }
 			event.target.value = ''; event.target.blur();
 			document.body.classList.remove('searching');
 		} break;
-		case ' ': {
-			if (inInput) { return; }
-			Player.toggle();
+		case 'Input+Enter': {
+			if (!event.target.matches('#searchbox>input') || !document.body.classList.contains('searching')) { return; }
+			const lTerm = event.target.value.trim().toLowerCase();
+			const tiles = Array.from(document.querySelectorAll('#playlist media-tile'));
+			highlight(tiles.find(tile => fuzzyIncludes(tile.querySelector('.icon').title.toLowerCase(), lTerm, 3) > 0.6));
 		} break;
+		case 'Delete': { Player.pause(); Player.seekTo(0); } break;
+		case 'Space': { Player.toggle(); } break;
+		case 'KeyP': { Player.playlist.prev(); } break;
+		case 'KeyN': { Player.playlist.next(); } break;
+		case 'KeyL': { Player.playlist.loop(); } break;
 		default: return;
 	}
 	event.preventDefault(); event.stopPropagation();
-} catch (error) { notify.error(error); } }
+}
 
 function input({ target, }) {
 	const document = target.ownerDocument;
@@ -158,8 +193,24 @@ function input({ target, }) {
 		found.forEach(_=>_.classList.add('found'));
 	} else if (target.matches('#progress>input')) {
 		Player.seekTo(target.value);
-		// (document.querySelector('#current-time').textContent = secondsToHhMmSs(+target.value));
 	}
+}
+
+let selectionChanged = false; function selectionchange() { selectionChanged = true; }
+
+function mouseup(event) {
+	if (event.ctrlKey) { const tile = event.target.closest('media-tile'); tile && tile.classList.toggle('selected'); }
+	if (!selectionChanged) { return; } selectionChanged = false;
+	const document = event.target.ownerDocument, selection = document.getSelection();
+	!event.ctrlKey && document.querySelectorAll('media-tile.selected').forEach(_=>_.classList.remove('selected'));
+	const count = selection.rangeCount; if (count <= 1) { return; }
+	const tiles = new Set; for (let i = 0; i < count; ++i) {
+		let node = selection.getRangeAt(i).commonAncestorContainer;
+		if (!node.closest) { node = node.parentNode; }
+		const tile = node.closest('media-tile'); if (tile) { tiles.add(tile); }
+		else { node.querySelectorAll('media.tile').forEach(t => tiles.add(t)); }
+	} tiles.forEach(_=>_.classList.add('selected'));
+	tiles.size && selection.removeAllRanges();
 }
 
 function copy(event) {
@@ -178,7 +229,7 @@ function copy(event) {
 
 function paste(event) {
 	if (event.target.matches('TEXTAREA, input:not([type="range"])')) { return; }
-	importVideosFromText(event.clipboardData.getData('text'));
+	importVideos(event.clipboardData);
 	event.preventDefault();
 }
 
@@ -186,28 +237,48 @@ function drop(event) {
 	event.preventDefault(); // never navigate
 	if (!event.dataTransfer) { return; }
 	if (event.dataTransfer.getData('<yTO-internal>')) { return; }
-	importVideosFromText(event.dataTransfer.getData('text'));
+	importVideos(event.dataTransfer);
 }
 
 function dragover(event) {
-	dragover.x = event.clientX; dragover.y = event.clientY;
+	listeners.dragover.x = event.clientX; listeners.dragover.y = event.clientY;
 	event.preventDefault(); // cause drop to fire
 }
 dragover.capturing = true;
 
-const listeners = { contextmenu, dblclick, click, keydown, input, copy, paste, drop, dragover, };
+const listeners = { contextmenu, dblclick, click, keydown, input, selectionchange, mouseup, copy, paste, drop, dragover, };
+Object.entries(listeners).forEach(([ name, listener, ]) => { (listeners[name] = async function(event) { try {
+	let views; Object.defineProperty(event, 'views', { get() {
+		if (views) { return views; }
+		const view = (event.target.ownerDocument || event.target).defaultView;
+		const locs = getViews(), { windowId, } = locs.find(_=>_.view === view);
+		views = event.views = locs.filter(_=>_.windowId === windowId).map(_=>_.view)
+		.filter(_ => _ !== view && _.document.hidden === false); views.unshift(view); return views;
+	}, enumerable: true, configurable: true, });
+	(await listener.apply(this, arguments));
+} catch (error) { notify.error(error); } }).capturing = listener.capturing || false; });
+
 return { listeners, register({ document, }) {
 	Object.entries(listeners).forEach(([ name, listener, ]) =>
 		document.addEventListener(name, listener, !!listener.capturing)
 	);
 }, };
 
-function importVideosFromText(text) {
+function importVideos(text) {
+	if (typeof text === 'object') { if (text.getData('text/html')) {
+		const links = [ ]; text.getData('text/html').replace(/<a\b.*?href="(.*?)"/g, (_, l) => (links.push(unescapeHtml(l)), ''));
+		text = links.filter((e, i, a) => (!i || a[i-1] !== e) && e).join('\n'); // filter & deduplicate sequences
+	} else { text = text.getData('text/plain'); } }
 	const ids = text.trim().split(/[\s,;]+/g).map(string => { switch (true) {
 		case (/^[\w-]{11}$/).test(string): return string;
 		case string.startsWith('https://www.youtube.com/watch'): return new URL(string).searchParams.get('v');
+		case string.startsWith('https://youtu.be/'): return new URL(string).pathname; // e.g.: https://youtu.be/FM7MFYoylVs?list=PLMC9KNkIncKtPzgY-5rmhvj7fax8fdxoj
 	} return null; }).filter(_=>_);
-	Player.playlist.splice(Player.playlist.index + 1, 0, ...ids);
+
+	const view = getViews().map(_=>_.view).find(_=>_.document.body.matches(':hover'));
+	const hovered = view && view.document.querySelector('#playlist media-tile:hover');
+	const index = hovered ? positionInParent(hovered) : Player.playlist.index;
+	Player.playlist.splice(index + 1, 0, ...ids);
 	notify.success(`Added ${ids.length} video${ ids.length === 1 ? '' : 's' }:`, ids.join(' '));
 }
 
@@ -241,9 +312,16 @@ function positionInParent(element) {
 	return Array.prototype.indexOf.call(element.parentNode.children, element);
 }
 
+function findElement(event, selector, action) {
+	for (const view of event.views || [ event.target.ownerDocument, ]) {
+		const element = view.document.querySelector(selector);
+		if (element) { return action ? action(element, view) : element; }
+	} return null;
+}
+
 async function focusTab(videoId) {
 	const frame = Player.frameFor(videoId);
-	if (!frame) { return; }
+	if (!frame) { (await showView('video', 'tab')); return; }
 	(await Tabs.update(frame.tabId, { active: true, }));
 	const { windowId, } = (await Tabs.get(frame.tabId));
 	(await Windows.update(windowId, { focused: true, }));

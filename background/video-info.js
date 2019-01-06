@@ -130,7 +130,7 @@ class InfoHandler {
 		('view_count' in info) && (data.views = +info.view_count);
 		('avg_rating' in info) && (data.rating = (info.avg_rating - 1) / 4);
 		('formats' in info) && (!this.data || !this.data.audioData) && (data.audioUrl = getPreferredAudio(info.formats));
-		('formats' in info) && (data.videoUrl = getPreferredVideo(info.formats));
+		('formats' in info) && (data.video = getPreferredVideo(info.formats));
 		('relative_loudness' in info) && (data.loudness = +info.relative_loudness);
 		(this.data && this.data.error) && (data.error = null);
 		// console.log('extracted', data);
@@ -233,7 +233,6 @@ class _TabTile {
 		this.videoId = '';
 		this.onChange = this.onChange.bind(this);
 		this.view = null;
-		this.rand = Math.random().toString(32).slice(2);
 	}
 	onChange(data) {
 		const self = this.public;
@@ -254,14 +253,12 @@ class _TabTile {
 		if (!videoId || this.videoId === videoId || !self.parentNode) { return; }
 		if (this.videoId) { this.detach(); }
 		this.videoId = videoId; this.view = self.ownerDocument.defaultView;
-		// console.log('attach', this.videoId, this.rand);
 		!self.children.length && tabChildren.forEach(node => self.appendChild(node.cloneNode(true)));
 		subscribe(this.videoId, this.onChange, [ 'title', 'duration', 'thumbUrl', 'error', ]).then(this.onChange);
 		this.view.addEventListener('unload', this);
 	}
 	async detach() {
 		if (!this.videoId) { return; }
-		// console.log('detach', this.videoId, this.rand);
 		unsubscribe(this.videoId, this.onChange);
 		this.view.removeEventListener('unload', this);
 		this.videoId = ''; this.view = null;
@@ -290,13 +287,21 @@ function getPreferredAudio(formats) {
 }
 
 function getPreferredVideo(formats) {
-	let score = 0, ret = null; formats.filter(f => (
-		f.resolution && f.size && f.fps
-		&& (f.container === 'mp4' || f.container === 'webm')
-	)).forEach(({ url, size, fps, resolution, }) => {
+	let score = 0, ret = null; formats.forEach(({
+		url, type, size, fps, resolution, container, encoding, bitrate,
+	}) => {
+		if (!(true
+			// there are some (old?) formats (with itag < 100 || itag > 390 ?) that are missing some of these:
+			&& size // e.g. `2560x1440` which is the exact resolution (which can sometimes have rather odd dimensions)
+			&& fps // natural number (as string)
+			&& resolution // e.g. `1440p HDR, HFR` where [144p,240p,360p,480p,720p,1080p,1440p,2160p] is the smallest upper limit for the vertical resolution (another possible token is `15fps`, but the fps for that is not 15)
+			&& (container === 'mp4' || container === 'webm') // firefox tends to get stuck stuttering around with webm
+			&& encoding // (video), e.g. `H.264` or `VP9`
+			&& bitrate // <fload>(-<float>)? bitrate (range) in (MB/minute?)
+		)) { return; }
 		const { 0:x, 1:y, } = size.split('x');
 		const s = x * y * (fps**.5|0) * (resolution.includes('HRD') ? 1.5 : 1);
-		if (s > score) { ret = url; score = s; }
+		if (s > score) { ret = { type, x: +x, y: +y, fps: +fps, resolution, bitrate, url, }; score = s; }
 	}); return ret;
 }
 

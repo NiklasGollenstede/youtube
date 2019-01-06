@@ -4,6 +4,7 @@ module.exports = function({ options, /*packageJson,*/ manifestJson, files, }) {
 	manifestJson.permissions.push(
 		'bookmarks',
 		'clipboardWrite',
+		'contextMenus',
 		'notifications',
 		'tabs',
 		'webNavigation',
@@ -44,6 +45,8 @@ module.exports = function({ options, /*packageJson,*/ manifestJson, files, }) {
 		'multiport/index.js',
 		'pbq/require.js',
 		'regexpx/index.js',
+		'video-plus/content/video.js',
+		'video-plus/content/zoom.js',
 		'web-ext-utils/browser/index.js',
 		'web-ext-utils/browser/messages.js',
 		'web-ext-utils/browser/storage.js',
