@@ -6,14 +6,22 @@
 	'common/options': options,
 	'background/db': db,
 	'./playlist/events': Events,
+	'fetch!node_modules/web-ext-utils/options/editor/dark.css:css': theme_dark_css,
+	'fetch!node_modules/web-ext-utils/options/editor/light.css:css': theme_light_css,
 	require,
-}) => { return window => {
+}) => { return ({ window, document, }) => {
 
 Events.register(window);
 
-window.document.head.insertAdjacentHTML('beforeend', `<link href="/node_modules/web-ext-utils/options/editor/dark.css" rel="stylesheet">`);
+const CSS = { theme: { dark: theme_dark_css, light: theme_light_css, }, };
+const theme = document.head.appendChild(document.createElement('style'));
+options.playlist.children.theme.whenChange(value => {
+	document.body.classList.add('no-transitions');
+	theme.textContent = CSS.theme[value];
+	global.setTimeout(() => document.body.classList.remove('no-transitions'), 70);
+}, { owner: window, });
 
-OptionsPage({ onCommand, document: window.document, });
+OptionsPage({ onCommand, document, });
 
 async function onCommand({ name, parent, }, buttonId) { try {
 	if (!db && parent.name === 'storage') { throw new Error(`Database is not available, please make sure to open the settings in a not-private window!`); }

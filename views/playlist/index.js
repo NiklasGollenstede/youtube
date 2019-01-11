@@ -7,31 +7,27 @@
 	'node_modules/web-ext-utils/browser/version': { firefox, },
 	'node_modules/web-ext-utils/loader/views': { showView, openView, },
 	'background/player': Player,
-	'background/video-info': { makeTileClass, },
+	'background/video-info': VideoInfo,
+	'background/media-tile': MediaTileClass,
+	'background/related-videos': relatedVideos,
 	'common/context-menu': ContextMenu,
 	'common/dom': { scrollToCenter, },
 	'common/options': options,
 	'fetch!./body.html': Body,
-	'fetch!./layout.css': layout_css,
-	'fetch!./theme/dark.css': theme_dark_css,
-	'fetch!./theme/light.css': theme_light_css,
+	'fetch!./layout.css:css': layout_css,
+	'fetch!./theme/dark.css:css': theme_dark_css,
+	'fetch!./theme/light.css:css': theme_light_css,
 	Events,
-	require,
 }) => {
 
-const CSS = {
-	layout: layout_css +`\n/*# sourceURL=${ require.toUrl('./layout.css') } */`,
-	theme: {
-		dark: theme_dark_css +`\n/*# sourceURL=${ require.toUrl('./theme/dark.css') } */`,
-		light: theme_light_css +`\n/*# sourceURL=${ require.toUrl('./theme/light.css') } */`,
-	},
-};
+const CSS = { layout: layout_css, theme: { dark: theme_dark_css, light: theme_light_css, }, };
 
 return async function View(window) {
 
 	Events.register(window);
 	const { document, } = window, createElement = _createElement.bind(window), off = { owner: window, };
-	const MediaTile = window.MediaTile = makeTileClass(window);
+	const MediaTile = window.MediaTile = MediaTileClass(window);
+	function createTile(id) { const tile = new MediaTile; tile.videoId = id; return tile; }
 
 	document.title = 'Playlist - '+ manifest.name;
 	document.head.appendChild(createElement('style', { textContent: CSS.layout, }));
@@ -54,7 +50,6 @@ return async function View(window) {
 		const ids = Player.playlist.current;
 		const tiles = document.querySelector('#playlist .tiles'); tiles.textContent = '';
 		enableDragIn(tiles);
-		const createTile = id => { const tile = new MediaTile; tile.videoId = id; /*tile.classList.add('in-playlist');*/ return tile; };
 		ids.forEach(id => tiles.appendChild(createTile(id)));
 
 		Player.playlist.onAdd((index, id) => tiles.insertBefore(createTile(id), tiles.children[index]), off);
@@ -67,6 +62,32 @@ return async function View(window) {
 			tiles.children[index].classList.add('active');
 			if (tiles.matches(':hover')) { return; }
 			scrollToCenter(tiles.children[index]);
+		}
+	}
+
+	{ // related (to current)
+		const group = groupList.appendChild(createGroup(window, 'related-this', 'related-this', 'Related to Video'));
+		const tiles = group.querySelector('.tiles'); enableDragOut(tiles);
+		async function update() {
+			const id = Player.playlist.get();
+			const ids = id && (await VideoInfo.getData(id)).related || [ ];
+			tiles.textContent = '';
+			ids.forEach(id => tiles.appendChild(createTile(id)));
+		} update(); Player.playlist.onSeek(update, off);
+	}
+
+	{ // related (to playlist)
+		const related = relatedVideos.subscribe(window);
+		const group = groupList.appendChild(createGroup(window, 'related-all', 'related-all', 'Top Related'));
+		const tiles = group.querySelector('.tiles'); enableDragOut(tiles);
+		related.forEach((item, index) => add(item, index));
+		related.onAdd(async (index, item) => add(item, index), off);
+		related.onRemove(index => tiles.children[index].remove(), off);
+		async function add({ count, id, relating, }, index) {
+			const tile = tiles.insertBefore(createTile(id), tiles.children[index]);
+			tile.dataset.count = count; tile.dataset.relating = relating.join(' ');
+			tile.dataset.category = (await VideoInfo.getData(id)).category;
+			tile.title = tile.dataset.category +': '+ tile.dataset.relating;
 		}
 	}
 

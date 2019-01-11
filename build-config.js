@@ -8,6 +8,8 @@ module.exports = function({ options, /*packageJson,*/ manifestJson, files, }) {
 		'notifications',
 		'tabs',
 		'webNavigation',
+		'webRequest',
+		'webRequestBlocking',
 		'https://www.youtube.com/*', 'https://gaming.youtube.com/*',
 		'https://i.ytimg.com/*', 'https://*.googlevideo.com/*'
 	);
@@ -78,12 +80,4 @@ module.exports = function({ options, /*packageJson,*/ manifestJson, files, }) {
 		'sortablejs/Sortable.js',
 	];
 
-	if (options.run && !(options.run.prefs === 0 || options.run.prefs === null)) {
-		const run = typeof options.run === 'object' ? options.run
-		: (options.run = { bin: typeof options.run === 'string' ? options.run : undefined, });
-		const prefs = {
-			'dom.webcomponents.enabled': true,
-		};
-		run.prefs ? Object.assign(run.prefs, prefs) : (run.prefs = prefs);
-	}
 };

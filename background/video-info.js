@@ -1,13 +1,11 @@
 (function(global) { 'use strict'; define(async ({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
 	'node_modules/es6lib/concurrent': { sleep, },
-	'node_modules/es6lib/dom': { createElement, },
-	'node_modules/es6lib/string': { secondsToHhMmSs, },
 	'common/options': options,
 	Downloader,
 }) => {
 
 const db = (await (() => {
-	const db = global.indexedDB.open('video-info', 7); // throws in firefox if cookies are disabled
+	const db = global.indexedDB.open('video-info', 8); // throws in firefox if cookies are disabled
 	const props = { // 0: save and export, 1: save, 2: cache (immutable), 3: cache (mutable), 4: cache (special), 5: don't save
 		title: { type: 'string', level: 2, },
 		published: { type: 'number', level: 2, },
@@ -17,6 +15,7 @@ const db = (await (() => {
 		views: { type: 'number', level: 3, },
 		// viewed: { type: 'number', level: 0, },
 		rating: { type: 'number', level: 3, },
+		related: { type: 'array', level: 3, },
 		audioUrl: { type: 'string', level: 5, },
 		// audioData: { type: 'blob', level: 1, },
 		loudness: { type: 'number', level: 2, },
@@ -42,8 +41,8 @@ const db = (await (() => {
 
 const handlers = new Map/*<id, InfoHandler>*/;
 
-let relativeLifetime; options.content.children.displayRatings.children.relativeLifetime.whenChange(([ value, ]) => (relativeLifetime = value));
-let totalLifetime; options.content.children.displayRatings.children.totalLifetime.whenChange(([ value, ]) => (totalLifetime = value));
+let relativeLifetime; options.content.children.displayRatings.children.relativeLifetime.whenChange(([ value, ]) => (relativeLifetime = value / 100));
+let totalLifetime; options.content.children.displayRatings.children.totalLifetime.whenChange(([ value, ]) => (totalLifetime = value * 36e5));
 
 class InfoHandler {
 	constructor(id) { const done = (async () => {
@@ -66,8 +65,7 @@ class InfoHandler {
 			age > 1e4 && (!filter
 				|| filter.some(key => db.props[key].level === 3)
 			) && (
-				age > totalLifetime * 36e5
-				|| ('published' in this.data) && age > (now - this.data.published) * (relativeLifetime / 100)
+				age > totalLifetime || ('published' in this.data) && age > (now - this.data.published) * relativeLifetime
 			)
 		) { this.loadFromServer().then(data => this.set(data)); }
 
@@ -132,6 +130,7 @@ class InfoHandler {
 		('formats' in info) && (!this.data || !this.data.audioData) && (data.audioUrl = getPreferredAudio(info.formats));
 		('formats' in info) && (data.video = getPreferredVideo(info.formats));
 		('relative_loudness' in info) && (data.loudness = +info.relative_loudness);
+		(data.related = (info.related_videos || [ ]).map(_=>_.id).filter(_=>_));
 		(this.data && this.data.error) && (data.error = null);
 		// console.log('extracted', data);
 		return data;
@@ -193,81 +192,6 @@ function withHandler(run) { return async function(id, ...args) {
 	return done;
 }; }
 
-const tabChildren = [
-	createElement('div', { className: 'icon', }),
-	createElement('div', { className: 'description', }, [
-		createElement('div', { className: 'title', textContent: '...', }),
-		createElement('div', { className: 'duration', textContent: '-:--', }),
-		createElement('div', { className: 'remove', textContent: '⨉', }),
-	]),
-];
-
-const Self = new WeakMap;
-
-const makeTileClass = window => { class MediaTile extends window.HTMLElement {
-	constructor() {
-		super();
-		new _TabTile(this);
-	}
-	set videoId(v) { this.setAttribute('video-id', v); }
-	get videoId() { return this.getAttribute('video-id'); }
-	connectedCallback() {
-		Self.get(this).attach();
-	}
-	disconnectedCallback() {
-		Self.get(this).detach();
-	}
-	attributeChangedCallback(name, old, now) {
-		if (name === 'video-id' && old !== now) {
-			old && Self.get(this).detach();
-			now && Self.get(this).attach();
-		}
-	}
-	static get observedAttributes() { return [ 'video-id', ]; }
-} window.customElements.define('media-tile', MediaTile); return MediaTile; };
-
-class _TabTile {
-	constructor(self) {
-		Self.set(self, this);
-		this.public = self;
-		this.videoId = '';
-		this.onChange = this.onChange.bind(this);
-		this.view = null;
-	}
-	onChange(data) {
-		const self = this.public;
-		('title' in data) && (self.querySelector('.title').textContent = self.querySelector('.icon').title = data.title);
-		('duration' in data) && (self.querySelector('.duration').textContent = data.duration ? secondsToHhMmSs(data.duration / 1000) : '-:--');
-		('thumbUrl' in data) && (self.querySelector('.icon').style.backgroundImage = `url("${ data.thumbUrl }")`);
-		if ('error' in data) { if (data.error) {
-			let error = self.querySelector('.error');
-			!error && (error = self.querySelector('.description').insertBefore(createElement('span', { classList: 'error', }, [ '⚠', ]), self.querySelector('.description').firstChild));
-			error.title = data.error;
-		} else {
-			const error = self.querySelector('.error'); error && error.remove();
-		} }
-	}
-	attach() {
-		const self = this.public;
-		const videoId = self.videoId;
-		if (!videoId || this.videoId === videoId || !self.parentNode) { return; }
-		if (this.videoId) { this.detach(); }
-		this.videoId = videoId; this.view = self.ownerDocument.defaultView;
-		!self.children.length && tabChildren.forEach(node => self.appendChild(node.cloneNode(true)));
-		subscribe(this.videoId, this.onChange, [ 'title', 'duration', 'thumbUrl', 'error', ]).then(this.onChange);
-		this.view.addEventListener('unload', this);
-	}
-	async detach() {
-		if (!this.videoId) { return; }
-		unsubscribe(this.videoId, this.onChange);
-		this.view.removeEventListener('unload', this);
-		this.videoId = ''; this.view = null;
-	}
-	handleEvent() { // unload
-		this.detach();
-	}
-}
-
 function getPreferredAudio(formats) {
 	const itags = [
 		251, // webm/opus 160
@@ -295,7 +219,7 @@ function getPreferredVideo(formats) {
 			&& size // e.g. `2560x1440` which is the exact resolution (which can sometimes have rather odd dimensions)
 			&& fps // natural number (as string)
 			&& resolution // e.g. `1440p HDR, HFR` where [144p,240p,360p,480p,720p,1080p,1440p,2160p] is the smallest upper limit for the vertical resolution (another possible token is `15fps`, but the fps for that is not 15)
-			&& (container === 'mp4' || container === 'webm') // firefox tends to get stuck stuttering around with webm
+			&& (container === 'mp4' /*|| container === 'webm'*/) // firefox tends to get stuck stuttering around with webm
 			&& encoding // (video), e.g. `H.264` or `VP9`
 			&& bitrate // <fload>(-<float>)? bitrate (range) in (MB/minute?)
 		)) { return; }
@@ -312,7 +236,6 @@ return (global.VideoInfo = {
 	subscribe,
 	unsubscribe,
 	refresh,
-	makeTileClass,
 });
 
 function getResult(request) {

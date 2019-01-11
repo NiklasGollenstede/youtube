@@ -1,10 +1,9 @@
 (function(global) { 'use strict'; define(({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
+	'node_modules/web-ext-utils/browser/': { Runtime, Tabs, Windows, Bookmarks, },
+	'node_modules/web-ext-utils/loader/views': { getViews, showView, locationFor, },
+	'node_modules/web-ext-utils/utils/notify': notify,
 	'node_modules/es6lib/string': { fuzzyIncludes, unescapeHtml, },
 	'node_modules/es6lib/dom': { createElement: _createElement, writeToClipboard, },
-	'node_modules/web-ext-utils/browser/': { Tabs, Windows, Bookmarks, },
-	'node_modules/web-ext-utils/loader/views': { getViews, showView, },
-	'node_modules/web-ext-utils/utils/notify': notify,
-	'node_modules/es6lib/concurrent': { sleep, },
 	'background/player': Player,
 	'common/context-menu': ContextMenu,
 	'common/dom': { scrollToCenter, },
@@ -100,7 +99,7 @@ async function dblclick({ target, button, }) {
 	document.defaultView.getSelection().removeAllRanges();
 }
 
-function click({ target, button, ctrlKey, }) {
+function click({ target, button, }) {
 	if (button || !target.closest) { return; }
 	const document = target.ownerDocument;
 
@@ -113,9 +112,7 @@ function click({ target, button, ctrlKey, }) {
 		} else if ('bookmarkId' in tile.dataset) {
 			Bookmarks.remove(tile.dataset.bookmarkId);
 		}
-	} /*else if (tile && ctrlKey) {
-		tile.classList.toggle('selected');
-	}*/ else if (target.closest('#searchbox .remove')) {
+	} else if (target.closest('#searchbox .remove')) {
 		const box = document.querySelector('#searchbox>input');
 		box.value = ''; box.blur();
 		document.body.classList.remove('searching');
@@ -147,6 +144,13 @@ function keydown(event) {
 				}
 			} return; }
 		} break;
+		case 'Ctrl+KeyZ': case 'Ctrl+KeyY': {
+			if (locationFor(document.defaultView).name !== 'playlist') { return; }
+			const undo = event.code === 'KeyZ', action = undo ? 'undo' : 'redo';
+			if (Player.playlist[action]()) {
+				notify.success(undo ? 'Undid' : 'Redid' +' last change', `Press Ctrl + ${ undo ? 'Y' : 'Z' } to revert`);
+			} else { notify.info(`Nothing to ${action}`, 'Playlist was not modified'); }
+		} break;
 		case 'Ctrl+KeyO': {
 			const reply = document.defaultView.prompt('Please paste a comma, space or line separated list of YouTube video IDs or URLs below:');
 			reply && importVideos(reply);
@@ -171,6 +175,7 @@ function keydown(event) {
 		case 'KeyP': { Player.playlist.prev(); } break;
 		case 'KeyN': { Player.playlist.next(); } break;
 		case 'KeyL': { Player.playlist.loop(); } break;
+		case 'Ctrl+Shift+KeyR': { Runtime.reload(); } break;
 		default: return;
 	}
 	event.preventDefault(); event.stopPropagation();
@@ -216,7 +221,7 @@ function mouseup(event) {
 function copy(event) {
 	if (event.target.matches('TEXTAREA, input:not([type="range"])')) { return; }
 	if (event.target.ownerDocument.getSelection().type === 'Range') { return; }
-	const tile = event.target.ownerDocument.querySelector('[video-id]:hover'); if (tile) {
+	const tile = findElement(event, '[video-id]:hover'); if (tile) {
 		const url = 'https://www.youtube.com/watch?v='+ tile.getAttribute('video-id');
 		event.clipboardData.setData('text/plain', url);
 		event.clipboardData.setData('text/uri-list', url);
@@ -237,7 +242,7 @@ function drop(event) {
 	event.preventDefault(); // never navigate
 	if (!event.dataTransfer) { return; }
 	if (event.dataTransfer.getData('<yTO-internal>')) { return; }
-	importVideos(event.dataTransfer);
+	importVideos(event.dataTransfer, positionInParent(event.target.closest('#playlist media-tile')));
 }
 
 function dragover(event) {
@@ -252,7 +257,7 @@ Object.entries(listeners).forEach(([ name, listener, ]) => { (listeners[name] = 
 		if (views) { return views; }
 		const view = (event.target.ownerDocument || event.target).defaultView;
 		const locs = getViews(), { windowId, } = locs.find(_=>_.view === view);
-		views = event.views = locs.filter(_=>_.windowId === windowId).map(_=>_.view)
+		views = locs.filter(_=>_.windowId === windowId).map(_=>_.view)
 		.filter(_ => _ !== view && _.document.hidden === false); views.unshift(view); return views;
 	}, enumerable: true, configurable: true, });
 	(await listener.apply(this, arguments));
@@ -264,7 +269,7 @@ return { listeners, register({ document, }) {
 	);
 }, };
 
-function importVideos(text) {
+function importVideos(text, index) {
 	if (typeof text === 'object') { if (text.getData('text/html')) {
 		const links = [ ]; text.getData('text/html').replace(/<a\b.*?href="(.*?)"/g, (_, l) => (links.push(unescapeHtml(l)), ''));
 		text = links.filter((e, i, a) => (!i || a[i-1] !== e) && e).join('\n'); // filter & deduplicate sequences
@@ -275,9 +280,11 @@ function importVideos(text) {
 		case string.startsWith('https://youtu.be/'): return new URL(string).pathname; // e.g.: https://youtu.be/FM7MFYoylVs?list=PLMC9KNkIncKtPzgY-5rmhvj7fax8fdxoj
 	} return null; }).filter(_=>_);
 
-	const view = getViews().map(_=>_.view).find(_=>_.document.body.matches(':hover'));
-	const hovered = view && view.document.querySelector('#playlist media-tile:hover');
-	const index = hovered ? positionInParent(hovered) : Player.playlist.index;
+	if (!(index >= 0)) {
+		const view = getViews().map(_=>_.view).find(_=>_.document.body.matches(':hover'));
+		const hovered = view && view.document.querySelector('#playlist media-tile:hover');
+		index = hovered ? positionInParent(hovered) : Player.playlist.index;
+	}
 	Player.playlist.splice(index + 1, 0, ...ids);
 	notify.success(`Added ${ids.length} video${ ids.length === 1 ? '' : 's' }:`, ids.join(' '));
 }

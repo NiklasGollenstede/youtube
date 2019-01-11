@@ -30,11 +30,12 @@ ContextMenus.create({ contexts: [ 'browser_action', ], id: 'settings', title: 'S
 ContextMenus.onClicked.addListener(({ menuItemId, }) => { switch (menuItemId) {
 	case 'restart': Runtime.reload(); break;
 	case 'pllTab': showView('playlist', 'tab'); break;
-	case 'pllPopup': openView('playlist', 'popup', { useExisting: false, width: 450, height: 600, }); break;
+	case 'pllPopup': openView('playlist', 'popup', { width: 450, height: 600, }); break;
 	case 'pllSB': SidebarAction.open(); break;
 	case 'videoTab': showView('video', 'tab'); break;
 	case 'settings': showView('options', 'tab'); break;
 } });
+
 
 // global hotkeys
 Commands && Commands.onCommand.addListener(command => ({

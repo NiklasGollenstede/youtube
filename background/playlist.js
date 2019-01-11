@@ -11,11 +11,11 @@ class Playlist extends Array {
 	 */
 	constructor({ values = [ ], index, } = { }) {
 		super(...values);
-		// called with (currentIndex, oldIndex) whenever this.index changes to a different value slot in this. Does not fire if the current element is shifted.
+		// fired with (currentIndex, oldIndex) directly after this.index was changed to a different value slot in this. Does not fire if the current element was shifted.
 		this._fireSeek = setEvent(this, 'onSeek', { lazy: false, });
-		// called with (atIndex, newValue) whenever a value is added to this.
+		// fired with (atIndex, newValue) directly after a value was added to this.
 		this._fireAdd = setEvent(this, 'onAdd', { lazy: false, });
-		// called with (fromIndex, oldValue) whenever a value is removed from this.
+		// fired with (fromIndex, oldValue) directly after a value was removed from this.
 		this._fireRemove = setEvent(this, 'onRemove', { lazy: false, });
 		this._index = 0;
 		this.index = index;
@@ -105,18 +105,18 @@ class Playlist extends Array {
 	}
 
 	/**
-	 * Native array methods that change `this`. Modified to logically preserve .index and to call the event handlers.
+	 * Native array methods that change `this`. Modified to logically preserve `.index` and to call the event handlers.
 	 */
 
-	splice(at, remove, ...items) {
+	splice(at, remove, ...items) { // all other modifying methods use `.splice()`
 		if (at >= this.length) { at = this.length; }
 		else { at <<= 0; }
 		if (this._index >= at && this._index < at + remove) {
 			const was = this._index, now = at + remove;
 			this._fireSeek([ this._index = now < this.length ? now : Infinity, was, ]);
 		}
-		let removed = 0; for (let i = 0; i < remove && this.length > at; ++i) {
-			const [ was, ] = super.splice(at, 1); ++removed;
+		const removed = [ ]; for (let i = 0; i < remove && this.length > at; ++i) {
+			const was = super.splice(at, 1)[0]; removed.push(was);
 			this._index > at && --this._index;
 			this._fireRemove([ at, was, ]);
 		}

@@ -23,6 +23,7 @@ const playlist = new Playlist((await Storage.local.get([ 'playlist.values', 'pla
 let loop = false; options.playlist.children.loop.whenChange(([ value, ]) => (playlist.loop = (loop = value)));
 const savePlaylist = debounce(() => Storage.local.set({ 'playlist.values': Array.from(playlist), }), 1e3); playlist.onAdd(savePlaylist); playlist.onRemove(savePlaylist);
 playlist.onSeek(debounce(() => Storage.local.set({ 'playlist.index': playlist.index, }), 1e3));
+const undo = [ ], redo = [ ]; undo.limit = 20;
 
 /**
  * exports
@@ -71,17 +72,20 @@ const Player = {
 		get length() { return playlist.length; },
 		get current() { return Array.from(playlist); },
 		get() { return arguments.length ? playlist[arguments[0]] : playlist.get(); },
-		splice() { return playlist.splice(...arguments); },
 		onAdd: playlist.onAdd,
 		onRemove: playlist.onRemove,
 		onSeek: playlist.onSeek,
 		sort: sortPlaylist,
+		splice() { if (arguments.length < 2) { return [ ]; } arguments[0] -= 0; return playlistSplice.apply(null, arguments); },
+		undo() { if (!undo.length) { return false; } execSplice.apply(redo, undo.pop()); return true; },
+		redo() { if (!redo.length) { return false; } execSplice.apply(undo, redo.pop()); return true; },
 	}),
 	frameFor(id) {
 		for (const open of players.get(id)) { if (open instanceof RemotePlayer) { return open.frame; } }
 		return null;
 	},
 };
+
 const fireVideoOpen = setEvent(Player, 'onVideoOpen', { lazy: false, }); // (id)
 const fireVideoClose = setEvent(Player, 'onVideoClose', { lazy: false, }); // (id)
 const firePlay = setEvent(Player, 'onPlay', { lazy: false, }); // (bool)
@@ -190,6 +194,7 @@ class AudioPlayer extends global.Audio {
 		super();
 		this.id = id;
 		players.add(this.id, this);
+		this.errored = false;
 		this.load();
 		[ 'durationchange', 'ended', 'error', 'pause', 'playing', 'stalled', ]
 		.forEach(event => this.addEventListener(event, this));
@@ -199,7 +204,11 @@ class AudioPlayer extends global.Audio {
 	handleEvent(event) { switch (event.type) {
 		case 'durationchange': this.duration !== duration && fireDurationChange([ duration = this.duration, ]); break;
 		case 'ended': current === this && Player.next(); break;
-		case 'error': notify.warn(`Audio playback error`, `reloading `+ this.title, this.error && (this.error.message || 'Code: '+ this.error.code)); this.load(); break; // TODO: this loops if .load() doesn't throw but causes another error on this
+		case 'playing': this.errored = false; break;
+		case 'error': {
+			notify.warn(`Audio playback error`, `reloading `+ this.title, this.error && (this.error.message || 'Code: '+ this.error.code));
+			if (!this.errored) { this.errored = true; this.load(); }
+		} break;
 		/*case 'pause': case 'playing':*/ case 'stalled': current === this && this.playing !== playing && firePlay([ playing = this.playing, ]) ;
 	} }
 
@@ -298,7 +307,7 @@ async function sortPlaylist(by, direction = 0) {
 	const current = playlist.get();
 	const sorted = playlist.slice().sort((a, b) => ((data.get(a) - data.get(b)) || (position.get(a) - position.get(b))) * direction); // sort a .slice() to avoid updates
 	const reverse = !directed && playlist.every((tab, index) => tab === sorted[index]); // reverse if nothing changed
-	playlist.splice(0, Infinity, ...(reverse ? sorted.reverse() : sorted)); // write change
+	playlistSplice(0, Infinity, ...(reverse ? sorted.reverse() : sorted)); // write change
 	playlist.index = playlist.indexOf(current);
 }
 
@@ -307,8 +316,23 @@ function shufflePlaylist() {
 	for (let i = 0, l = a.length; i < l; ++i) {
 		const j = Math.random() * l |0;
 		const t = a[j]; a[j] = a[i]; a[i] = t;
-	} playlist.splice(0, Infinity, ...a);
+	} playlistSplice(0, Infinity, ...a);
 	playlist.index = playlist.indexOf(current);
+}
+
+function playlistSplice() { // always use this instead of `playlist.splice()`
+	const removed = execSplice.apply(undo, arguments);
+	redo.length = 0; undo.length > undo.limit && undo.shift();
+	return removed;
+}
+
+/// applies its `arguments` to playlist.splice() and pushes an array to `this`
+/// that can be used as arguments to this function to undo that action
+function execSplice() {
+	const undo = this; // eslint-disable-line
+	const removed = playlist.splice.apply(playlist, arguments);
+	undo.push([ arguments[0], arguments.length - 2, ...removed, ]);
+	return removed;
 }
 
 }); })(this);
