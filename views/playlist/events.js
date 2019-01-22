@@ -9,6 +9,24 @@
 	'common/dom': { scrollToCenter, },
 }) => {
 
+
+/**
+ * exports
+ */
+
+function register(window) {
+	Object.entries(listeners).forEach(([ name, listener, ]) =>
+		window.document.addEventListener(name, listener, !!listener.capturing)
+	);
+}
+
+const listeners = { contextmenu, dblclick, click, keydown, input, selectionchange, mouseup, copy, paste, drop, dragover, };
+
+
+/**
+ * event listeners
+ */
+
 function contextmenu(event) {
 	event.preventDefault(); ContextMenu.remove();
 	const { target, clientX: x, clientY: y, } = event;
@@ -43,13 +61,13 @@ function contextmenu(event) {
 	if (inList) {
 		items.push(
 			{ icon: '⇵',	 label: 'Sort by',                      type: 'menu', children: [
-				{ icon: '⌖',	 label: 'position',                     action: () => Player.playlist.sort('position').catch(notify.error.bind(null, 'Sorting failed')), },
+				{ icon: '⌖',	 label: 'position',                     action: () => Player.playlist.sortBy('position').catch(notify.error.bind(null, 'Sorting failed')), },
 				{ icon: '👓',	 label: 'views',                        type: 'menu', children: [
-					{ icon: '🌐',	 label: 'global',                       action: () => Player.playlist.sort('viewsGlobal').catch(notify.error.bind(null, 'Sorting failed')), },
-					{ icon: '⏱',	 label: 'yours in total duration',      action: () => Player.playlist.sort('viewsDuration').catch(notify.error.bind(null, 'Sorting failed')), },
-					{ icon: '↻',	 label: 'yours in times viewed',        action: () => Player.playlist.sort('viewsTimes').catch(notify.error.bind(null, 'Sorting failed')), },
+					{ icon: '🌐',	 label: 'global',                       action: () => Player.playlist.sortBy('viewsGlobal').catch(notify.error.bind(null, 'Sorting failed')), },
+					{ icon: '⏱',	 label: 'yours in total duration',      action: () => Player.playlist.sortBy('viewsDuration').catch(notify.error.bind(null, 'Sorting failed')), },
+					{ icon: '↻',	 label: 'yours in times viewed',        action: () => Player.playlist.sortBy('viewsTimes').catch(notify.error.bind(null, 'Sorting failed')), },
 				], },
-				{ icon: '🔀',	 label: 'Shuffle',                      action: () => Player.playlist.sort('random').catch(notify.error.bind(null, 'Sorting failed')), },
+				{ icon: '🔀',	 label: 'Shuffle',                      action: () => Player.playlist.sortBy('random').catch(notify.error.bind(null, 'Sorting failed')), },
 			], },
 			{ icon: '🛇',	 label: 'Clear list',                   action: () => Player.playlist.splice(0, Infinity), },
 		);
@@ -120,7 +138,7 @@ function click({ target, button, }) {
 		if (pendingToggle) {
 			clearTimeout(pendingToggle); pendingToggle = 0; // omit both
 		} else {
-			pendingToggle = setTimeout(() => { pendingToggle = 0; Player.toggle(); }, 200);
+			pendingToggle = setTimeout(() => { pendingToggle = 0; Player.toggle(); }, 135);
 		}
 	}
 } let pendingToggle = 0;
@@ -227,7 +245,7 @@ function copy(event) {
 		event.clipboardData.setData('text/uri-list', url);
 		notify.success('Copied video URL', url);
 	} else {
-		event.clipboardData.setData('text/plain', Player.playlist.current.join('\n'));
+		event.clipboardData.setData('text/plain', Player.playlist.join('\n'));
 		notify.success('Copied playlist', `The IDs of the current ${Player.playlist.length} videos were placed in the clipboard`);
 	} event.preventDefault();
 }
@@ -251,7 +269,11 @@ function dragover(event) {
 }
 dragover.capturing = true;
 
-const listeners = { contextmenu, dblclick, click, keydown, input, selectionchange, mouseup, copy, paste, drop, dragover, };
+
+/**
+ * module initialization
+ */
+
 Object.entries(listeners).forEach(([ name, listener, ]) => { (listeners[name] = async function(event) { try {
 	let views; Object.defineProperty(event, 'views', { get() {
 		if (views) { return views; }
@@ -263,11 +285,12 @@ Object.entries(listeners).forEach(([ name, listener, ]) => { (listeners[name] = 
 	(await listener.apply(this, arguments));
 } catch (error) { notify.error(error); } }).capturing = listener.capturing || false; });
 
-return { listeners, register({ document, }) {
-	Object.entries(listeners).forEach(([ name, listener, ]) =>
-		document.addEventListener(name, listener, !!listener.capturing)
-	);
-}, };
+return { listeners, register, };
+
+
+/**
+ * helpers
+ */
 
 function importVideos(text, index) {
 	if (typeof text === 'object') { if (text.getData('text/html')) {

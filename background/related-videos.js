@@ -35,7 +35,7 @@ const update = debounce(() => {
 Player.playlist.onAdd(async (index, id) => { const related = v2r.get(id) || (await VideoInfo.getData(id)).related || [ ]; added.push({ id, related, }); update(); });
 Player.playlist.onRemove((index, id) => { removed.push(id); update(); });
 Promise.all(
-	Player.playlist.current.map(async id => { const related = (await VideoInfo.getData(id)).related || [ ]; added.push({ id, related, }); })
+	Player.playlist.map(async id => { const related = (await VideoInfo.getData(id)).related || [ ]; added.push({ id, related, }); })
 ).then(update).catch(notify.error);
 
 return list;

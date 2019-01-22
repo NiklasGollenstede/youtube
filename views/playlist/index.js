@@ -47,10 +47,8 @@ return async function View(window) {
 	const groupList = document.querySelector('#groups .groups'); groupList.textContent = '';
 
 	{ // playlist
-		const ids = Player.playlist.current;
-		const tiles = document.querySelector('#playlist .tiles'); tiles.textContent = '';
-		enableDragIn(tiles);
-		ids.forEach(id => tiles.appendChild(createTile(id)));
+		const tiles = document.querySelector('#playlist .tiles'); tiles.textContent = ''; enableDragIn(tiles);
+		Player.playlist.forEach(id => tiles.appendChild(createTile(id)));
 
 		Player.playlist.onAdd((index, id) => tiles.insertBefore(createTile(id), tiles.children[index]), off);
 		Player.playlist.onRemove(index => tiles.children[index].remove(), off);
@@ -251,7 +249,7 @@ function enableDragIn(tiles) {
 			item.remove();
 			// tiles.querySelectorAll('media-tile:not(.in-playlist)').forEach(_=>_.remove()); // remove any inserted items
 			const { x, y, } = Events.listeners.dragover, { top, left, bottom, right, } = tiles.getBoundingClientRect();
-			if (top > y || bottom < y || left > x || right < x) { return; }
+			if (top > y || bottom < y || left > x || right < x) { return; } // TODO: this broken!
 			Player.playlist.splice(newIndex, 0, item.getAttribute('video-id')); // use getAttribute to retrieve IDs of cross-window drops
 		},
 		onUpdate({ item, newIndex, oldIndex, }) { // sorted within

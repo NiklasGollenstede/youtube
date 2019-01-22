@@ -4,6 +4,7 @@
 	'node_modules/web-ext-utils/loader/': Content,
 	'node_modules/web-ext-utils/loader/views': { getUrl, showView, openView, },
 	'node_modules/web-ext-utils/update/': updated,
+	'node_modules/keep-tabs-open/': keepExtTabsOpen,
 	'common/options': options,
 	content,
 	Downloader,
@@ -47,6 +48,13 @@ Commands && Commands.onCommand.addListener(command => ({
 
 // apply content script to existing tabs (don't await the result because that currently doesn't always resolve in Firefox ...)
 content.applyNow().then(frames => debug && console.info(`Attached to ${ frames.size } tabs:`, frames));
+
+
+// allow extension tabs to stay open when calling `browser.runtime.reload()`
+keepExtTabsOpen({ browser: global.browser, iconUrl: '/icon.png', title: 'Reloading: '+ manifest.name, message: `
+	<style> :root { background: #424F5A; filter: invert(1) hue-rotate(180deg); font-family: Segoe UI, Tahoma, sans-serif; } </style>
+	<h1>Reloading ${manifest.name}</h1><p>This tab should close in a few seconds ...</p>
+`, });
 
 
 // debug stuff

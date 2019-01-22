@@ -6,7 +6,7 @@
 	'node_modules/es6lib/functional': { debounce, },
 	'node_modules/es6lib/object': { MultiMap, },
 	'common/options': options,
-	utils: { windowIsIdle, },
+	utils: { windowIsIdle, UndoArray, SpliceArray, },
 	content,
 	Playlist,
 	VideoInfo,
@@ -19,11 +19,24 @@
 const players = new MultiMap, videos = new Set;
 const container = global.document.head.appendChild(global.document.createElement('players'));
 let current = null, duration = NaN, playing = false;
-const playlist = new Playlist((await Storage.local.get([ 'playlist.values', 'playlist.index', ]).then(_ => ({ values: _['playlist.values'], index: _['playlist.index'], }))));
-let loop = false; options.playlist.children.loop.whenChange(([ value, ]) => (playlist.loop = (loop = value)));
-const savePlaylist = debounce(() => Storage.local.set({ 'playlist.values': Array.from(playlist), }), 1e3); playlist.onAdd(savePlaylist); playlist.onRemove(savePlaylist);
+const playlist = SpliceArray.proxySet(new (class extends UndoArray.for(Playlist, {
+		mapPrivateProperties: { set(i, v) { i._undo = v; }, get(i) { return i._undo; }, },
+		instanceOptions: { limit: 20, commit: 1e3, },
+	}) {
+		next() { this.index++; } prev() { this.index--; }
+		sortBy() { return sortPlaylist.apply(null, arguments); }
+		loop(value = !loop) { options.playlist.children.loop.value = loop = !!value; }
+	}
+)((await
+	Storage.local.get([ 'playlist.values', 'playlist.index', ])
+	.then(_ => ({ values: _['playlist.values'], index: _['playlist.index'], }))
+)), {
+	// privateKey(key) { return typeof key === 'string' && key[0] === '_'; },
+});
+let loop = false; options.playlist.children.loop.whenChange(([ value, ]) => { loop = value; });
+const savePlaylist = debounce(() => Storage.local.set({ 'playlist.values': Array.from(playlist), }), 1e3);
+playlist.onAdd(savePlaylist); playlist.onRemove(savePlaylist);
 playlist.onSeek(debounce(() => Storage.local.set({ 'playlist.index': playlist.index, }), 1e3));
-const undo = [ ], redo = [ ]; undo.limit = 20;
 
 /**
  * exports
@@ -61,25 +74,10 @@ const Player = {
 		if (!current) { return; }
 		current.seekTo(sec);
 	},
-	next() { Player.playlist.next(); },
-	prev() { Player.playlist.prev(); },
-	loop() { Player.playlist.loop(); },
-	playlist: Object.freeze({
-		next() { playlist.index++; },
-		prev() { playlist.index--; },
-		loop(value = !playlist.loop) { options.playlist.children.loop.value = playlist.loop = !!value; },
-		get index() { return playlist.index; }, set index(value) { playlist.index = value; },
-		get length() { return playlist.length; },
-		get current() { return Array.from(playlist); },
-		get() { return arguments.length ? playlist[arguments[0]] : playlist.get(); },
-		onAdd: playlist.onAdd,
-		onRemove: playlist.onRemove,
-		onSeek: playlist.onSeek,
-		sort: sortPlaylist,
-		splice() { if (arguments.length < 2) { return [ ]; } arguments[0] -= 0; return playlistSplice.apply(null, arguments); },
-		undo() { if (!undo.length) { return false; } execSplice.apply(redo, undo.pop()); return true; },
-		redo() { if (!redo.length) { return false; } execSplice.apply(undo, redo.pop()); return true; },
-	}),
+	next() { playlist.next(); },
+	prev() { playlist.prev(); },
+	loop() { playlist.loop(); },
+	playlist,
 	frameFor(id) {
 		for (const open of players.get(id)) { if (open instanceof RemotePlayer) { return open.frame; } }
 		return null;
@@ -191,30 +189,32 @@ class RemotePlayer {
 
 class AudioPlayer extends global.Audio {
 	constructor(id) {
-		super();
-		this.id = id;
-		players.add(this.id, this);
-		this.errored = false;
-		this.load();
+		super(); players.add(this.id, this);
+		this.id = id; container.appendChild(this);
 		[ 'durationchange', 'ended', 'error', 'pause', 'playing', 'stalled', ]
 		.forEach(event => this.addEventListener(event, this));
-		container.appendChild(this);
+		this.errored = false; this.loading = false;
+		this.load();
 	}
+
+	play() { this.errored = false; super.play().catch(error => {
+		if (error.name === 'AbortError') { return; } // dafuq
+		handleAudioError(this, error);
+	}); }
 
 	handleEvent(event) { switch (event.type) {
 		case 'durationchange': this.duration !== duration && fireDurationChange([ duration = this.duration, ]); break;
 		case 'ended': current === this && Player.next(); break;
 		case 'playing': this.errored = false; break;
-		case 'error': {
-			notify.warn(`Audio playback error`, `reloading `+ this.title, this.error && (this.error.message || 'Code: '+ this.error.code));
-			if (!this.errored) { this.errored = true; this.load(); }
-		} break;
+		case 'error': handleAudioError(this); break;
 		/*case 'pause': case 'playing':*/ case 'stalled': current === this && this.playing !== playing && firePlay([ playing = this.playing, ]) ;
 	} }
 
-	async load() {
-		let info = (await VideoInfo.getData(this.id));
-		if (!info.audioUrl || info.error || Date.now() - info.fetched > 12e5/*20 min*/) {
+	load(reload) { (async () => { if (this.loading) { return; } else {
+		this.loading = true; // there should be a timeout for this
+	} try {
+		let info = !reload && (await VideoInfo.getData(this.id));
+		if (!info && !info.audioUrl || info.error || Date.now() - info.fetched > 12e5/*20 min*/) {
 			(await VideoInfo.refresh(this.id));
 			info = (await VideoInfo.getData(this.id));
 			if (!info.audioUrl || info.error) {
@@ -227,9 +227,9 @@ class AudioPlayer extends global.Audio {
 		this.volume = loundessToVolume(info.loudness);
 		this.title = info.title;
 		current.currentTime = time;
-		current === this && this.playing !== playing && (playing ? this.play() : this.pause());
+		current === this && this.playing !== playing && (playing ? super.play() : super.pause());
 		console.log('audio loaded', this);
-	}
+	} finally { this.loading =  false; } })(); }
 
 	get playing() { return !this.paused; }
 	start() { this.currentTime = 0; this.play(); }
@@ -249,6 +249,11 @@ return Player;
 /**
  * functions
  */
+
+function handleAudioError(audio) {
+	notify.warn(`Audio playback error`, `reloading `+ audio.title, audio.error && (audio.error.message || 'Code: '+ audio.error.code));
+	if (!audio.errored) { audio.errored = true; audio.load(true); }
+}
 
 /// maps the relative loudness analyzed by YouTube to the appropriate playback volume
 function loundessToVolume(loundess) {
@@ -289,7 +294,6 @@ async function sortPlaylist(by, direction = 0) {
 	direction = directed && direction < 0 ? -1 : 1;
 	console.log('playlist_sort', by, direction, directed);
 	const mapper = { // must return a signed 32-bit integer
-		random:        _   => Math.random() * 0xffffffff,
 		position:      async id => {
 			const frame = Player.frameFor(id); if (!frame) { return 0; }
 			const info = (await Tabs.get(frame.tabId)); return (info.windowId << 16) + info.index;
@@ -304,35 +308,17 @@ async function sortPlaylist(by, direction = 0) {
 		.catch(error => (console.error(error), 0))
 		.then(value => { data.set(id, value || 0); position.set(id, index); }) // add the previous index to make the sorting stable
 	)));
-	const current = playlist.get();
 	const sorted = playlist.slice().sort((a, b) => ((data.get(a) - data.get(b)) || (position.get(a) - position.get(b))) * direction); // sort a .slice() to avoid updates
 	const reverse = !directed && playlist.every((tab, index) => tab === sorted[index]); // reverse if nothing changed
-	playlistSplice(0, Infinity, ...(reverse ? sorted.reverse() : sorted)); // write change
-	playlist.index = playlist.indexOf(current);
+	playlist.splice(0, Infinity, ...(reverse ? sorted.reverse() : sorted)); // write change
 }
 
 function shufflePlaylist() {
-	const current = playlist.get(), a = playlist.slice();
+	const a = playlist.slice();
 	for (let i = 0, l = a.length; i < l; ++i) {
 		const j = Math.random() * l |0;
 		const t = a[j]; a[j] = a[i]; a[i] = t;
-	} playlistSplice(0, Infinity, ...a);
-	playlist.index = playlist.indexOf(current);
-}
-
-function playlistSplice() { // always use this instead of `playlist.splice()`
-	const removed = execSplice.apply(undo, arguments);
-	redo.length = 0; undo.length > undo.limit && undo.shift();
-	return removed;
-}
-
-/// applies its `arguments` to playlist.splice() and pushes an array to `this`
-/// that can be used as arguments to this function to undo that action
-function execSplice() {
-	const undo = this; // eslint-disable-line
-	const removed = playlist.splice.apply(playlist, arguments);
-	undo.push([ arguments[0], arguments.length - 2, ...removed, ]);
-	return removed;
+	} playlist.splice(0, Infinity, ...a);
 }
 
 }); })(this);

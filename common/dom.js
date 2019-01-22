@@ -1,5 +1,6 @@
 (function(global) { 'use strict'; define(({ }) => { // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+// TODO: should check if window is visible (skip animation if not) and abort after some time (duration? duration*2?)
 function scrollToCenter(element, { ifNeeded = true, duration = 250, } = { }) { return new Promise((resolve) => {
 	const scroller = element.offsetParent;
 	// const scroller = element.closest('.scroll-inner'); // firefox bug: .offsetParent is the closest element with a CSS filter.

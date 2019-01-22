@@ -1,8 +1,9 @@
 (function(global) { 'use strict'; define(({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
 	'node_modules/web-ext-utils/utils/event': { setEvent, },
+	utils: { SpliceArray, },
 }) => {
 
-class Playlist extends Array {
+class Playlist extends SpliceArray {
 
 	/**
 	 * Creates a PlayList, which is an Array with a current position (index).
@@ -109,11 +110,20 @@ class Playlist extends Array {
 	 */
 
 	splice(at, remove, ...items) { // all other modifying methods use `.splice()`
-		if (at >= this.length) { at = this.length; }
-		else { at <<= 0; }
-		if (this._index >= at && this._index < at + remove) {
-			const was = this._index, now = at + remove;
-			this._fireSeek([ this._index = now < this.length ? now : Infinity, was, ]);
+		at = Math.floor(at); at = Math.min(Math.max(0, at < 0 ? this.length - at : at), this.length);
+		remove = Math.max(0, Math.floor(remove) || 0);
+
+		const oldIndex = this._index; if (oldIndex >= at && oldIndex < at + remove) {
+			const offset = items.indexOf(this.get()); if (offset > 0) { // preserve `.index` on element
+				const removed =  this.slice(at, at + remove);
+				Playlist.prototype.splice.call(this, at, oldIndex - at);
+				Playlist.prototype.splice.call(this, at + 1, remove - (oldIndex - at) - 1);
+				Playlist.prototype.splice.call(this, at, 0, ...items.slice(0, offset));
+				Playlist.prototype.splice.call(this, at + offset + 1, 0, ...items.slice(offset + 1));
+				return removed;
+			} else { // must move `.index` to different element
+				this._fireSeek([ this._index = at + remove < this.length ? at + remove : Infinity, oldIndex, ]);
+			}
 		}
 		const removed = [ ]; for (let i = 0; i < remove && this.length > at; ++i) {
 			const was = super.splice(at, 1)[0]; removed.push(was);
@@ -126,40 +136,6 @@ class Playlist extends Array {
 			this._fireAdd([ at + i, items[i], ]);
 		}
 		return removed;
-	}
-
-	push() {
-		this.splice(this.length - 1, 0, ...arguments);
-		return this.length;
-	}
-
-	pop() {
-		return this.splice(this.length - 1, 1)[0];
-	}
-
-	shift() {
-		return this.splice(0, 1)[0];
-	}
-
-	unshift() {
-		this.splice(0, 0, ...arguments);
-		return this.length;
-	}
-
-	// TODO: .sort() and .reverse() should keep the element at .index and move around it
-
-	sort() {
-		const current = this.get();
-		super.sort(...arguments);
-		this.splice(0, Infinity, ...this); // trigger event handlers
-		this.index = super.lastIndexOf(current);
-		return this;
-	}
-
-	reverse() {
-		this.splice(0, Infinity, ...this.slice().reverse()); // trigger event handlers
-		this._index = this.length - 1 - this.index;
-		return this;
 	}
 }
 

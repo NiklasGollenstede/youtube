@@ -36,6 +36,7 @@ const classes = new WeakMap, Self = new WeakMap;
 function registerMediaTileClass(window) {
 	let MediaTile = classes.get(window); if (MediaTile) { return MediaTile; }
 	MediaTile = MediaTileClass(window); classes.set(window, MediaTile);
+	window.addEventListener('unload', () => classes.delete(window));
 	window.customElements.define('media-tile', MediaTile);
 	return MediaTile;
 }
@@ -47,7 +48,8 @@ class _MediaTile {
 		this.videoId = '';
 		this.onChange = this.onChange.bind(this);
 		this.view = null;
-		/*!self.children.length &&*/ children.forEach(node => self.appendChild(node.cloneNode(true)));
+		this.textContent = ''; // cloned elements already contain clones of the children. A better solution would be to use a shadow DOM, but styling that won't work until firefox implements the `:host-context()` CSS pseudo class function
+		!self.children.length && children.forEach(node => self.appendChild(node.cloneNode(true)));
 	}
 	onChange(data) {
 		const self = this.public;

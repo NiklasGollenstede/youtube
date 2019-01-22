@@ -17,6 +17,7 @@
 	"dependencies": {
 		"browserify": "16.2.2",
 		"es6lib": "0.0.2",
+		"keep-tabs-open": "1.0.2",
 		"multiport": "0.2.3",
 		"pbq": "0.3.6",
 		"regexpx": "0.1.4",
