@@ -110,7 +110,7 @@ class Playlist extends SpliceArray {
 	 */
 
 	splice(at, remove, ...items) { // all other modifying methods use `.splice()`
-		at = Math.floor(at); at = Math.min(Math.max(0, at < 0 ? this.length - at : at), this.length);
+		at = Math.floor(at) || 0; at = Math.min(Math.max(0, at < 0 ? this.length - at : at), this.length);
 		remove = Math.max(0, Math.floor(remove) || 0);
 
 		const oldIndex = this._index; if (oldIndex >= at && oldIndex < at + remove) {

@@ -12,7 +12,8 @@ module.exports = function({ options, /*packageJson,*/ manifestJson, files, }) {
 		'webRequest',
 		'webRequestBlocking',
 		'https://www.youtube.com/*', 'https://gaming.youtube.com/*',
-		'https://i.ytimg.com/*', 'https://*.googlevideo.com/*'
+		'https://i.ytimg.com/*', 'https://*.googlevideo.com/*',
+		'file:///*',
 	);
 
 	!options.viewRoot && (options.viewRoot = options.chrome ? 'ytO.html' : 'ytO');
@@ -46,6 +47,7 @@ module.exports = function({ options, /*packageJson,*/ manifestJson, files, }) {
 		'es6lib/observer.js',
 		'es6lib/string.js',
 		'keep-tabs-open/index.js',
+		'ytdl-core/LICENSE',
 		'multiport/index.js',
 		'pbq/require.js',
 		'regexpx/index.js',

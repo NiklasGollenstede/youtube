@@ -34,7 +34,7 @@ const playlist = SpliceArray.proxySet(new (class extends UndoArray.for(Playlist,
 	// privateKey(key) { return typeof key === 'string' && key[0] === '_'; },
 });
 let loop = false; options.playlist.children.loop.whenChange(([ value, ]) => { loop = value; });
-const savePlaylist = debounce(() => Storage.local.set({ 'playlist.values': Array.from(playlist), }), 1e3);
+const savePlaylist = debounce(() => Storage.local.set({ 'playlist.values': playlist.slice(), 'playlist.index': playlist.index, }), 1e3);
 playlist.onAdd(savePlaylist); playlist.onRemove(savePlaylist);
 playlist.onSeek(debounce(() => Storage.local.set({ 'playlist.index': playlist.index, }), 1e3));
 

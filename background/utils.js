@@ -109,7 +109,7 @@ const UndoArray = makeUndoArray(SpliceArray); function makeUndoArray(SpliceArray
 	 * Every call clears the redo stack and resets the commit timeout.
 	 */
 	splice() {
-		let at = Math.floor(arguments[0]); at = Math.min(Math.max(0, at < 0 ? this.length - at : at), this.length);
+		let at = Math.floor(arguments[0]) || 0; at = Math.min(Math.max(0, at < 0 ? this.length - at : at), this.length);
 		const { undo, redo, commit, } = Self.get(this);
 		const removed = super.splice(...arguments); // `super.splice()` shouldn't recursively call `this.splice()` again
 		undo[undo.length - 1].push([ at, arguments.length - 2, ...removed, ]);
@@ -135,6 +135,9 @@ const UndoArray = makeUndoArray(SpliceArray); function makeUndoArray(SpliceArray
 		undo[undo.length - 1] = applySplices(this, super.splice, calls);
 		undo.push([ ]); return true;
 	}
+	/// Returns how many steps and be un-/redone, i.e. on how many consecutive calls the respective method would return `true`.
+	get undoable() { const { undo, } = Self.get(this); return undo[undo.length - 1].length ? undo.length : undo.length - 1; }
+	get redoable() { return Self.get(this).redo.length; }
 	static get [Symbol.species]() { return SpliceArray[Symbol.species]; } /// Redirects to `Super` class.
 	/**
 	 * Implementation: Invariants (between calls):

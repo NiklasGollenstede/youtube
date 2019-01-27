@@ -2,13 +2,13 @@
 	'node_modules/web-ext-utils/browser/': { Runtime, Tabs, Windows, Bookmarks, },
 	'node_modules/web-ext-utils/loader/views': { getViews, showView, locationFor, },
 	'node_modules/web-ext-utils/utils/notify': notify,
-	'node_modules/es6lib/string': { fuzzyIncludes, unescapeHtml, },
-	'node_modules/es6lib/dom': { createElement: _createElement, writeToClipboard, },
+	'node_modules/es6lib/string': { fuzzyIncludes, },
+	'node_modules/es6lib/dom': { createElement: _createElement, saveAs, writeToClipboard, },
 	'background/player': Player,
+	'background/playlist-tools': { addVideosFromText, replaceVideosWithFiles, toHtml, },
 	'common/context-menu': ContextMenu,
 	'common/dom': { scrollToCenter, },
 }) => {
-
 
 /**
  * exports
@@ -20,7 +20,8 @@ function register(window) {
 	);
 }
 
-const listeners = { contextmenu, dblclick, click, keydown, input, selectionchange, mouseup, copy, paste, drop, dragover, };
+const listeners = { contextmenu, dblclick, click, keydown, input, selectionchange, mouseup, cut, copy, paste, drop, dragover, };
+const _helpers = { highlight, positionInParent, findElement, forEachElement, focusTab, openTab, closeUnloadedTab, };
 
 
 /**
@@ -70,6 +71,8 @@ function contextmenu(event) {
 				{ icon: '🔀',	 label: 'Shuffle',                      action: () => Player.playlist.sortBy('random').catch(notify.error.bind(null, 'Sorting failed')), },
 			], },
 			{ icon: '🛇',	 label: 'Clear list',                   action: () => Player.playlist.splice(0, Infinity), },
+			Player.playlist.undoable && { icon: '↶',	 label: 'Undo', action: () => Player.playlist.undo(), }, // ↶ ↫ ⎌
+			Player.playlist.redoable && { icon: '↷',	 label: 'Redo', action: () => Player.playlist.redo(), }, // ↷ ↬
 		);
 	}
 	if (target.closest('.group .header .title')) {
@@ -147,21 +150,26 @@ function keydown(event) {
 	const document = event.target.ownerDocument;
 	const key = (event.target.matches('TEXTAREA, input:not([type="range"])') ? 'Input+' : '')
 	+ (event.ctrlKey ? 'Ctrl+' : '') + (event.altKey ? 'Alt+' : '') + (event.shiftKey ? 'Shift+' : '') + event.code;
-	switch (key) {
+	let retVal; done: { switch (key) {
+		case 'Escape': {
+			const selected = document.querySelectorAll('media-tile.selected');
+			if (selected.length) { selected.forEach(_=>_.classList.remove('selected')); break done; }
+			const toBeCut = document.querySelectorAll('media-tile.cut');
+			if (toBeCut.length) { toBeCut.forEach(tile => { tile.classList.remove('cut'); delete tile.dataset.cutId; }); }
+			return;
+		} break; // eslint-disable-line
 		case 'Ctrl+KeyF': {
 			if (!findElement(event, '#searchbox>input', (box, window) => {
 				window.focus(); box.focus(); box.select(); return true;
 			})) { return; }
 		} break;
 		case 'KeyF': {
-			cancel: { for (const { document, window, } of event.views) {
-				if (document.fullscreen) {
-					document.exitFullscreen(); break cancel;
-				} else if (document.querySelector('video')) {
-					window.focus(); document.querySelector('video').requestFullscreen();  break cancel;
-				}
-			} return; }
-		} break;
+			for (const { document, window, } of event.views) { if (document.fullscreen) {
+				document.exitFullscreen(); break done;
+			} else if (document.querySelector('video')) {
+				window.focus(); document.querySelector('video').requestFullscreen();  break done;
+			} } return;
+		} break; // eslint-disable-line
 		case 'Ctrl+KeyZ': case 'Ctrl+KeyY': {
 			if (locationFor(document.defaultView).name !== 'playlist') { return; }
 			const undo = event.code === 'KeyZ', action = undo ? 'undo' : 'redo';
@@ -169,13 +177,16 @@ function keydown(event) {
 				notify.success(undo ? 'Undid' : 'Redid' +' last change', `Press Ctrl + ${ undo ? 'Y' : 'Z' } to revert`);
 			} else { notify.info(`Nothing to ${action}`, 'Playlist was not modified'); }
 		} break;
-		case 'Ctrl+KeyO': {
-			const reply = document.defaultView.prompt('Please paste a comma, space or line separated list of YouTube video IDs or URLs below:');
-			reply && importVideos(reply);
+		case 'Ctrl+KeyS': {
+			retVal = saveAs.call(document.defaultView, new global.Blob(
+				[ toHtml(Player.playlist), ], { type: 'text/html', }
+			), `yto-${ (new Date).toISOString().replace(/:(?:\d\d\..*$)?/g, '') }.html`);
 		} break;
-		case 'Escape': {
-			if (!document.querySelector('media-tile.selected')) { return; }
-			document.querySelectorAll('media-tile.selected').forEach(_=>_.classList.remove('selected'));
+		case 'Ctrl+KeyO': {
+			Object.assign(document.createElement('input'), {
+				type: 'file', accept: 'text/html, text/plain, .html, .txt',
+				onchange() { if (this.files.length) { replaceVideosWithFiles(this.files); } },
+			}).click();
 		} break;
 		case 'Input+Escape': {
 			if (!event.target.matches('#searchbox>input')) { return; }
@@ -193,10 +204,13 @@ function keydown(event) {
 		case 'KeyP': { Player.playlist.prev(); } break;
 		case 'KeyN': { Player.playlist.next(); } break;
 		case 'KeyL': { Player.playlist.loop(); } break;
+		case 'ArrowLeft': { Player.playlist.prev(); } break;
+		case 'ArrowRight': { Player.playlist.next(); } break;
 		case 'Ctrl+Shift+KeyR': { Runtime.reload(); } break;
 		default: return;
-	}
+	} }
 	event.preventDefault(); event.stopPropagation();
+	return retVal; // eslint-disable-line
 }
 
 function input({ target, }) {
@@ -222,6 +236,7 @@ function input({ target, }) {
 let selectionChanged = false; function selectionchange() { selectionChanged = true; }
 
 function mouseup(event) {
+	if (event.button) { return; }
 	if (event.ctrlKey) { const tile = event.target.closest('media-tile'); tile && tile.classList.toggle('selected'); }
 	if (!selectionChanged) { return; } selectionChanged = false;
 	const document = event.target.ownerDocument, selection = document.getSelection();
@@ -237,30 +252,56 @@ function mouseup(event) {
 }
 
 function copy(event) {
-	if (event.target.matches('TEXTAREA, input:not([type="range"])')) { return; }
-	if (event.target.ownerDocument.getSelection().type === 'Range') { return; }
-	const tile = findElement(event, '[video-id]:hover'); if (tile) {
+	forEachElement(event, 'media-tile.cut', tile => { tile.classList.remove('cut'); delete tile.dataset.cutId; });
+	if (event.target.matches('TEXTAREA, input:not([type="range"])')) { return null; }
+	if (event.target.ownerDocument.getSelection().type === 'Range') { return null; }
+	const selected = event.target.ownerDocument.querySelectorAll('media-tile.selected');
+	const tile = !selected.length && findElement(event, '[video-id]:hover'); if (tile) {
 		const url = 'https://www.youtube.com/watch?v='+ tile.getAttribute('video-id');
 		event.clipboardData.setData('text/plain', url);
 		event.clipboardData.setData('text/uri-list', url);
 		notify.success('Copied video URL', url);
 	} else {
-		event.clipboardData.setData('text/plain', Player.playlist.join('\n'));
-		notify.success('Copied playlist', `The IDs of the current ${Player.playlist.length} videos were placed in the clipboard`);
+		const ids = selected.length ? Array.from(selected, _=>_.getAttribute('video-id')) : Player.playlist;
+		if (!ids.length) { notify.warn('Not copied', 'There is nothing selected, hovered or in the playlist.'); return null; }
+		const urls = ids.map(id => 'https://www.youtube.com/watch?v='+ id).join('\n');
+		const html = toHtml(ids, 'ytO '+ (selected.length ? 'Selected' : 'Playlist'));
+		event.clipboardData.setData('text/plain', html);
+		event.clipboardData.setData('text/uri-list', urls);
+		event.clipboardData.setData('text/html', html);
+		notify.success('Copied playlist', `The IDs of the current ${ids.length} videos were placed in the clipboard`);
 	} event.preventDefault();
+	return selected.length ? Array.from(selected) : tile ? [ tile, ] : null;
+}
+
+function cut(event) {
+	const cutIds = (copy(event) || [ ]).filter(_=>_.closest('#playlist')).map(tile => {
+		tile.classList.add('cut'); return (tile.dataset.cutId = Math.random().toString(32).slice(2));
+	}).reduce((o, k) => ((o[k] = 1), o), { });
+	event.clipboardData.setData('<yTO-internal>', JSON.stringify({ cut: cutIds, }));
 }
 
 function paste(event) {
+	const cutIds = JSON.parse(event.clipboardData.getData('<yTO-internal>') || '{}').cut || { };
+	forEachElement(event, 'media-tile.cut', tile => { if (cutIds[tile.dataset.cutId]) {
+		Player.playlist.splice(positionInParent(tile), 1);
+	} else {
+		tile.classList.remove('cut'); delete tile.dataset.cutId;
+	} });
 	if (event.target.matches('TEXTAREA, input:not([type="range"])')) { return; }
-	importVideos(event.clipboardData);
+	addVideosFromText(event.clipboardData);
 	event.preventDefault();
 }
 
-function drop(event) {
+async function drop(event) {
 	event.preventDefault(); // never navigate
 	if (!event.dataTransfer) { return; }
 	if (event.dataTransfer.getData('<yTO-internal>')) { return; }
-	importVideos(event.dataTransfer, positionInParent(event.target.closest('#playlist media-tile')));
+	if (event.dataTransfer.files.length) {
+		(await replaceVideosWithFiles(event.dataTransfer.files));
+	} else {
+		addVideosFromText(event.dataTransfer, positionInParent(event.target.closest('#playlist media-tile')));
+	}
 }
 
 function dragover(event) {
@@ -274,6 +315,7 @@ dragover.capturing = true;
  * module initialization
  */
 
+let lastEvent = null;
 Object.entries(listeners).forEach(([ name, listener, ]) => { (listeners[name] = async function(event) { try {
 	let views; Object.defineProperty(event, 'views', { get() {
 		if (views) { return views; }
@@ -282,35 +324,17 @@ Object.entries(listeners).forEach(([ name, listener, ]) => { (listeners[name] = 
 		views = locs.filter(_=>_.windowId === windowId).map(_=>_.view)
 		.filter(_ => _ !== view && _.document.hidden === false); views.unshift(view); return views;
 	}, enumerable: true, configurable: true, });
-	(await listener.apply(this, arguments));
+	lastEvent = event; try {
+		(await listener.apply(this, arguments));
+	} finally { lastEvent === event && (lastEvent = null); }
 } catch (error) { notify.error(error); } }).capturing = listener.capturing || false; });
 
-return { listeners, register, };
+return { listeners, register, _helpers, };
 
 
 /**
  * helpers
  */
-
-function importVideos(text, index) {
-	if (typeof text === 'object') { if (text.getData('text/html')) {
-		const links = [ ]; text.getData('text/html').replace(/<a\b.*?href="(.*?)"/g, (_, l) => (links.push(unescapeHtml(l)), ''));
-		text = links.filter((e, i, a) => (!i || a[i-1] !== e) && e).join('\n'); // filter & deduplicate sequences
-	} else { text = text.getData('text/plain'); } }
-	const ids = text.trim().split(/[\s,;]+/g).map(string => { switch (true) {
-		case (/^[\w-]{11}$/).test(string): return string;
-		case string.startsWith('https://www.youtube.com/watch'): return new URL(string).searchParams.get('v');
-		case string.startsWith('https://youtu.be/'): return new URL(string).pathname; // e.g.: https://youtu.be/FM7MFYoylVs?list=PLMC9KNkIncKtPzgY-5rmhvj7fax8fdxoj
-	} return null; }).filter(_=>_);
-
-	if (!(index >= 0)) {
-		const view = getViews().map(_=>_.view).find(_=>_.document.body.matches(':hover'));
-		const hovered = view && view.document.querySelector('#playlist media-tile:hover');
-		index = hovered ? positionInParent(hovered) : Player.playlist.index;
-	}
-	Player.playlist.splice(index + 1, 0, ...ids);
-	notify.success(`Added ${ids.length} video${ ids.length === 1 ? '' : 's' }:`, ids.join(' '));
-}
 
 function highlight(element) {
 	if (!element) { return; }
@@ -346,6 +370,11 @@ function findElement(event, selector, action) {
 	for (const view of event.views || [ event.target.ownerDocument, ]) {
 		const element = view.document.querySelector(selector);
 		if (element) { return action ? action(element, view) : element; }
+	} return null;
+}
+function forEachElement(event, selector, action) {
+	for (const view of event.views || [ event.target.ownerDocument, ]) {
+		view.document.querySelectorAll(selector).forEach(element => action(element, view));
 	} return null;
 }
 

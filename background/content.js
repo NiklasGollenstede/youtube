@@ -73,7 +73,7 @@ messages.addHandlers({
 Tabs.onUpdated.addListener(async (tabId, { url, }) => {
 	if (!url || !(await content.appliedToFrame(tabId))) { return; }
 	messages.post({ tabId, }, 'navigated', url);
-});
+}, ...(gecko ? [ { urls: content.include, }, ] : [ ]));
 
 return content;
 

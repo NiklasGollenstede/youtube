@@ -34,6 +34,12 @@ media-tile:hover {
 	background-color: #4D4D4D;
 	border-color: #4D4D4D;
 }
+media-tile.cut {
+	box-shadow: 0 0 0 2px #FF6400;
+}
+media-tile.selected {
+	border-color: #0079bc;
+}
 media-tile.active {
 	background-color: #000;
 	border-color: red;
@@ -41,8 +47,11 @@ media-tile.active {
 media-tile.active:hover {
 	background-color: #191919;
 }
-media-tile.selected {
-	border-color: #0079bc;
+media-tile.active.selected {
+	box-shadow: inset 0 0 0 2px #0079bc;
+}
+media-tile.active.selected.cut {
+	box-shadow: inset 0 0 0 2px #0079bc, 0 0 0 2px #FF6400;
 }
 .description .duration {
 	color: white;

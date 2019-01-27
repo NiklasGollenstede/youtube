@@ -10,18 +10,22 @@
 		"url": "https://github.com/NiklasGollenstede/youtube"
 	},
 	"contributions": [ {
-		"what": { "name": "Sortable", "url": "https://rubaxa.github.io/Sortable/" },
-		"who": "Lebedev Konstantin",
+		"what": { "name": "Sortable", "url": "https://github.com/SortableJS/Sortable" },
+		"who": [ "Konstantin Lebedev", "Owen Mills" ],
 		"license": "MIT"
+	}, {
+		"what": { "name": "ytdl-core", "url": "https://github.com/fent/node-ytdl-core" },
+		"who": [ "Tobias Kutscha (https://github.com/TimeForANinja)", "Andrew Kelley (https://github.com/andrewrk)", "Mauricio Allende (https://github.com/mallendeo)", "Rodrigo Altamirano (https://github.com/raltamirano)", "Jim Buck (https://github.com/JimmyBoh)" ],
+		"license": { "name": "MIT", "url": "/node_modules/ytdl-core/LICENSE" }
 	} ],
 	"dependencies": {
 		"browserify": "16.2.2",
-		"es6lib": "0.0.2",
+		"es6lib": "0.0.3",
 		"keep-tabs-open": "1.0.2",
 		"multiport": "0.2.3",
 		"pbq": "0.3.6",
 		"regexpx": "0.1.4",
-		"sortablejs": "1.7.0",
+		"sortablejs": "1.8.1",
 		"video-plus": "github:NiklasGollenstede/video-plus#41b8280",
 		"web-ext-build": "0.0.11",
 		"web-ext-utils": "0.1.9",

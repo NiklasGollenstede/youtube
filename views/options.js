@@ -46,7 +46,7 @@ async function onCommand({ name, parent, }, buttonId) { try {
 		case 'import': {
 			let string = '';
 			if (buttonId.endsWith('file')) {
-				const file = (await loadFile({ accept: 'application/json, text/json, .json', }))[0];
+				const file = (await loadFile.call(window, { accept: 'application/json, text/json, .json', }))[0];
 				if (!file) { console.log('empty selection'); return; }
 				string = (await readBlob(file));
 			} else {

@@ -1,18 +1,15 @@
 (function(global) { 'use strict'; define(async ({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
 	'node_modules/web-ext-utils/browser/': { BrowserAction, Commands, ContextMenus, Runtime, SidebarAction, manifest, rootUrl, },
 	'node_modules/web-ext-utils/browser/version': { fennec, },
-	'node_modules/web-ext-utils/loader/': Content,
+	'node_modules/web-ext-utils/loader/': ContentLoader,
 	'node_modules/web-ext-utils/loader/views': { getUrl, showView, openView, },
 	'node_modules/web-ext-utils/update/': updated,
 	'node_modules/keep-tabs-open/': keepExtTabsOpen,
 	'common/options': options,
-	content,
-	Downloader,
-	Player,
-	require,
-	module,
+	Content, Downloader, Player, ImportFromFile: _,
+	require, module,
 }) => {
-let debug; options.debug.whenChange(([ value, ]) => { debug = value; Content.debug = debug >= 2; });
+let debug; options.debug.whenChange(([ value, ]) => { debug = value; ContentLoader.debug = debug >= 2; });
 debug && console.info('Ran updates', updated);
 
 
@@ -47,7 +44,7 @@ Commands && Commands.onCommand.addListener(command => ({
 
 
 // apply content script to existing tabs (don't await the result because that currently doesn't always resolve in Firefox ...)
-content.applyNow().then(frames => debug && console.info(`Attached to ${ frames.size } tabs:`, frames));
+Content.applyNow().then(frames => debug && console.info(`Attached to ${ frames.size } tabs:`, frames));
 
 
 // allow extension tabs to stay open when calling `browser.runtime.reload()`
@@ -60,8 +57,8 @@ keepExtTabsOpen({ browser: global.browser, iconUrl: '/icon.png', title: 'Reloadi
 // debug stuff
 Object.assign(global, module.exports = {
 	Browser: require('node_modules/web-ext-utils/browser/'),
+	ContentLoader,
 	Content,
-	content,
 	Downloader,
 	options,
 	Player,

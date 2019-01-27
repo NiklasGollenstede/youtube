@@ -277,7 +277,7 @@ input.toggleswitch:checked + * { display: none; }
 #left, #right,
 .button, .button *,
 media-tile, media-tile * {
-	transition-property: color, fill, background-color, border-color, width, height, padding, margin, transform, transform-origin, left, right;
+	transition-property: color, fill, background-color, border-color, box-shadow, width, height, padding, margin, transform, transform-origin, left, right;
 	transition-duration: 0.16s;
 }
 media-tile {
@@ -377,7 +377,7 @@ input[type=range] {
 	top: .0625em;
 }
 @-moz-document url-prefix() { input[type=range] { /* firefox only */
-	top: -.125em;
+	top: -.35em;
 } }
 input[type=range]::-webkit-slider-runnable-track {
 	height: calc(var(--track-height) * 1em);

@@ -220,11 +220,12 @@ function enableDragOut(tiles) {
 			transfer.clearData();
 			transfer.setData('text/plain', 'https://www.youtube.com/watch?v='+ item.videoId);
 			transfer.setData('text/uri-list', 'https://www.youtube.com/watch?v='+ item.videoId);
-			transfer.setData('<yTO-internal>', 'pull');
+			transfer.setData('<yTO-internal>', '{"pull":true}');
 		},
 	}));
 }
 function enableDragIn(tiles) {
+	try { Sortable.prototype._nulling(); } catch (_) { } // pretty save to assume that there is no element being dragged, so do this to try to prevent bugs when Sortable.js is stuck in some invalid state
 	return (tiles.sortable = new Sortable(tiles, {
 		group: {
 			name: 'playlist',
@@ -243,7 +244,7 @@ function enableDragIn(tiles) {
 			transfer.clearData();
 			transfer.setData('text/plain', 'https://www.youtube.com/watch?v='+ item.videoId);
 			transfer.setData('text/uri-list', 'https://www.youtube.com/watch?v='+ item.videoId);
-			transfer.setData('<yTO-internal>', 'sort');
+			transfer.setData('<yTO-internal>', '{"sort":true}');
 		},
 		onAdd({ item, newIndex, }) {
 			item.remove();
