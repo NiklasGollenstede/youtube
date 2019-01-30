@@ -1,12 +1,11 @@
 (function(global) { 'use strict'; define(async ({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
-	'node_modules/web-ext-utils/browser/': { Tabs, Storage, },
+	'node_modules/web-ext-utils/browser/': { Tabs, },
 	'node_modules/web-ext-utils/loader/views': { getViews, },
 	'node_modules/web-ext-utils/utils/notify': notify,
 	'node_modules/web-ext-utils/utils/event': { setEvent, },
 	'node_modules/es6lib/functional': { debounce, },
 	'node_modules/es6lib/object': { MultiMap, },
-	'common/options': options,
-	utils: { windowIsIdle, UndoArray, SpliceArray, },
+	utils: { windowIsIdle, },
 	content,
 	Playlist,
 	VideoInfo,
@@ -19,24 +18,6 @@
 const players = new MultiMap, videos = new Set;
 const container = global.document.head.appendChild(global.document.createElement('players'));
 let current = null, duration = NaN, playing = false;
-const playlist = SpliceArray.proxySet(new (class extends UndoArray.for(Playlist, {
-		mapPrivateProperties: { set(i, v) { i._undo = v; }, get(i) { return i._undo; }, },
-		instanceOptions: { limit: 20, commit: 1e3, },
-	}) {
-		next() { this.index++; } prev() { this.index--; }
-		sortBy() { return sortPlaylist.apply(null, arguments); }
-		loop(value = !loop) { options.playlist.children.loop.value = loop = !!value; }
-	}
-)((await
-	Storage.local.get([ 'playlist.values', 'playlist.index', ])
-	.then(_ => ({ values: _['playlist.values'], index: _['playlist.index'], }))
-)), {
-	// privateKey(key) { return typeof key === 'string' && key[0] === '_'; },
-});
-let loop = false; options.playlist.children.loop.whenChange(([ value, ]) => { loop = value; });
-const savePlaylist = debounce(() => Storage.local.set({ 'playlist.values': playlist.slice(), 'playlist.index': playlist.index, }), 1e3);
-playlist.onAdd(savePlaylist); playlist.onRemove(savePlaylist);
-playlist.onSeek(debounce(() => Storage.local.set({ 'playlist.index': playlist.index, }), 1e3));
 
 /**
  * exports
@@ -53,8 +34,8 @@ const Player = {
 
 	play() {
 		if (playing) { return; }
-		if (playlist.index === Infinity || playlist.index < 0) {
-			if (playlist.length) { playlist.index = 0; }
+		if (Playlist.index === Infinity || Playlist.index < 0) {
+			if (Playlist.length) { Playlist.index = 0; }
 			else { return; }
 		}
 		playing = true; firePlay([ true, ]);
@@ -74,10 +55,10 @@ const Player = {
 		if (!current) { return; }
 		current.seekTo(sec);
 	},
-	next() { playlist.next(); },
-	prev() { playlist.prev(); },
-	loop() { playlist.loop(); },
-	playlist,
+	next() { Playlist.next(); },
+	prev() { Playlist.prev(); },
+	loop(value = !Playlist.loop) { Playlist.loop = !!value; },
+	playlist: Playlist, Playlist,
 	frameFor(id) {
 		for (const open of players.get(id)) { if (open instanceof RemotePlayer) { return open.frame; } }
 		return null;
@@ -95,22 +76,14 @@ Object.freeze(Player);
  * event and message handlers
  */
 
-playlist.onSeek(async (to, from) => {
-	const play = playing;
-	loadPlayer(playlist.get());
-	if (!loop) { return; } (await null);
-	if (to === Infinity && from === playlist.length - 1) {
-		playlist.index = 0; // loop forward
-	} else if (to === -1 && from === 0) {
-		playlist.index = playlist.length - 1; // loop backwards
-	} else { return; }
-	play && Player.play();
+Playlist.onSeek(async (to, from) => {
+	loadPlayer(Playlist.get());
 });
 
 Player.onPlay(async playing => { if (!playing) { // pause
 	current && current.playing && current.pause();
 } else { // play
-	loadPlayer(playlist.get());
+	loadPlayer(Playlist.get());
 	current && !current.playing && current.play();
 } });
 
@@ -189,8 +162,7 @@ class RemotePlayer {
 
 class AudioPlayer extends global.Audio {
 	constructor(id) {
-		super(); players.add(this.id, this);
-		this.id = id; container.appendChild(this);
+		super(); players.add((this.id = id), this); container.appendChild(this);
 		[ 'durationchange', 'ended', 'error', 'pause', 'playing', 'stalled', ]
 		.forEach(event => this.addEventListener(event, this));
 		this.errored = false; this.loading = false;
@@ -268,7 +240,7 @@ function setCurrent(player) {
 		playing && firePlay([ playing = false, ]);
 		!isNaN(duration) && fireDurationChange([ duration = NaN, ]);
 	} else {
-		playlist.seek(player.id);
+		Playlist.seek(player.id);
 		player.duration !== duration && fireDurationChange([ duration = player.duration, ]);
 		playing !== player.playing && (playing ? player.play() : player.pause());
 	}
@@ -286,39 +258,6 @@ async function showPlayer() {
 	const tab = (current instanceof RemotePlayer) ? (await Tabs.get(current.frame.tabId)) : getViews().find(_=>_.name === 'video');
 	tab && (tab.view ? tab.view.document.visibilityState !== 'visible' : !tab.active) && (await windowIsIdle(tab.windowId))
 	&& (await Tabs.update(tab.id || tab.tabId, { active: true, }));
-}
-
-async function sortPlaylist(by, direction = 0) {
-	if (by === 'random') { shufflePlaylist(); return; }
-	const directed = !!(direction << 0);
-	direction = directed && direction < 0 ? -1 : 1;
-	console.log('playlist_sort', by, direction, directed);
-	const mapper = { // must return a signed 32-bit integer
-		position:      async id => {
-			const frame = Player.frameFor(id); if (!frame) { return 0; }
-			const info = (await Tabs.get(frame.tabId)); return (info.windowId << 16) + info.index;
-		},
-		viewsGlobal:   async id => { const data = (await VideoInfo.getData(id)); return -(data.views); },
-		viewsDuration: async id => { const data = (await VideoInfo.getData(id)); return -(data.viewed || 0); },
-		viewsTimes:    async id => { const data = (await VideoInfo.getData(id)); return -(data.viewed || 0) / (data.duration || Infinity); },
-	}[by];
-	const data = new Map/*<videoId, number>*/, position = new Map/*<videoId, index>*/;
-	(await Promise.all(playlist.map(
-		(id, index) => Promise.resolve(id).then(mapper)
-		.catch(error => (console.error(error), 0))
-		.then(value => { data.set(id, value || 0); position.set(id, index); }) // add the previous index to make the sorting stable
-	)));
-	const sorted = playlist.slice().sort((a, b) => ((data.get(a) - data.get(b)) || (position.get(a) - position.get(b))) * direction); // sort a .slice() to avoid updates
-	const reverse = !directed && playlist.every((tab, index) => tab === sorted[index]); // reverse if nothing changed
-	playlist.splice(0, Infinity, ...(reverse ? sorted.reverse() : sorted)); // write change
-}
-
-function shufflePlaylist() {
-	const a = playlist.slice();
-	for (let i = 0, l = a.length; i < l; ++i) {
-		const j = Math.random() * l |0;
-		const t = a[j]; a[j] = a[i]; a[i] = t;
-	} playlist.splice(0, Infinity, ...a);
 }
 
 }); })(this);

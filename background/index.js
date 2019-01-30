@@ -6,7 +6,7 @@
 	'node_modules/web-ext-utils/update/': updated,
 	'node_modules/keep-tabs-open/': keepExtTabsOpen,
 	'common/options': options,
-	Content, Downloader, Player, ImportFromFile: _,
+	Content, Downloader, Player, Playlist, ImportFromFile: _,
 	require, module,
 }) => {
 let debug; options.debug.whenChange(([ value, ]) => { debug = value; ContentLoader.debug = debug >= 2; });
@@ -57,11 +57,10 @@ keepExtTabsOpen({ browser: global.browser, iconUrl: '/icon.png', title: 'Reloadi
 // debug stuff
 Object.assign(global, module.exports = {
 	Browser: require('node_modules/web-ext-utils/browser/'),
-	ContentLoader,
-	Content,
+	ContentLoader, Content,
 	Downloader,
 	options,
-	Player,
+	Player, Playlist,
 	background: global,
 });
 

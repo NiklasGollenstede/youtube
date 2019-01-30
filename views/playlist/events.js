@@ -5,7 +5,8 @@
 	'node_modules/es6lib/string': { fuzzyIncludes, },
 	'node_modules/es6lib/dom': { createElement: _createElement, saveAs, writeToClipboard, },
 	'background/player': Player,
-	'background/playlist-tools': { addVideosFromText, replaceVideosWithFiles, toHtml, },
+	'background/playlist': Playlist,
+	'background/playlist-tools': { addVideosFromText, replaceVideosWithFiles, toHtml, sortPlaylist, },
 	'common/context-menu': ContextMenu,
 	'common/dom': { scrollToCenter, },
 }) => {
@@ -49,30 +50,30 @@ function contextmenu(event) {
 			           { icon: '▶',		label: 'Play video',       action: () => { Player.current = id; Player.play(); }, default: tile.matches('#playlist :not(.active)') && !target.closest('.remove, .icon'), },
 			 tab    && { icon: '👁',	label: 'Show tab',         action: () => focusTab(id), default: tile.matches('#group-tabs *, .active') && !target.closest('.remove, .icon'), },
 			!tab    && { icon: '◳',		label: 'Open in tab',      action: () => openTab(id), },
-			 inList && { icon: '❏',		label: 'Duplicate',        action: () => Player.playlist.splice(positionInParent(tile), 0, id), },
-			 inList && { icon: '⨉',		label: 'Remove entry',     action: () => Player.playlist.splice(positionInParent(tile), 1), default: target.matches('#playlist .remove'), },
+			 inList && { icon: '❏',		label: 'Duplicate',        action: () => Playlist.splice(positionInParent(tile), 0, id), },
+			 inList && { icon: '⨉',		label: 'Remove entry',     action: () => Playlist.splice(positionInParent(tile), 1), default: target.matches('#playlist .remove'), },
 			 inTabs && { icon: '⨉',		label: 'Close tab',        action: () => inTabs.closest('#group-tabs') ? Tabs.remove(tab.tabId) : closeUnloadedTab(tile), default: !!target.closest('#group-tabs .remove'), },
 			 bmkId  && { icon: '🗑',	label: 'Delete bookmark',  action: () => Bookmarks.remove(bmkId), default: !!target.closest('media-tile[data-bookmark-id] .remove'), },
 			 addBmk && { icon: '➕',	label: 'Add bookmark',     action: () => Bookmarks.create({ title: tile.querySelector('.title').textContent, url: 'https://www.youtube.com/watch?v='+ tile.videoId, }), },
 			           { icon: '🔍',	label: 'Highlight',        action: () => highlight((inList ? others : playlist).querySelector(`media-tile[video-id="${id}"]`)), },
 			           { icon: '📋',	label: 'Copy ID',          action: () => writeToClipboard(id).then(() => notify.success('Copied video ID', id)), },
-			!inList && { icon: '➕',	label: 'Add video',        action: () => Player.playlist.splice(Infinity, 0, id), },
+			!inList && { icon: '➕',	label: 'Add video',        action: () => Playlist.splice(Infinity, 0, id), },
 		);
 	}
 	if (inList) {
 		items.push(
 			{ icon: '⇵',	 label: 'Sort by',                      type: 'menu', children: [
-				{ icon: '⌖',	 label: 'position',                     action: () => Player.playlist.sortBy('position').catch(notify.error.bind(null, 'Sorting failed')), },
+				{ icon: '⌖',	 label: 'position',                     action: () => sortPlaylist('position').catch(notify.error.bind(null, 'Sorting failed')), },
 				{ icon: '👓',	 label: 'views',                        type: 'menu', children: [
-					{ icon: '🌐',	 label: 'global',                       action: () => Player.playlist.sortBy('viewsGlobal').catch(notify.error.bind(null, 'Sorting failed')), },
-					{ icon: '⏱',	 label: 'yours in total duration',      action: () => Player.playlist.sortBy('viewsDuration').catch(notify.error.bind(null, 'Sorting failed')), },
-					{ icon: '↻',	 label: 'yours in times viewed',        action: () => Player.playlist.sortBy('viewsTimes').catch(notify.error.bind(null, 'Sorting failed')), },
+					{ icon: '🌐',	 label: 'global',                       action: () => sortPlaylist('viewsGlobal').catch(notify.error.bind(null, 'Sorting failed')), },
+					{ icon: '⏱',	 label: 'yours in total duration',      action: () => sortPlaylist('viewsDuration').catch(notify.error.bind(null, 'Sorting failed')), },
+					{ icon: '↻',	 label: 'yours in times viewed',        action: () => sortPlaylist('viewsTimes').catch(notify.error.bind(null, 'Sorting failed')), },
 				], },
-				{ icon: '🔀',	 label: 'Shuffle',                      action: () => Player.playlist.sortBy('random').catch(notify.error.bind(null, 'Sorting failed')), },
+				{ icon: '🔀',	 label: 'Shuffle',                      action: () => sortPlaylist('random').catch(notify.error.bind(null, 'Sorting failed')), },
 			], },
-			{ icon: '🛇',	 label: 'Clear list',                   action: () => Player.playlist.splice(0, Infinity), },
-			Player.playlist.undoable && { icon: '↶',	 label: 'Undo', action: () => Player.playlist.undo(), }, // ↶ ↫ ⎌
-			Player.playlist.redoable && { icon: '↷',	 label: 'Redo', action: () => Player.playlist.redo(), }, // ↷ ↬
+			{ icon: '🛇',	 label: 'Clear list',                   action: () => Playlist.splice(0, Infinity), },
+			Playlist.undoable && { icon: '↶',	 label: 'Undo', action: () => Playlist.undo(), }, // ↶ ↫ ⎌
+			Playlist.redoable && { icon: '↷',	 label: 'Redo', action: () => Playlist.redo(), }, // ↷ ↬
 		);
 	}
 	if (target.closest('.group .header .title')) {
@@ -84,7 +85,7 @@ function contextmenu(event) {
 	if (group) {
 		const tiles = Array.from(group.querySelectorAll(document.body.classList.contains('searching') ? 'media-tile.found' : 'media-tile'));
 		tiles.length > 1 && items.push(
-			{ icon: '⋯',	 label: 'Add all '+   tiles.length, action: () => Player.playlist.splice(0, Infinity, ...tiles.map(_=>_.videoId)), },
+			{ icon: '⋯',	 label: 'Add all '+   tiles.length, action: () => Playlist.splice(0, Infinity, ...tiles.map(_=>_.videoId)), },
 		);
 	}
 	// ' 🔉 🔈 🔇 🔂 🔁 🔜 🌀 🔧 ⫶ 🔞 '; // some more icons
@@ -103,7 +104,7 @@ async function dblclick({ target, button, }) {
 		if (tile.matches('.active')) {
 			focusTab(tile.videoId);
 		} else {
-			Player.playlist.index = positionInParent(tile);
+			Playlist.index = positionInParent(tile);
 		}
 	} else if (tile) {
 		if (tile.dataset.tabId) {
@@ -127,7 +128,7 @@ function click({ target, button, }) {
 	const tile = target.closest('media-tile'); if (tile && target.closest('.remove')) {
 		// remove tab on left click on ".remove"
 		if (tile.closest('#playlist')) {
-			Player.playlist.splice(positionInParent(tile), 1);
+			Playlist.splice(positionInParent(tile), 1);
 		} else if ('tabId' in tile.dataset) {
 			Tabs.remove(+tile.dataset.tabId);
 		} else if ('bookmarkId' in tile.dataset) {
@@ -173,13 +174,13 @@ function keydown(event) {
 		case 'Ctrl+KeyZ': case 'Ctrl+KeyY': {
 			if (locationFor(document.defaultView).name !== 'playlist') { return; }
 			const undo = event.code === 'KeyZ', action = undo ? 'undo' : 'redo';
-			if (Player.playlist[action]()) {
+			if (Playlist[action]()) {
 				notify.success(undo ? 'Undid' : 'Redid' +' last change', `Press Ctrl + ${ undo ? 'Y' : 'Z' } to revert`);
 			} else { notify.info(`Nothing to ${action}`, 'Playlist was not modified'); }
 		} break;
 		case 'Ctrl+KeyS': {
 			retVal = saveAs.call(document.defaultView, new global.Blob(
-				[ toHtml(Player.playlist), ], { type: 'text/html', }
+				[ toHtml(Playlist), ], { type: 'text/html', }
 			), `yto-${ (new Date).toISOString().replace(/:(?:\d\d\..*$)?/g, '') }.html`);
 		} break;
 		case 'Ctrl+KeyO': {
@@ -201,11 +202,11 @@ function keydown(event) {
 		} break;
 		case 'Delete': { Player.pause(); Player.seekTo(0); } break;
 		case 'Space': { Player.toggle(); } break;
-		case 'KeyP': { Player.playlist.prev(); } break;
-		case 'KeyN': { Player.playlist.next(); } break;
-		case 'KeyL': { Player.playlist.loop(); } break;
-		case 'ArrowLeft': { Player.playlist.prev(); } break;
-		case 'ArrowRight': { Player.playlist.next(); } break;
+		case 'KeyP': { Player.prev(); } break;
+		case 'KeyN': { Player.next(); } break;
+		case 'KeyL': { Player.loop(); } break;
+		case 'ArrowLeft': { Player.prev(); } break;
+		case 'ArrowRight': { Player.next(); } break;
 		case 'Ctrl+Shift+KeyR': { Runtime.reload(); } break;
 		default: return;
 	} }
@@ -262,7 +263,7 @@ function copy(event) {
 		event.clipboardData.setData('text/uri-list', url);
 		notify.success('Copied video URL', url);
 	} else {
-		const ids = selected.length ? Array.from(selected, _=>_.getAttribute('video-id')) : Player.playlist;
+		const ids = selected.length ? Array.from(selected, _=>_.getAttribute('video-id')) : Playlist;
 		if (!ids.length) { notify.warn('Not copied', 'There is nothing selected, hovered or in the playlist.'); return null; }
 		const urls = ids.map(id => 'https://www.youtube.com/watch?v='+ id).join('\n');
 		const html = toHtml(ids, 'ytO '+ (selected.length ? 'Selected' : 'Playlist'));
@@ -284,7 +285,7 @@ function cut(event) {
 function paste(event) {
 	const cutIds = JSON.parse(event.clipboardData.getData('<yTO-internal>') || '{}').cut || { };
 	forEachElement(event, 'media-tile.cut', tile => { if (cutIds[tile.dataset.cutId]) {
-		Player.playlist.splice(positionInParent(tile), 1);
+		Playlist.splice(positionInParent(tile), 1);
 	} else {
 		tile.classList.remove('cut'); delete tile.dataset.cutId;
 	} });

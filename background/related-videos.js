@@ -2,10 +2,11 @@
 	'node_modules/web-ext-utils/utils/notify': notify,
 	'node_modules/es6lib/object': { MultiMap, },
 	'node_modules/es6lib/functional': { debounce, },
-	Player, Playlist, VideoInfo,
+	'./array/event-array': EventArray,
+	Playlist, VideoInfo,
 }) => {
 
-const list = new Playlist;
+const list = new EventArray;
 
 list.subscribe = function(window) {
 	void window; return list;
@@ -32,10 +33,10 @@ const update = debounce(() => {
 	list.splice(0, Infinity, ...now);
 }, 300);
 
-Player.playlist.onAdd(async (index, id) => { const related = v2r.get(id) || (await VideoInfo.getData(id)).related || [ ]; added.push({ id, related, }); update(); });
-Player.playlist.onRemove((index, id) => { removed.push(id); update(); });
+Playlist.onAdd(async (index, id) => { const related = v2r.get(id) || (await VideoInfo.getData(id)).related || [ ]; added.push({ id, related, }); update(); });
+Playlist.onRemove((index, id) => { removed.push(id); update(); });
 Promise.all(
-	Player.playlist.map(async id => { const related = (await VideoInfo.getData(id)).related || [ ]; added.push({ id, related, }); })
+	Playlist.map(async id => { const related = (await VideoInfo.getData(id)).related || [ ]; added.push({ id, related, }); })
 ).then(update).catch(notify.error);
 
 return list;

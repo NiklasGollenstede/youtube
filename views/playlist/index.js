@@ -59,7 +59,7 @@ return async function View(window) {
 			if (!tiles.children[index]) { return; }
 			tiles.children[index].classList.add('active');
 			if (tiles.matches(':hover')) { return; }
-			scrollToCenter(tiles.children[index]);
+			scrollToCenter(tiles.children[index], { tolerance: .75, });
 		}
 	}
 
