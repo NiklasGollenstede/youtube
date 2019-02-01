@@ -7,7 +7,6 @@
 	'background/player': Player,
 	'background/playlist': Playlist,
 	'background/playlist-tools': { addVideosFromText, replaceVideosWithFiles, toHtml, sortPlaylist, },
-	'common/context-menu': ContextMenu,
 	'common/dom': { scrollToCenter, },
 }) => {
 
@@ -17,7 +16,7 @@
 
 function register(window) {
 	Object.entries(listeners).forEach(([ name, listener, ]) =>
-		window.document.addEventListener(name, listener, !!listener.capturing)
+		window.document.addEventListener(name, listener, listener.options)
 	);
 }
 
@@ -30,7 +29,7 @@ const _helpers = { highlight, positionInParent, findElement, forEachElement, foc
  */
 
 function contextmenu(event) {
-	event.preventDefault(); ContextMenu.remove();
+	event.preventDefault();
 	const { target, clientX: x, clientY: y, } = event;
 	if (!target.matches) { return; }
 	const document = event.target.ownerDocument;
@@ -57,7 +56,7 @@ function contextmenu(event) {
 			 addBmk && { icon: '➕',	label: 'Add bookmark',     action: () => Bookmarks.create({ title: tile.querySelector('.title').textContent, url: 'https://www.youtube.com/watch?v='+ tile.videoId, }), },
 			           { icon: '🔍',	label: 'Highlight',        action: () => highlight((inList ? others : playlist).querySelector(`media-tile[video-id="${id}"]`)), },
 			           { icon: '📋',	label: 'Copy ID',          action: () => writeToClipboard(id).then(() => notify.success('Copied video ID', id)), },
-			!inList && { icon: '➕',	label: 'Add video',        action: () => Playlist.splice(Infinity, 0, id), },
+			!inList && { icon: '➕',	label: 'Add video',        action: () => Playlist.splice(Playlist.index < 0 ? 0 : Playlist.index + 1, 0, id), },
 		);
 	}
 	if (inList) {
@@ -88,10 +87,19 @@ function contextmenu(event) {
 			{ icon: '⋯',	 label: 'Add all '+   tiles.length, action: () => Playlist.splice(0, Infinity, ...tiles.map(_=>_.videoId)), },
 		);
 	}
+	if (target.closest('video')) {
+		items.push(
+			Player.playing
+			? { icon: '⏸',	 label: 'Pause', action: () => Player.pause(), }
+			: { icon: '⏵',	 label: 'Play',  action: () => Player.play(), },
+			  { icon: '⏪︎',	 label: 'Back',  action: () => Player.prev(), },
+			  { icon: '⏩︎',	 label: 'Next',  action: () => Player.next(), },
+		);
+	}
 	// ' 🔉 🔈 🔇 🔂 🔁 🔜 🌀 🔧 ⫶ 🔞 '; // some more icons
 
 	if (!items.length) { return; }
-	new ContextMenu({ x, y, items, host: document.body, });
+	document.documentElement.appendChild(new (document.defaultView.customElements.get('context-menu'))({ x, y, items, }));
 }
 
 async function dblclick({ target, button, }) {
@@ -205,8 +213,8 @@ function keydown(event) {
 		case 'KeyP': { Player.prev(); } break;
 		case 'KeyN': { Player.next(); } break;
 		case 'KeyL': { Player.loop(); } break;
-		case 'ArrowLeft': { Player.prev(); } break;
-		case 'ArrowRight': { Player.next(); } break;
+		case 'ArrowLeft': { const time = Player.currentTime; if (time) { Player.seekTo(time - 5); } } break;
+		case 'ArrowRight': { const time = Player.currentTime; if (time) { Player.seekTo(time + 5); } } break;
 		case 'Ctrl+Shift+KeyR': { Runtime.reload(); } break;
 		default: return;
 	} }
@@ -309,7 +317,7 @@ function dragover(event) {
 	listeners.dragover.x = event.clientX; listeners.dragover.y = event.clientY;
 	event.preventDefault(); // cause drop to fire
 }
-dragover.capturing = true;
+dragover.options = { capture: true, };
 
 
 /**
@@ -328,7 +336,7 @@ Object.entries(listeners).forEach(([ name, listener, ]) => { (listeners[name] = 
 	lastEvent = event; try {
 		(await listener.apply(this, arguments));
 	} finally { lastEvent === event && (lastEvent = null); }
-} catch (error) { notify.error(error); } }).capturing = listener.capturing || false; });
+} catch (error) { notify.error(error); } }).options = listener.options || { }; });
 
 return { listeners, register, _helpers, };
 

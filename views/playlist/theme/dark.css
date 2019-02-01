@@ -6,11 +6,14 @@
 }
 :root {
 	scrollbar-color: #555 black;
+	--context-menu-color: white;
+	--context-menu-background: black;
+	--context-menu-border: #333;
+	--context-menu-active: hsla(207, 100%, 57%, 0.43);
 }
 html, body, input {
 	color: white;
 	fill: white;
-	background-color: black; /* inherited by context menu */
 	border-color: #333;
 }
 #left {

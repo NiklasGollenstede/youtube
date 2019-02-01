@@ -44,25 +44,16 @@ const Player = {
 		if (!playing) { return; }
 		playing = false; firePlay([ false, ]);
 	},
-	toggle() {
-		playing ? Player.pause() : Player.play();
-	},
-	start() {
-		Player.play();
-		current.seekTo(0);
-	},
-	seekTo(sec) {
-		if (!current) { return; }
-		current.seekTo(sec);
-	},
-	next() { Playlist.next(); },
-	prev() { Playlist.prev(); },
-	loop(value = !Playlist.loop) { Playlist.loop = !!value; },
+	toggle() { playing ? Player.pause() : Player.play(); },
+	start() { Player.play(); Player.seekTo(0); },
+	seekTo(sec) { current && current.seekTo(sec); },
+	next() { Playlist.length === 1 ? current && current.seekTo(0) : Playlist.next(); },
+	prev() { current && current.currentTime > 5 ? current.seekTo(0) : Playlist.length === 1 ? current && current.seekTo(0) : Playlist.prev(); },
+	loop(value = !Playlist.loop) { Playlist.loop = value; },
 	playlist: Playlist, Playlist,
-	frameFor(id) {
-		for (const open of players.get(id)) { if (open instanceof RemotePlayer) { return open.frame; } }
-		return null;
-	},
+	frameFor(id) { for (const open of players.get(id)) {
+		if (open instanceof RemotePlayer) { return open.frame; }
+	} return null; },
 };
 
 const fireVideoOpen = setEvent(Player, 'onVideoOpen', { lazy: false, }); // (id)
@@ -76,9 +67,7 @@ Object.freeze(Player);
  * event and message handlers
  */
 
-Playlist.onSeek(async (to, from) => {
-	loadPlayer(Playlist.get());
-});
+Playlist.onSeek(() => loadPlayer(Playlist.get()));
 
 Player.onPlay(async playing => { if (!playing) { // pause
 	current && current.playing && current.pause();
@@ -175,8 +164,8 @@ class AudioPlayer extends global.Audio {
 	}); }
 
 	handleEvent(event) { switch (event.type) {
-		case 'durationchange': this.duration !== duration && fireDurationChange([ duration = this.duration, ]); break;
-		case 'ended': current === this && Player.next(); break;
+		case 'durationchange': current === this && this.duration !== duration && fireDurationChange([ duration = this.duration, ]); break;
+		case 'ended': this.pause(); this.currentTime = 0; current === this && Player.next(); break;
 		case 'playing': this.errored = false; break;
 		case 'error': handleAudioError(this); break;
 		/*case 'pause': case 'playing':*/ case 'stalled': current === this && this.playing !== playing && firePlay([ playing = this.playing, ]) ;
@@ -205,7 +194,7 @@ class AudioPlayer extends global.Audio {
 
 	get playing() { return !this.paused; }
 	start() { this.currentTime = 0; this.play(); }
-	seekTo(value) { this.currentTime = value; fireSeek([ ]); }
+	seekTo(value) { this.currentTime = value; fireSeek([ ]); playing && this.play(); }
 	destroy() {
 		console.log('destroyed audioPlayer', this.id);
 		this.src = '';
@@ -248,7 +237,7 @@ function setCurrent(player) {
 
 function loadPlayer(id) {
 	if (!id) { setCurrent(null); return; }
-	if (current && current.id === id) { return; }
+	if (current && current.id === id) { playing && current.play(); return; }
 	for (const open of players.get(id)) { if (open instanceof RemotePlayer) { setCurrent(open); return; } }
 	for (const open of players.get(id)) { setCurrent(open); return; } // use the first, if any
 	setCurrent(new AudioPlayer(id));

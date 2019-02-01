@@ -1,15 +1,16 @@
 * {
 	box-sizing: border-box;
 }
-body {
+:root, body { /* for whatever reason, chrome sets these on the body */
 	font-family: arial, sans-serif;
 	font-size: 14px;
-	margin: 0px;
-	padding: 0px;
+}
+body {
+	margin: 0px; padding: 0px;
 	cursor: default;
 	overflow: hidden;
-	min-height: 600px;
-	min-width: 700px;
+	min-height: 600px; min-width: 700px; /* sets the size for panels (in firefox) */
+	height: 100vh; width: 100vw;
 }
 .hidden {
 	display: none;
@@ -376,7 +377,7 @@ input[type=range] {
 	background: transparent;
 	top: .0625em;
 }
-@-moz-document url-prefix() { input[type=range] { /* firefox only */
+@supports (-moz-appearance:none) { input[type=range] { /* firefox only */
 	top: -.35em;
 } }
 input[type=range]::-webkit-slider-runnable-track {

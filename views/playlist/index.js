@@ -8,9 +8,7 @@
 	'node_modules/web-ext-utils/loader/views': { showView, openView, },
 	'background/player': Player,
 	'background/video-info': VideoInfo,
-	'background/media-tile': MediaTileClass,
 	'background/related-videos': relatedVideos,
-	'common/context-menu': ContextMenu,
 	'common/dom': { scrollToCenter, },
 	'common/options': options,
 	'fetch!./body.html': Body,
@@ -26,7 +24,7 @@ return async function View(window) {
 
 	Events.register(window);
 	const { document, } = window, createElement = _createElement.bind(window), off = { owner: window, };
-	const MediaTile = window.MediaTile = MediaTileClass(window);
+	const MediaTile = window.MediaTile = window.customElements.get('media-tile');
 	function createTile(id) { const tile = new MediaTile; tile.videoId = id; return tile; }
 
 	document.title = 'Playlist - '+ manifest.name;
@@ -153,7 +151,7 @@ return async function View(window) {
 	{ // seek-bar
 		let looping = false, lastSec = -1;
 		const progress = document.querySelector('#progress>input'), time = document.querySelector('#current-time');
-		const next = window.requestAnimationFrame;
+		const { setTimeout, requestAnimationFrame: next, } = window;
 		Player.onPlay(check, off); Player.onDurationChange(check, off); Player.onSeek(check, off); check(); async function check() {
 			if (!Player.duration) { // stop & hide
 				document.querySelector('#seek-bar').classList.add('hidden');
@@ -168,9 +166,7 @@ return async function View(window) {
 		}
 		function loop() { set(); looping && setTimeout(next, 250, loop); } // doing this at 60fps is quite expensive
 		function set() {
-			const current = Player.currentTime;
-			progress.value = current;
-			const sec = current <<0;
+			const current = progress.value = Player.currentTime, sec = current |0;
 			sec !== lastSec && (time.textContent = secondsToHhMmSs((lastSec = sec)));
 		}
 	}
@@ -184,20 +180,23 @@ return async function View(window) {
 };
 
 function showMainMenu(event) {
-	if (event.button) { return; }
-	const document = event.target.ownerDocument;
-	const { left: x, bottom: y, width, } = document.querySelector('#more').getBoundingClientRect();
-	const items = [
-		{ icon: '⚡',	label: 'Restart', action: () => Runtime.reload(), },
-		{ icon: '◑',	label: 'Dark Theme', checked: options.playlist.children.theme.value === 'dark', action() { options.playlist.children.theme.value = this.checked ? 'light' : 'dark'; }, },
-		{ icon: '❐', 	label: 'Show in tab', action: () => showView('playlist', 'tab'), },
-		{ icon: '◳', 	label: 'Open in popup', action: () => openView('playlist', 'popup', { width: 450, height: 600, }), },
+	if (event.button) { return; } const document = event.target.ownerDocument;
+
+	const menu = document.mainMenu || (document.mainMenu = new (document.defaultView.customElements.get('context-menu'))({ items: [
+		{ icon: '⚡',	label: 'Restart ytO', action: () => Runtime.reload(), },
+		{ icon: '◑',	label: 'Dark Theme', action() { options.playlist.children.theme.value = this.checked ? 'light' : 'dark'; }, get checked() { return options.playlist.children.theme.value === 'dark'; }, },
+		{ icon: '❐', 	label: 'Show Playlist in Tab', action: () => showView('playlist', 'tab'), },
+		{ icon: '◳', 	label: 'Open Playlist in Popup', action: () => openView('playlist', 'popup', { width: 450, height: 600, }), },
 		SidebarAction && SidebarAction.open &&
-		{ icon: '◫', 	label: 'Open sidebar', action: () => SidebarAction.open(), },
-		{ icon: '▶', 	label: 'Show video', action: () => showView('video', 'tab'), },
-		{ icon: '⚙', 	label: 'Settings', action: () => showView('options', 'tab'), },
-	];
-	new ContextMenu({ x, y: y + 1, width, items, host: document.body, });
+		{ icon: '◫', 	label: 'Show Playlist Sidebar', action: () => SidebarAction.open(), },
+		{ icon: '🎞️', 	label: 'Show Video Player', action: () => showView('video', 'tab'), }, // 📽
+		{ icon: '⚙', 	label: 'Show Settings', action: () => showView('options', 'tab'), },
+	], autoReflow: false, }));
+
+	const { left: x, bottom: y, width, } = document.querySelector('#more').getBoundingClientRect();
+	menu.setPosition({ x, y, width, }); document.documentElement.appendChild(menu); menu.resetReflow();
+
+	menu.shadowRoot.querySelector('.menu').classList.add('to-left'); menu.reflowMenus(false);
 }
 
 // enable drag & drop

@@ -19,6 +19,7 @@ module.exports = function({ options, /*packageJson,*/ manifestJson, files, }) {
 	!options.viewRoot && (options.viewRoot = options.chrome ? 'ytO.html' : 'ytO');
 
 	manifestJson.options_ui.open_in_tab = true;
+	manifestJson.background.persistent = true; // unfortunately required for 'webRequest' in chrome
 
 	manifestJson.browser_action.default_icon = manifestJson.icons;
 	manifestJson.sidebar_action.open_at_install = false;

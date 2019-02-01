@@ -1,14 +1,14 @@
 (function(global) { 'use strict'; define(async ({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
 	'node_modules/es6lib/dom': { createElement, },
 	'node_modules/es6lib/string': { secondsToHhMmSs, },
-	VideoInfo: { subscribe, unsubscribe, },
+	'background/video-info': { subscribe, unsubscribe, },
 }) => {
 
 /**
  * Exports a single function that defined the custom element `<media-tile>` for a given `window`
  * and returns the corresponding `MediaTile` class.
  * The class/element instances have a single custom property/attribute `videoId`/`video-id`.
- * While the elements are in the DOM
+ * While the elements are in the DOM ...
  */
 
 function MediaTileClass(window) { return class MediaTile extends window.HTMLElement {
@@ -31,15 +31,7 @@ const children = [
 	]),
 ];
 
-const classes = new WeakMap, Self = new WeakMap;
-
-function registerMediaTileClass(window) {
-	let MediaTile = classes.get(window); if (MediaTile) { return MediaTile; }
-	MediaTile = MediaTileClass(window); classes.set(window, MediaTile);
-	window.addEventListener('unload', () => classes.delete(window));
-	window.customElements.define('media-tile', MediaTile);
-	return MediaTile;
-}
+const Self = new WeakMap;
 
 class _MediaTile {
 	constructor(self) {
@@ -49,7 +41,7 @@ class _MediaTile {
 		this.onChange = this.onChange.bind(this);
 		this.view = null;
 		this.textContent = ''; // cloned elements already contain clones of the children. A better solution would be to use a shadow DOM, but styling that won't work until firefox implements the `:host-context()` CSS pseudo class function
-		!self.children.length && children.forEach(node => self.appendChild(node.cloneNode(true)));
+		children.forEach(node => self.appendChild(node.cloneNode(true)));
 	}
 	onChange(data) {
 		const self = this.public;
@@ -88,8 +80,6 @@ class _MediaTile {
 	}
 }
 
-// const MediaTile = registerMediaTileClass(global); // creating just a single class and registering it in he background page seems to work in Firefox, but lets first test this for a while and in other browsers as well, before removing the `registerMediaTileClass` logic
-
-return registerMediaTileClass;
+return MediaTileClass;
 
 }); })(this);

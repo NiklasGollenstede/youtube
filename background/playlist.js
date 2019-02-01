@@ -23,7 +23,7 @@ const PlaylistClass = class Playlist extends UndoArray.extends(IndexArray, {
 	} get loop() { return this._loop; }
 
 	/// Fired with `(loop)` directly after `.loop` was actually toggled.
-	get onLoop() { return this._onLoop || (this._fireLoop = setEvent(this, '_onLoop')); }
+	get onLoop() { return this._onLoop || ((this._fireLoop = setEvent(this, '_onLoop')), this._onLoop); }
 
 	/// Seeks the `.index` forward or backward by `1`, which may cause it to wrap it `.loop === true`.
 	next() { this.index++; } prev() { this.index--; }
@@ -47,7 +47,7 @@ const PlaylistClass = class Playlist extends UndoArray.extends(IndexArray, {
 	}
 
 	/// Just forwards its `arguments`.
-	constructor() { super(...arguments); this._loop = false; this._fireLoop = this._onLoop = null; }
+	constructor({ loop, } = { }) { super(...arguments); this._loop = !!loop; this._fireLoop = this._onLoop = null; }
 
 	/// Overwritten to implement the `.loop` semantic.
 	set index(to) {
@@ -65,8 +65,10 @@ const PlaylistClass = class Playlist extends UndoArray.extends(IndexArray, {
 
 // load the saved playlist
 const Playlist = new PlaylistClass((await
-	Storage.local.get([ 'playlist.values', 'playlist.index', ])
-	.then(_ => ({ values: _['playlist.values'], index: _['playlist.index'], }))
+	Storage.local.get([ 'playlist.values', 'playlist.index', ]).then(_ => ({
+		values: _['playlist.values'], index: _['playlist.index'],
+		loop: options.playlist.children.loop.value,
+	}))
 ));
 
 // save the playlist shortly after it is modified
@@ -75,7 +77,7 @@ Playlist.onAdd(savePlaylist); Playlist.onRemove(savePlaylist);
 Playlist.onSeek(debounce(() => Storage.local.set({ 'playlist.index': Playlist.index, }), 1e3));
 
 // synchronize `.loop` with the `playlist.loop` setting
-options.playlist.children.loop.whenChange(([ value, ]) => { Playlist.loop = value; });
+options.playlist.children.loop.onChange(([ value, ]) => { Playlist.loop = value; });
 Playlist.onLoop(value => { options.playlist.children.loop.value = value; });
 
 // While the `Playlist` is meant as a singleton, there is no technical reason not to create additional `Playlist.constructor` instances.

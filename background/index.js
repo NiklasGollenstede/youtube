@@ -1,6 +1,6 @@
 (function(global) { 'use strict'; define(async ({ // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
 	'node_modules/web-ext-utils/browser/': { BrowserAction, Commands, ContextMenus, Runtime, SidebarAction, manifest, rootUrl, },
-	'node_modules/web-ext-utils/browser/version': { fennec, },
+	'node_modules/web-ext-utils/browser/version': { gecko, fennec, },
 	'node_modules/web-ext-utils/loader/': ContentLoader,
 	'node_modules/web-ext-utils/loader/views': { getUrl, showView, openView, },
 	'node_modules/web-ext-utils/update/': updated,
@@ -14,17 +14,17 @@ debug && console.info('Ran updates', updated);
 
 
 // browser_action (could not be set in manifest due to fennec incompatibility) TODO: that is probably fixed
-BrowserAction.setIcon({ path: manifest.icons[1], });
+BrowserAction.setIcon({ path: manifest.icons[Object.keys(manifest.icons)[0]], });
 BrowserAction.setPopup({ popup: getUrl({ name: 'panel', }).slice(rootUrl.length - 1), });
 fennec && BrowserAction.onClicked.addListener(() => showView('panel'));
 
-ContextMenus.create({ contexts: [ 'browser_action', ], id: 'restart', title: 'Restart', });
-ContextMenus.create({ contexts: [ 'browser_action', ], id: 'pllTab', title: 'Show in tab', });
-ContextMenus.create({ contexts: [ 'browser_action', ], id: 'pllPopup', title: 'Open in popup', });
+ContextMenus.create({ contexts: [ 'browser_action', ], id: 'restart', title: 'Restart ytO', });
+ContextMenus.create({ contexts: [ 'browser_action', ], id: 'pllTab', title: 'Show Playlist in Tab', });
+ContextMenus.create({ contexts: [ 'browser_action', ], id: 'pllPopup', title: 'Open Playlist in Popup', });
 SidebarAction && SidebarAction.open &&
-ContextMenus.create({ contexts: [ 'browser_action', ], id: 'pllSB', title: 'Open sidebar', });
-ContextMenus.create({ contexts: [ 'browser_action', ], id: 'videoTab', title: 'Show video', });
-ContextMenus.create({ contexts: [ 'browser_action', ], id: 'settings', title: 'Settings', });
+ContextMenus.create({ contexts: [ 'browser_action', ], id: 'pllSB', title: 'Show Playlist Sidebar', });
+ContextMenus.create({ contexts: [ 'browser_action', ], id: 'videoTab', title: 'Show Video Player', });
+ContextMenus.create({ contexts: [ 'browser_action', ], id: 'settings', title: 'Show Settings', });
 ContextMenus.onClicked.addListener(({ menuItemId, }) => { switch (menuItemId) {
 	case 'restart': Runtime.reload(); break;
 	case 'pllTab': showView('playlist', 'tab'); break;
@@ -48,7 +48,7 @@ Content.applyNow().then(frames => debug && console.info(`Attached to ${ frames.s
 
 
 // allow extension tabs to stay open when calling `browser.runtime.reload()`
-keepExtTabsOpen({ browser: global.browser, iconUrl: '/icon.png', title: 'Reloading: '+ manifest.name, message: `
+gecko && keepExtTabsOpen({ iconUrl: '/icon.png', title: 'Reloading: '+ manifest.name, message: `
 	<style> :root { background: #424F5A; filter: invert(1) hue-rotate(180deg); font-family: Segoe UI, Tahoma, sans-serif; } </style>
 	<h1>Reloading ${manifest.name}</h1><p>This tab should close in a few seconds ...</p>
 `, });
