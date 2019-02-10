@@ -126,9 +126,10 @@ async function sortPlaylist(by, direction = 0) {
 }
 
 function shufflePlaylist() {
+	// https://en.wikipedia.org/wiki/Fisher%E2%80%93Yates_shuffle
 	const a = Playlist.slice();
-	for (let i = 0, l = a.length; i < l; ++i) {
-		const j = Math.random() * l |0;
+	for (let i = a.length - 1; i >= 1; --i) {
+		const j = Math.random() * (i + 1) |0;
 		const t = a[j]; a[j] = a[i]; a[i] = t;
 	} Playlist.splice(0, Infinity, ...a);
 }

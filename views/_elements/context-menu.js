@@ -2,8 +2,8 @@
 	'node_modules/web-ext-utils/browser/version': { gecko, },
 	'node_modules/web-ext-utils/loader/views': { locationFor, },
 	'node_modules/es6lib/dom': { createElement, },
-	'fetch!./context-menu.css:css': style,
-}) => {
+	'fetch!./context-menu.css:css': css,
+}) => window => {
 
 const events = [
 	'click', 'contextmenu', 'keydown', 'wheel',
@@ -11,9 +11,9 @@ const events = [
 	'blur', 'resize',
 ];
 
-style = createElement('style', [ style, ]);
+const style = createElement('style', [ css, ]);
 
-function ContextMenuClass(window) { return class ContextMenu extends window.HTMLElement {
+class ContextMenu extends window.HTMLElement {
 	constructor({ x = 0, y = 0, width = 0, items = null, autoReflow = true, } = { }) {
 		super();
 		this.active = null; this.autoReflow = !!autoReflow;
@@ -94,6 +94,7 @@ function ContextMenuClass(window) { return class ContextMenu extends window.HTML
 
 	connectedCallback() {
 		this.autoReflow && this.reflowMenus(true);
+		this.ownerDocument.querySelectorAll(':focus').forEach(_=>_.blur()); // otherwise a 'blur' can fire from that element
 		events.forEach(type => window.addEventListener(type, this, true));
 	}
 
@@ -113,6 +114,7 @@ function ContextMenuClass(window) { return class ContextMenu extends window.HTML
 			} break; // eslint-disable-line
 			case 'click': case 'contextmenu': { if (this.root.contains(target)) {
 				const item = target.closest('.item'); if (!item || event.button) { break; }
+				if (item.classList.contains('has-sub') && event.type === 'click') { break; }
 				item.spec.action && item.spec.action.call(item.spec, event, item.spec.value); this.remove();
 			} else {
 				this.remove(); // hide menu and cancel click
@@ -171,9 +173,9 @@ function ContextMenuClass(window) { return class ContextMenu extends window.HTML
 		}
 		event.stopPropagation(); event.preventDefault();
 	}
-}; }
+}
 
-return ContextMenuClass;
+return ContextMenu;
 
 function addMenu(root, items) {
 	const submenu = root.appendChild(createElement('div', { className: 'menu', }));

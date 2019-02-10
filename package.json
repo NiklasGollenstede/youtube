@@ -23,12 +23,12 @@
 		"es6lib": "0.0.3",
 		"keep-tabs-open": "1.0.2",
 		"multiport": "0.2.3",
-		"pbq": "0.3.6",
+		"pbq": "0.4.0",
 		"regexpx": "0.1.4",
 		"sortablejs": "1.8.1",
 		"video-plus": "github:NiklasGollenstede/video-plus#41b8280",
 		"web-ext-build": "0.0.11",
-		"web-ext-utils": "0.1.9",
+		"web-ext-utils": "0.1.10",
 		"ytdl-core": "^0.29.0"
 	},
 	"devDependencies": {

@@ -33,9 +33,9 @@ function contextmenu(event) {
 	const { target, clientX: x, clientY: y, } = event;
 	if (!target.matches) { return; }
 	const document = event.target.ownerDocument;
-	const others = document.querySelector('#groups');
-	const playlist = document.querySelector('#playlist .tiles');
 	const items = [ ];
+	const groups = document.querySelector('#groups');
+	const playlist = document.querySelector('#playlist .tiles');
 	const tile = target.closest('media-tile');
 	const group = target.closest('.group');
 	const inList = !!target.closest('#playlist');
@@ -43,10 +43,10 @@ function contextmenu(event) {
 		const id = tile.videoId;
 		const tab = Player.frameFor(id);
 		const inTabs = target.closest('#group-tabs, #group-unloaded');
-		const bmkId = Array.from(others.querySelectorAll(`media-tile[video-id="${id}"]`), _=>_.dataset.bookmarkId).find(_=>_);
+		const bmkId = Array.from(groups.querySelectorAll(`media-tile[video-id="${id}"]`), _=>_.dataset.bookmarkId).find(_=>_);
 		const addBmk = inList && !bmkId;
 		items.push(
-			           { icon: '▶',		label: 'Play video',       action: () => { Player.current = id; Player.play(); }, default: tile.matches('#playlist :not(.active)') && !target.closest('.remove, .icon'), },
+			           { icon: '▶',		label: 'Play track',       action: () => { Player.current = id; Player.play(); }, default: tile.matches('#playlist :not(.active)') && !target.closest('.remove, .icon'), },
 			 tab    && { icon: '👁',	label: 'Show tab',         action: () => focusTab(id), default: tile.matches('#group-tabs *, .active') && !target.closest('.remove, .icon'), },
 			!tab    && { icon: '◳',		label: 'Open in tab',      action: () => openTab(id), },
 			 inList && { icon: '❏',		label: 'Duplicate',        action: () => Playlist.splice(positionInParent(tile), 0, id), },
@@ -54,9 +54,9 @@ function contextmenu(event) {
 			 inTabs && { icon: '⨉',		label: 'Close tab',        action: () => inTabs.closest('#group-tabs') ? Tabs.remove(tab.tabId) : closeUnloadedTab(tile), default: !!target.closest('#group-tabs .remove'), },
 			 bmkId  && { icon: '🗑',	label: 'Delete bookmark',  action: () => Bookmarks.remove(bmkId), default: !!target.closest('media-tile[data-bookmark-id] .remove'), },
 			 addBmk && { icon: '➕',	label: 'Add bookmark',     action: () => Bookmarks.create({ title: tile.querySelector('.title').textContent, url: 'https://www.youtube.com/watch?v='+ tile.videoId, }), },
-			           { icon: '🔍',	label: 'Highlight',        action: () => highlight((inList ? others : playlist).querySelector(`media-tile[video-id="${id}"]`)), },
+			           { icon: '🔍',	label: 'Highlight',        action: () => highlight((inList ? groups : playlist).querySelector(`media-tile[video-id="${id}"]`)), },
 			           { icon: '📋',	label: 'Copy ID',          action: () => writeToClipboard(id).then(() => notify.success('Copied video ID', id)), },
-			!inList && { icon: '➕',	label: 'Add video',        action: () => Playlist.splice(Playlist.index < 0 ? 0 : Playlist.index + 1, 0, id), },
+			!inList && { icon: '➕',	label: 'Add track',        action: () => Playlist.splice(Playlist.index < 0 ? 0 : Playlist.index + 1, 0, id), },
 		);
 	}
 	if (inList) {
@@ -71,8 +71,21 @@ function contextmenu(event) {
 				{ icon: '🔀',	 label: 'Shuffle',                      action: () => sortPlaylist('random').catch(notify.error.bind(null, 'Sorting failed')), },
 			], },
 			{ icon: '🛇',	 label: 'Clear list',                   action: () => Playlist.splice(0, Infinity), },
+		);
+	}
+	const selected = Array.from(document.querySelectorAll('media-tile.selected'));
+	tile && !selected.length && selected.push(tile);
+	if (selected.length) {
+		items.push(
+			{ icon: '📋',	label: 'Copy',  action: () => { menuTarget = tile; document.execCommand('copy', false, null); menuTarget = null; }, },
+			{ icon: '✂',	label: 'Cut',   action: () => { menuTarget = tile; document.execCommand('cut', false, null); menuTarget = null; }, },
+		);
+	}
+	if (inList) {
+		items.push(
 			Playlist.undoable && { icon: '↶',	 label: 'Undo', action: () => Playlist.undo(), }, // ↶ ↫ ⎌
 			Playlist.redoable && { icon: '↷',	 label: 'Redo', action: () => Playlist.redo(), }, // ↷ ↬
+			{ icon: '⇩',	label: 'Paste', action: () => { menuTarget = tile; document.execCommand('paste', false, null); menuTarget = null; }, }, // ⇓
 		);
 	}
 	if (target.closest('.group .header .title')) {
@@ -100,7 +113,7 @@ function contextmenu(event) {
 
 	if (!items.length) { return; }
 	document.documentElement.appendChild(new (document.defaultView.customElements.get('context-menu'))({ x, y, items, }));
-}
+} let menuTarget = null;
 
 async function dblclick({ target, button, }) {
 	if (button || !target.matches) { return; }
@@ -204,9 +217,13 @@ function keydown(event) {
 		} break;
 		case 'Input+Enter': {
 			if (!event.target.matches('#searchbox>input') || !document.body.classList.contains('searching')) { return; }
-			const lTerm = event.target.value.trim().toLowerCase();
 			const tiles = Array.from(document.querySelectorAll('#playlist media-tile'));
-			highlight(tiles.find(tile => fuzzyIncludes(tile.querySelector('.icon').title.toLowerCase(), lTerm, 3) > 0.6));
+			const found = applySearch(tiles, event.target.value.trim()); highlight(found[0]);
+			removeSelection(document); found.forEach(_=>_.classList.add('selected'));
+		} break;
+		case 'Input+Ctrl+Enter': {
+			if (!event.target.matches('#searchbox>input') || !document.body.classList.contains('searching')) { return; }
+			Tabs.create({ url: 'https://www.youtube.com/results?search_query='+ encodeURIComponent(event.target.value.trim()).replace(/%20/g, '+'), });
 		} break;
 		case 'Delete': { Player.pause(); Player.seekTo(0); } break;
 		case 'Space': { Player.toggle(); } break;
@@ -226,7 +243,6 @@ function input({ target, }) {
 	const document = target.ownerDocument;
 	if (target.matches('#searchbox>input')) {
 		const term = target.value.trim();
-		const lTerm = term.toLowerCase();
 		const tiles = Array.from(document.querySelectorAll('#groups media-tile'));
 		tiles.forEach(_=>_.classList.remove('found'));
 
@@ -234,8 +250,7 @@ function input({ target, }) {
 		else { document.body.classList.add('searching'); }
 
 		// looking for trigrams makes it quite unlikely to match just anything, but a typo will have quite an impact
-		const found = tiles.filter(tile => fuzzyIncludes(tile.querySelector('.icon').title.toLowerCase(), lTerm, 3) > 0.6);
-		term.length === 11 && found.push(...tiles.filter(_=>_.videoId === term));
+		const found = applySearch(tiles, term);
 		found.forEach(_=>_.classList.add('found'));
 	} else if (target.matches('#progress>input')) {
 		Player.seekTo(target.value);
@@ -246,10 +261,11 @@ let selectionChanged = false; function selectionchange() { selectionChanged = tr
 
 function mouseup(event) {
 	if (event.button) { return; }
-	if (event.ctrlKey) { const tile = event.target.closest('media-tile'); tile && tile.classList.toggle('selected'); }
+	const toggle = event.ctrlKey || !!event.target.closest('media-tile .icon');
+	if (toggle) { const tile = event.target.closest('media-tile'); tile && tile.classList.toggle('selected'); }
 	if (!selectionChanged) { return; } selectionChanged = false;
 	const document = event.target.ownerDocument, selection = document.getSelection();
-	!event.ctrlKey && document.querySelectorAll('media-tile.selected').forEach(_=>_.classList.remove('selected'));
+	!toggle && removeSelection(document);
 	const count = selection.rangeCount; if (count <= 1) { return; }
 	const tiles = new Set; for (let i = 0; i < count; ++i) {
 		let node = selection.getRangeAt(i).commonAncestorContainer;
@@ -265,7 +281,7 @@ function copy(event) {
 	if (event.target.matches('TEXTAREA, input:not([type="range"])')) { return null; }
 	if (event.target.ownerDocument.getSelection().type === 'Range') { return null; }
 	const selected = event.target.ownerDocument.querySelectorAll('media-tile.selected');
-	const tile = !selected.length && findElement(event, '[video-id]:hover'); if (tile) {
+	const tile = selected.length ? null : menuTarget || findElement(event, '[video-id]:hover'); if (tile) {
 		const url = 'https://www.youtube.com/watch?v='+ tile.getAttribute('video-id');
 		event.clipboardData.setData('text/plain', url);
 		event.clipboardData.setData('text/uri-list', url);
@@ -298,7 +314,7 @@ function paste(event) {
 		tile.classList.remove('cut'); delete tile.dataset.cutId;
 	} });
 	if (event.target.matches('TEXTAREA, input:not([type="range"])')) { return; }
-	addVideosFromText(event.clipboardData);
+	addVideosFromText(event.clipboardData, positionInParent(menuTarget));
 	event.preventDefault();
 }
 
@@ -371,7 +387,7 @@ function highlight(element) {
 }
 
 function positionInParent(element) {
-	if (!element) { return -1; }
+	if (!element) { return -2; }
 	return Array.prototype.indexOf.call(element.parentNode.children, element);
 }
 
@@ -385,6 +401,17 @@ function forEachElement(event, selector, action) {
 	for (const view of event.views || [ event.target.ownerDocument, ]) {
 		view.document.querySelectorAll(selector).forEach(element => action(element, view));
 	} return null;
+}
+
+function removeSelection(document) {
+	document.querySelectorAll('media-tile.selected').forEach(_=>_.classList.remove('selected'));
+}
+
+function applySearch(tiles, term) {
+	const lTerm = term.toLowerCase();
+	return tiles.filter(tile => tile.videoId === term
+		|| fuzzyIncludes(tile.querySelector('.icon').title.toLowerCase(), lTerm, 3) > 0.6
+	);
 }
 
 async function focusTab(videoId) {

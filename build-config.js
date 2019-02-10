@@ -3,6 +3,7 @@ module.exports = function({ options, /*packageJson,*/ manifestJson, files, }) {
 
 	manifestJson.permissions.push(
 		'bookmarks',
+		'clipboardRead',
 		'clipboardWrite',
 		'contextMenus',
 		'notifications',
